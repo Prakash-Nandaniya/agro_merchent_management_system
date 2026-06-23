@@ -1,15 +1,15 @@
-/* millbill.css */
 @import "tailwindcss";
-/* Core invoice container styling */
+
+/* ── Invoice paper container ──────────────────────────────────────────────────*/
 .invoice-container {
   font-family: 'Arial', sans-serif;
-  border: 1px solid #555;
+  border: 1.5px solid #444;        /* border box around the whole bill */
 }
 
-/* Grid Layouts */
+/* ── Layout helpers ───────────────────────────────────────────────────────────*/
 .grid-2-1 {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr 1fr;
 }
 
 .grid-1-1 {
@@ -17,7 +17,7 @@
   grid-template-columns: 1fr 1fr;
 }
 
-/* Table Specifics */
+/* ── Table helpers ────────────────────────────────────────────────────────────*/
 .table-collapse {
   border-collapse: collapse;
 }
@@ -26,24 +26,100 @@
   line-height: 1.3;
 }
 
-.row-height-40 {
-  height: 40px;
+.row-height-44 {
+  height: 44px;
 }
 
-.row-height-32 {
-  height: 32px;
+/* ── Remove number input spin buttons on screen ───────────────────────────────*/
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
 }
 
-/* Print Overrides (in case Tailwind print directives need backup) */
+/* ── Screen-only helper: hidden on screen, shown on print ─────────────────────*/
+/* Used for print-only text alternatives (crop name span, date text) */
+.screen-hide {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRINT STYLES
+   Everything below applies only when the user hits Print / Ctrl+P
+═══════════════════════════════════════════════════════════════════════════ */
 @media print {
+
+  /* Page setup — no browser margins */
+  @page {
+    margin: 0;
+    size: A4;
+  }
+  
+
   body {
     background-color: white !important;
+    padding: 1cm; 
   }
+
+  /* Invoice paper — keep border, remove shadow */
+  .invoice-container {
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: 1.5px solid #444 !important;  /* border box visible on print */
+  }
+
+  /* ── Hide all screen-only UI elements ── */
   .print-hide {
     display: none !important;
   }
-  .invoice-container {
-    box-shadow: none !important;
-    border: none !important; /* Some printers prefer no outer border */
+
+  /* ── Show print-only elements ── */
+  .screen-hide {
+    display: inline !important;
+  }
+
+  /* ── Remove all input / textarea / select borders on print ── */
+  input,
+  textarea {
+    border: none !important;
+    border-bottom: none !important;
+    outline: none !important;
+    background: transparent !important;
+  }
+
+  /* ── Hide the select dropdown completely on print ──
+     The .screen-hide span next to it shows the crop name as plain text instead */
+  select {
+    display: none !important;
+  }
+
+  /* ── Hide date picker calendar icon ── */
+  input[type='date']::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* ── Hide number spin buttons on print too ── */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    display: none !important;
+  }
+
+  /* ── Empty rows: stay visible as white-space rows ──
+     We do NOT hide them — they just appear as blank lines on the printed bill.
+     We suppress any visible content inside them via the select hiding above
+     and by only rendering the .screen-hide crop span when !isEmpty. */
+ 
+
+  /* ── Terms textarea: hide border, show text cleanly ── */
+  textarea {
+    border: none !important;
+    resize: none !important;
   }
 }
