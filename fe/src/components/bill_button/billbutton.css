@@ -1,0 +1,33 @@
+.make-bill-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.make-bill-button:hover {
+  opacity: 0.9;
+}
+
+.make-bill-button.farmer-bill {
+  background: #1D9E75;
+  color: #E1F5EE;
+}
+
+.make-bill-button.farmer-bill svg {
+  color: #9FE1CB;
+}
+
+.make-bill-button.mill-bill {
+  background: #185FA5;
+  color: #E6F1FB;
+}
+
+.make-bill-button.mill-bill svg {
+  color: #85B7EB;
+}

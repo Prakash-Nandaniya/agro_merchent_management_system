@@ -1,0 +1,49 @@
+/* millbill.css */
+@import "tailwindcss";
+/* Core invoice container styling */
+.invoice-container {
+  font-family: 'Arial', sans-serif;
+  border: 1px solid #555;
+}
+
+/* Grid Layouts */
+.grid-2-1 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+}
+
+.grid-1-1 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* Table Specifics */
+.table-collapse {
+  border-collapse: collapse;
+}
+
+.line-height-1-3 {
+  line-height: 1.3;
+}
+
+.row-height-40 {
+  height: 40px;
+}
+
+.row-height-32 {
+  height: 32px;
+}
+
+/* Print Overrides (in case Tailwind print directives need backup) */
+@media print {
+  body {
+    background-color: white !important;
+  }
+  .print-hide {
+    display: none !important;
+  }
+  .invoice-container {
+    box-shadow: none !important;
+    border: none !important; /* Some printers prefer no outer border */
+  }
+}
