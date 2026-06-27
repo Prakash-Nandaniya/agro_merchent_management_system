@@ -1,0 +1,19 @@
+# ── Core Backend Framework ──────────────────────────────────────────────────
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+
+# ── Asynchronous PostgreSQL Database Drivers & ORM ──────────────────────────
+# asyncpg is the fastest async driver for Postgres in Python
+asyncpg==0.29.0
+# SQLAlchemy 2.0+ supports native async/await syntax out of the box
+SQLAlchemy==2.0.31
+
+# ── Environment & Security ──────────────────────────────────────────────────
+# For securely loading DB credentials from a .env file
+python-dotenv==1.0.1
+# Pydantic v2 handles input data validation and automatic docs serialization
+pydantic[email]==2.7.4
+
+# ── Production Utilities (Optional but Recommended) ─────────────────────────
+# For handling CORS headers securely if your React frontend is on a different domain
+cryptography==42.0.8
