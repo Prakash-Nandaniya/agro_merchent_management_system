@@ -93,8 +93,8 @@ function Field({
 }
 
 // ─── Seller constants — edit these once ───────────────────────────────────────
-const SELLER_NAME = 'BHARAT TRADERS';
-const SELLER_ADDRESS = 'Near Gau Shala, Punja Sarman Ram, Rana Kandorna, Ta. Ranavav, Dist. Porbandar - 360570';
+const SELLER_NAME = 'KARMA TRADING';
+const SELLER_ADDRESS = '0, Baloch Road, Baloch PRA Shala, NEAR RAM MANDIR, Baloch, Porbandar, Gujarat, 362650';
 
 // ─── Form state ────────────────────────────────────────────────────────────────
 const INIT = {
