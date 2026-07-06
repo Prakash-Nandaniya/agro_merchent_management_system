@@ -1,1 +1,9 @@
 venv/
+
+
+be/app/database/alembic/env.py
+be/.env
+__pycache__/
+
+fe/.env
+fe/node_modules/
