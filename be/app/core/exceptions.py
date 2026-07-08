@@ -101,6 +101,12 @@ class InvalidCropRowError(AppException):
         if not detail:
             detail = f"Invalid value for '{field}' in crop '{crop}'."
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        
+class DeliveryThroughMissing(AppException):
+    """Raise when the 'delivery_through' field is missing or empty."""
+
+    def __init__(self, detail: str = "Delivery through is required."):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
 # ═══════════════════════════ Helper: translate raw SQLAlchemy errors ═══════════════════════════

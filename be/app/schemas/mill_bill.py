@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 from typing import List, Optional
-from app.core.exceptions import InvalidPANError,InvalidGSTINError,InvalidIFSCError,MissingCropRowsError,InvalidCropRowError
+from app.core.exceptions import InvalidPANError,InvalidGSTINError,InvalidIFSCError,MissingCropRowsError,InvalidCropRowError,DeliveryThroughMissing
 import re
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -122,6 +122,13 @@ class MillBill(BaseModel):
         v = v.strip().upper()
         if not IFSC_RE.match(v):
             raise InvalidIFSCError("Invalid IFSC format, expected e.g. HDFC0001234")
+        return v
+    
+    @field_validator("delivery_through")
+    @classmethod
+    def _validate_delivery_through(cls, v):
+        if not v:
+            raise DeliveryThroughMissing("Delivery through is required")
         return v
 
     # ── business rules: drop blank crop rows, require >=1, qty/rate > 0 ──
