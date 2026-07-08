@@ -4,7 +4,7 @@ import MillBillPage from './pages/millbill_page/millbill_page';
 import FarmerBill from './components/farmerbill/farmerbill';
 import Home from './pages/home/home';
 import ProfileConfigurationPage from './pages/profileconfig_page/profileconfig_page';
-import MillBillBook from './components/millbill_book/millbill_boook';
+import MillBillBookPage from './pages/millbillBook/millbillbook';
 export default function App() {
   return (
     <BrowserRouter>
@@ -12,7 +12,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/new-bill/mill" element={<MillBillPage />} />
         <Route path="/new-bill/farmer" element={<FarmerBill />} />
-        <Route path="/bill-book/mill" element={<MillBillBook />} />
+        <Route path="/bill-book/mill" element={<MillBillBookPage />} />
         <Route path="/bill-book/farmer" element={<div>Farmer Bill Book Page</div>} />
         <Route path="/profile-configuration" element={<ProfileConfigurationPage />} />
       </Routes>

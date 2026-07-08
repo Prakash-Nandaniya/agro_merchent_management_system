@@ -207,20 +207,27 @@
 }
 
 .mbr-table thead th {
-    text-align: left;
-    font-size: 11px;
+    text-align: center;
+    font-size: 15px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--mbr-muted);
+    color: black;
+    font-weight: bold;
     padding: 10px 14px;
     border-bottom: 1px solid var(--mbr-line);
     background: var(--mbr-paper);
+}
+
+.mbr-table thead th.invoice_column {
+    text-align: left;
+    padding-left: 5vw;
 }
 
 .mbr-table tbody td {
     padding: 10px 14px;
     border-bottom: 1px solid var(--mbr-line);
     color: var(--mbr-ink);
+    text-align: center;
 }
 
 .mbr-table tbody tr:last-child td {
@@ -246,7 +253,7 @@
 }
 
 .mbr-num {
-    text-align: right;
+    text-align: center;
 }
 
 .mbr-strong {
@@ -325,7 +332,7 @@
 
 .mbr-total-grand {
     margin-left: auto;
-    text-align: right;
+    text-align: center;
 }
 
 .mbr-total-grand .mbr-total-value {

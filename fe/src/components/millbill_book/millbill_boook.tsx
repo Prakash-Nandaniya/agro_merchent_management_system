@@ -3,13 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { create, all } from 'mathjs';
 import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from 'lucide-react';
 import './millbill_book.css';
-
+import { settings } from "@/settings";
 // ── Precision math: all money totals go through BigNumber, never native float ──
 const math = create(all);
 math.config({ number: 'BigNumber', precision: 64 });
-
-// Point this at your FastAPI server. Same-origin in prod, override for local dev.
-const API_BASE_URL = '';
 
 const PAGE_SIZE = 20;
 
@@ -78,36 +75,26 @@ export interface MillBill {
 
 interface Filters {
   invoice_no: string;
-  seller_name: string;
-  seller_gstin: string;
-  seller_pan: string;
   party_name: string;
   party_gstin: string;
   party_pan: string;
-  party_state: string;
-  delivery_through: string;
+  party_city: string;
   invoice_date_from: string;
   invoice_date_to: string;
 }
 
 const EMPTY_FILTERS: Filters = {
   invoice_no: '',
-  seller_name: '',
-  seller_gstin: '',
-  seller_pan: '',
   party_name: '',
   party_gstin: '',
   party_pan: '',
-  party_state: '',
-  delivery_through: '',
+  party_city: '',
   invoice_date_from: '',
   invoice_date_to: '',
 };
 
 type FieldErrorKey =
-  | 'seller_pan'
   | 'party_pan'
-  | 'seller_gstin'
   | 'party_gstin'
   | 'date_range';
 
@@ -185,29 +172,17 @@ export default function MillBillBook() {
   const [hasSearched, setHasSearched] = useState<boolean>(false);
 
   function updateFilter(key: keyof Filters, rawValue: string) {
-    const upperKeys: Array<keyof Filters> = ['seller_gstin', 'seller_pan', 'party_gstin', 'party_pan'];
+    const upperKeys: Array<keyof Filters> = ['party_gstin', 'party_pan'];
     const value = upperKeys.includes(key) ? rawValue.toUpperCase() : rawValue;
     setFilters((prev) => ({ ...prev, [key]: value }));
 
     setFieldErrors((prev) => {
       const next: FieldErrors = { ...prev };
-
-      if (key === 'seller_pan' || key === 'party_pan') {
-        next[key] = value && !PAN_RE.test(value)
-          ? 'Format: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)'
-          : '';
-      }
-      if (key === 'seller_gstin' || key === 'party_gstin') {
-        next[key] = value && !GSTIN_RE.test(value)
-          ? 'Format: 15 characters (e.g. 24ABCDE1234F1Z5)'
-          : '';
-      }
       if (key === 'invoice_date_from' || key === 'invoice_date_to') {
         const from = key === 'invoice_date_from' ? value : filters.invoice_date_from;
         const to = key === 'invoice_date_to' ? value : filters.invoice_date_to;
         next.date_range = from && to && from > to ? 'Start date must be before end date' : '';
       }
-
       return next;
     });
   }
@@ -234,7 +209,7 @@ export default function MillBillBook() {
     setHasSearched(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/get-mill-bill`, {
+      const res = await fetch(`${settings.BE_URL}/get-mill-bill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -291,21 +266,17 @@ export default function MillBillBook() {
 
   const filterFields: FilterField[] = [
     { key: 'invoice_no', label: 'Invoice no.', type: 'text', placeholder: 'INV-2026-0142' },
-    { key: 'seller_name', label: 'Seller name', type: 'text', placeholder: 'Contains...' },
-    { key: 'seller_gstin', label: 'Seller GSTIN', type: 'text', placeholder: '24ABCDE1234F1Z5', mono: true },
-    { key: 'seller_pan', label: 'Seller PAN', type: 'text', placeholder: 'ABCDE1234F', mono: true },
     { key: 'party_name', label: 'Party name', type: 'text', placeholder: 'Contains...' },
     { key: 'party_gstin', label: 'Party GSTIN', type: 'text', placeholder: '24ABCDE1234F1Z5', mono: true },
     { key: 'party_pan', label: 'Party PAN', type: 'text', placeholder: 'ABCDE1234F', mono: true },
-    { key: 'party_state', label: 'Party state', type: 'select', options: INDIAN_STATES },
-    { key: 'delivery_through', label: 'Delivery through', type: 'select', options: DELIVERY_OPTIONS },
+    { key: 'party_city', label: 'Party city', type: 'text', placeholder: 'Contains...' },
   ];
 
   return (
     <div style={styles.page}>
       <div className="mbr-header">
         <div>
-          <h1 className="mbr-title">Mill bill register</h1>
+          <h1 className="mbr-title">Mill bill Book</h1>
           <p className="mbr-subtitle">Search, filter and reconcile crop trade invoices</p>
         </div>
         <div className="mbr-seal">
@@ -402,13 +373,9 @@ export default function MillBillBook() {
                 <tr>
                   <th>Invoice no.</th>
                   <th>Date</th>
-                  <th>Party</th>
-                  <th>Seller</th>
-                  <th className="mbr-num">Taxable</th>
-                  <th className="mbr-num">CGST</th>
-                  <th className="mbr-num">SGST</th>
-                  <th className="mbr-num">Total</th>
+                  <th>Party Name</th>
                   <th className="mbr-num">Crops</th>
+                  <th className="mbr-num">Total Amt.</th>
                 </tr>
               </thead>
               <tbody>
@@ -425,12 +392,8 @@ export default function MillBillBook() {
                     <td className="mbr-mono">{bill.invoice_no}</td>
                     <td className="mbr-mono">{bill.invoice_date}</td>
                     <td>{bill.party_name}</td>
-                    <td>{bill.seller_name}</td>
-                    <td className="mbr-num mbr-mono">{toIndianAmount(bill.final_taxable_amount)}</td>
-                    <td className="mbr-num mbr-mono">{toIndianAmount(bill.final_cgst_amount)}</td>
-                    <td className="mbr-num mbr-mono">{toIndianAmount(bill.final_sgst_amount)}</td>
+                    <td className="mbr-num mbr-mono">{bill.crops?.map((crop) => crop.crop).join(', ')}</td>
                     <td className="mbr-num mbr-mono mbr-strong">{toIndianAmount(bill.final_amount)}</td>
-                    <td className="mbr-num mbr-mono">{bill.crops?.length ?? 0}</td>
                   </tr>
                 ))}
               </tbody>
