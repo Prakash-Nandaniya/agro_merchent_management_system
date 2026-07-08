@@ -45,6 +45,7 @@ class MillBill(Base):
     final_cgst_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
     final_sgst_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
     final_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    final_amount_in_words: Mapped[str] = mapped_column(String(500), nullable=False)
     
     # Terms & Conditions
     terms: Mapped[str] = mapped_column(

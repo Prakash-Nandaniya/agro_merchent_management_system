@@ -1,11 +1,14 @@
 // features/settings/ProfileConfig.tsx
 import { useState, useEffect } from 'react'
 import './profileconfig.css'
+import { settings } from "@/settings"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
-interface Crop { hsn: string; sgst: number; cgst: number }
+// NOTE: cgst/sgst are kept as `string` end-to-end (not converted to number)
+// to match the backend's CropSchema, which types them as `str`.
+interface Crop { hsn: string; sgst: string; cgst: string }
 interface Bank { bank: string; account: string; ifsc: string }
-interface CropForm { name: string; hsn: string; cgst: string | number; sgst: string | number }
+interface CropForm { name: string; hsn: string; cgst: string; sgst: string }
 interface ProfileConfig {
     seller: { name: string; address: string; pan: string; gstin: string }
     bank_accounts: Bank[]
@@ -44,9 +47,15 @@ export default function ProfileConfig() {
 
     // ── Load config on mount ──────────────────────────────────────────────────────
     useEffect(() => {
-        fetch('/api/profile/config')
-            .then(r => r.json())
-            .then(data => { if (data && Object.keys(data).length > 0) setConfig(data) })
+        fetch(`${settings.BE_URL}/profile-configuration`)
+            .then(r => {
+                if (!r.ok) return null   // 404 (or any error) → treat as "no profile yet"
+                return r.json()
+            })
+            .then(data => {
+                if (data && Object.keys(data).length > 0) setConfig(data)
+                // else: keep EMPTY_CONFIG (already the initial state) → empty form shown
+            })
             .catch(console.error)
             .finally(() => setLoading(false))
     }, [])
@@ -99,6 +108,8 @@ export default function ProfileConfig() {
         setEditCrop({ name: key, ...config.crops[key] })
     }
 
+    // cgst/sgst are kept as plain strings (no parseFloat) so the payload
+    // matches the backend's CropSchema (cgst: str, sgst: str) exactly.
     const saveEditCrop = () => {
         if (!editingCropKey) return
         setConfig(p => {
@@ -109,15 +120,14 @@ export default function ProfileConfig() {
                     ...rest,
                     [editCrop.name || editingCropKey]: {
                         hsn: editCrop.hsn,
-                        cgst: parseFloat(editCrop.cgst as string) || 0,
-                        sgst: parseFloat(editCrop.sgst as string) || 0
+                        cgst: editCrop.cgst || '0',
+                        sgst: editCrop.sgst || '0'
                     }
                 }
             }
         })
         setEditingCropKey(null)
     }
-
 
     const commitAddCrop = () => {
         if (!newCrop.name.trim()) return
@@ -127,8 +137,8 @@ export default function ProfileConfig() {
                 ...p.crops,
                 [newCrop.name]: {
                     hsn: newCrop.hsn,
-                    cgst: parseFloat(newCrop.cgst as string) || 0,
-                    sgst: parseFloat(newCrop.sgst as string) || 0
+                    cgst: newCrop.cgst || '0',
+                    sgst: newCrop.sgst || '0'
                 }
             }
         }))
@@ -142,8 +152,8 @@ export default function ProfileConfig() {
         setSaving(true)
         setSaveMsg(null)
         try {
-            const res = await fetch('/api/profile/config', {
-                method: 'POST',
+            const res = await fetch(`${settings.BE_URL}/profile-configuration`, {
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(config)
             })

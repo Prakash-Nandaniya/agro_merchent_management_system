@@ -1,125 +1,82 @@
 @import "tailwindcss";
-
 /* ── Invoice paper container ──────────────────────────────────────────────────*/
 .invoice-container {
-  font-family: 'Arial', sans-serif;
-  border: 1.5px solid #444;        /* border box around the whole bill */
+font-family: 'Arial', sans-serif;
+border: 1.5px solid #444;
 }
-
-/* ── Layout helpers ───────────────────────────────────────────────────────────*/
-.grid-2-1 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-.grid-1-1 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
 /* ── Table helpers ────────────────────────────────────────────────────────────*/
-.table-collapse {
-  border-collapse: collapse;
-}
-
-.line-height-1-3 {
-  line-height: 1.3;
-}
-
-.row-height-44 {
-  height: 44px;
-}
-
-/* ── Remove number input spin buttons on screen ───────────────────────────────*/
+.table-collapse   { border-collapse: collapse; }
+.line-height-1-3  { line-height: 1.3; }
+.row-height-44    { height: 44px; }
+/* ── Remove number input spin buttons ─────────────────────────────────────────*/
 input[type='number']::-webkit-inner-spin-button,
 input[type='number']::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+-webkit-appearance: none;
+margin: 0;
 }
-input[type='number'] {
-  -moz-appearance: textfield;
+input[type='number'] { -moz-appearance: textfield; }
+/* ── Screen-hide: hidden on screen, shown on print ────────────────────────────*/
+.screen-hide { display: none; }
+/* ── Loading spinner ──────────────────────────────────────────────────────────*/
+.mb-spinner {
+width: 32px;
+height: 32px;
+border: 3px solid rgba(99, 102, 241, 0.2);
+border-top-color: #6366f1;
+border-radius: 50%;
+animation: mb-spin 0.7s linear infinite;
 }
-
-/* ── Screen-only helper: hidden on screen, shown on print ─────────────────────*/
-/* Used for print-only text alternatives (crop name span, date text) */
-.screen-hide {
-  display: none;
+@keyframes mb-spin {
+to { transform: rotate(360deg); }
 }
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   PREVIEW MODE (on-screen) — mirrors the @media print rules below so the
+   "Preview Bill" view looks the same as the printed page, without needing
+   window.print(). Applied via the .preview-mode class on .invoice-container
+   whenever viewMode !== 'edit' (i.e. preview + saved views).
+═══════════════════════════════════════════════════════════════════════════ */
+.preview-mode .print-hide  { display: none !important; }
+.preview-mode .screen-hide { display: inline !important; }
+.preview-mode select { display: none !important; }
+.preview-mode input,
+.preview-mode textarea {
+border: none !important;
+outline: none !important;
+background: transparent !important;
+pointer-events: none !important;
+}
+.preview-mode input[type='date']::-webkit-calendar-picker-indicator { display: none !important; }
+.preview-mode input[type='date'] { -webkit-appearance: none; appearance: none; }
+.preview-mode input[type='number']::-webkit-inner-spin-button,
+.preview-mode input[type='number']::-webkit-outer-spin-button { display: none !important; }
+.preview-mode textarea { resize: none !important; }
 /* ═══════════════════════════════════════════════════════════════════════════
    PRINT STYLES
-   Everything below applies only when the user hits Print / Ctrl+P
 ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
-
-  /* Page setup — no browser margins */
-  @page {
-    margin: 0;
-    size: A4;
+@page { margin: 0; size: A4; }
+body {
+background-color: white !important;
+padding: 1cm;
   }
-  
-
-  body {
-    background-color: white !important;
-    padding: 1cm; 
+.invoice-container {
+padding: 0 !important;
+box-shadow: none !important;
+border: 1.5px solid #444 !important;
   }
-
-  /* Invoice paper — keep border, remove shadow */
-  .invoice-container {
-    padding: 0 !important;
-    box-shadow: none !important;
-    border: 1.5px solid #444 !important;  /* border box visible on print */
+.print-hide  { display: none !important; }
+.screen-hide { display: inline !important; }
+input,
+textarea {
+border: none !important;
+border-bottom: none !important;
+outline: none !important;
+background: transparent !important;
   }
-
-  /* ── Hide all screen-only UI elements ── */
-  .print-hide {
-    display: none !important;
-  }
-
-  /* ── Show print-only elements ── */
-  .screen-hide {
-    display: inline !important;
-  }
-
-  /* ── Remove all input / textarea / select borders on print ── */
-  input,
-  textarea {
-    border: none !important;
-    border-bottom: none !important;
-    outline: none !important;
-    background: transparent !important;
-  }
-
-  /* ── Hide the select dropdown completely on print ──
-     The .screen-hide span next to it shows the crop name as plain text instead */
-  select {
-    display: none !important;
-  }
-
-  /* ── Hide date picker calendar icon ── */
-  input[type='date']::-webkit-calendar-picker-indicator {
-    display: none !important;
-  }
-  input[type='date'] {
-    -webkit-appearance: none;
-    appearance: none;
-  }
-
-  /* ── Hide number spin buttons on print too ── */
-  input[type='number']::-webkit-inner-spin-button,
-  input[type='number']::-webkit-outer-spin-button {
-    display: none !important;
-  }
-
-  /* ── Empty rows: stay visible as white-space rows ──
-     We do NOT hide them — they just appear as blank lines on the printed bill.
-     We suppress any visible content inside them via the select hiding above
-     and by only rendering the .screen-hide crop span when !isEmpty. */
- 
-
-  /* ── Terms textarea: hide border, show text cleanly ── */
-  textarea {
-    border: none !important;
-    resize: none !important;
-  }
+select { display: none !important; }
+input[type='date']::-webkit-calendar-picker-indicator { display: none !important; }
+input[type='date'] { -webkit-appearance: none; appearance: none; }
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button { display: none !important; }
+textarea { border: none !important; resize: none !important; }
 }

@@ -1,15 +1,23 @@
-import { useState } from 'react';
-import { Printer, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Printer, X, Eye, Pencil, Save as SaveIcon, Send as SendIcon } from 'lucide-react';
 import './millbill.css';
 import React from 'react';
-// ─── Crop HSN map ──────────────────────────────────────────────────────────────
-const CROPS: { label: string; hsn: string }[] = [
-  { label: 'MOONG (GREEN GRAM)', hsn: '07133100' },
-  { label: 'WHEAT', hsn: '10019910' },
-  { label: 'COTTON', hsn: '52010012' },
-  { label: 'CHANA (BENGAL GRAM)', hsn: '07132020' },
-  { label: 'PEANUT (GROUNDNUT)', hsn: '12022090' },
-];
+import { settings } from "@/settings";
+import Decimal from 'decimal.js';
+import karmaLogo from '@/assets/karma_trading_logo.png';
+
+// ─── Profile config shapes (matches backend ProfileConfigSchema) ──────────────
+interface ProfileBank { bank: string; account: string; ifsc: string }
+interface ProfileCrop { hsn: string; cgst: string; sgst: string }
+interface ProfileData {
+  seller: { name: string; address: string; pan: string; gstin: string };
+  bank_accounts: ProfileBank[];
+  crops: Record<string, ProfileCrop>;
+  terms_and_conditions: string;
+}
+
+// ─── Crop option shape: array of dict, "crop" as key ───────────────────────────
+interface CropOption { crop: string; hsn: string; cgst: string; sgst: string }
 
 // ─── Number → Indian words ─────────────────────────────────────────────────────
 const ONES = [
@@ -29,16 +37,28 @@ function toWords(n: number): string {
   return toWords(Math.floor(n / 1_00_00_000)) + ' Crore' + (n % 1_00_00_000 ? ' ' + toWords(n % 1_00_00_000) : '');
 }
 
-function amountInWords(amount: number): string {
-  if (!amount || amount <= 0) return '';
-  const rupees = Math.floor(amount);
-  const paise = Math.round((amount - rupees) * 100);
-  let result = toWords(rupees) + ' Rupees';
-  if (paise > 0) result += ' and ' + toWords(paise) + ' Paise';
-  return result + ' Only.';
+function amountInWords(amount: Decimal | null | undefined): string {
+  if (!amount || amount.lte(0)) {
+    return '';
+  }
+  const safeAmount = amount.toDecimalPlaces(2);
+  const rupees = safeAmount.floor().toNumber();
+  return toWords(rupees) + ' Rupees' + ' Only.';
 }
 
-function fmt(n: number): string {
+// ─── Safely convert any string/number/undefined into a Decimal ────────────────
+const parseDecimal = (val: string | number | undefined | null): Decimal => {
+  if (val === undefined || val === null || val === '') return new Decimal(0);
+  try {
+    return new Decimal(val);
+  } catch {
+    return new Decimal(0);
+  }
+};
+
+// ─── Format a Decimal to 2-decimal Indian-format string for display only ──────
+function fmt(x: Decimal): string {
+  const n = x.toNumber();
   if (!n || n === 0) return '0.00';
   return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -92,14 +112,12 @@ function Field({
   );
 }
 
-// ─── Seller constants — edit these once ───────────────────────────────────────
-const SELLER_NAME = 'KARMA TRADING';
-const SELLER_ADDRESS = '0, Baloch Road, Baloch PRA Shala, NEAR RAM MANDIR, Baloch, Porbandar, Gujarat, 362650';
-
-// ─── Form state ────────────────────────────────────────────────────────────────
+// ─── Central form state — every field is a plain string ───────────────────────
 const INIT = {
-  sellerPAN: 'APDPR2494B',
-  sellerGSTIN: '24APDPR2494B1Z2',
+  sellerName: '',
+  sellerAddress: '',
+  sellerPAN: '',
+  sellerGSTIN: '',
   sellerBank: '',
   sellerAccount: '',
   sellerIFSC: '',
@@ -112,24 +130,39 @@ const INIT = {
   partyAddress: '',
   partyGSTIN: '',
   partyPAN: '',
-  partyState: '',
+  partyState: '24-Gujarat',
   partyCity: '',
-  terms: 'As per provided in the Quotation and Order Form.',
+  final_taxable_amount: '',
+  final_cgst_amount: '',
+  final_sgst_amount: '',
+  final_amount: '',
+  final_amount_in_words: '',
+  terms: '',
 };
 
 type FormState = typeof INIT;
 
+// UQC options 
+const uqcOptions = ["KGS", "TONS", "MTN", "NOS",];
+
+
+// ─── Per-crop-row state — every field is a plain string ───────────────────────
 interface RowState {
   crop: string;
   hsnCode: string;
   qty: string;
+  uqc: string;
   rate: string;
+  taxableAmt: string;
   cgstRate: string;
+  cgstAmt: string;
   sgstRate: string;
+  sgstAmt: string;
+  finalAmt: string;
 }
 
 const EMPTY_ROW: RowState = {
-  crop: '', hsnCode: '', qty: '', rate: '', cgstRate: '', sgstRate: '',
+  crop: '', hsnCode: '', qty: '', uqc: '', rate: '', taxableAmt: '', cgstRate: '', cgstAmt: '', sgstRate: '', sgstAmt: '', finalAmt: '',
 };
 
 // ─── Validation error popup ────────────────────────────────────────────────────
@@ -162,55 +195,185 @@ function ErrorPopup({ errors, onClose }: { errors: string[]; onClose: () => void
   );
 }
 
+// ─── Saving overlay — shown while the bill is being POSTed to the backend ─────
+function SavingOverlay() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 print-hide">
+      <div className="bg-white rounded-lg shadow-xl px-8 py-6 flex flex-col items-center gap-3">
+        <div className="mb-spinner" />
+        <span className="text-sm text-gray-700 font-medium">Saving...</span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function MillBill() {
+  // ── Central state — all bill fields as strings ───────────────────────────────
   const [s, setS] = useState<FormState>(INIT);
+
+  // ── Per-row crop state — all fields as strings ────────────────────────────────
   const [rows, setRows] = useState<RowState[]>([
-    { ...EMPTY_ROW }, { ...EMPTY_ROW }, { ...EMPTY_ROW }, { ...EMPTY_ROW }, { ...EMPTY_ROW }, { ...EMPTY_ROW },
+    { ...EMPTY_ROW }, { ...EMPTY_ROW }, { ...EMPTY_ROW },
+    { ...EMPTY_ROW }, { ...EMPTY_ROW }, { ...EMPTY_ROW },
   ]);
+
   const [errors, setErrors] = useState<string[]>([]);
 
+  // ── View mode: 'edit' (default, fully editable) → 'preview' (validated,
+  //    read-only, looks like print) → 'saved' (posted to backend, print/send) ──
+  const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'saved'>('edit');
+  const [isSaving, setIsSaving] = useState(false);
+  const isReadOnly = viewMode !== 'edit';
+
+  // ── Profile-driven state ──────────────────────────────────────────────────────
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [cropOptions, setCropOptions] = useState<CropOption[]>([]);
+  const [bankAccountOptions, setBankAccountOptions] = useState<ProfileBank[]>([]);
+  const [selectedBankIndex, setSelectedBankIndex] = useState(0);
+
+  // ── Fetch profile config on mount ─────────────────────────────────────────────
+  useEffect(() => {
+    fetch(`${settings.BE_URL}/profile-configuration`)
+      .then(r => r.json())
+      .then((data: ProfileData & { detail?: string }) => {
+        if (!data || data.detail) return;   // 404 — no profile saved yet, keep defaults
+        setS(prev => ({
+          ...prev,
+          sellerName: data.seller.name,
+          sellerAddress: data.seller.address,
+          sellerPAN: data.seller.pan,
+          sellerGSTIN: data.seller.gstin,
+          terms: data.terms_and_conditions,
+        }));
+
+        // Build crop dropdown from profile.crops — array of dict, "crop" as key
+        const cropsFromProfile: CropOption[] = Object.entries(data.crops || {}).map(([name, c]) => ({
+          crop: name,
+          hsn: c.hsn,
+          cgst: c.cgst,
+          sgst: c.sgst,
+        }));
+        if (cropsFromProfile.length > 0) setCropOptions(cropsFromProfile);
+
+        // Bank accounts — array of dict
+        const banks = data.bank_accounts || [];
+        setBankAccountOptions(banks);
+        if (banks.length >= 1) {
+          setSelectedBankIndex(0);
+          setS(prev => ({
+            ...prev,
+            sellerBank: banks[0].bank,
+            sellerAccount: banks[0].account,
+            sellerIFSC: banks[0].ifsc,
+          }));
+        }
+      })
+      .catch(console.error)
+      .finally(() => setProfileLoading(false));
+  }, []);
+
+  const rowInputsKey = rows.map(r => `${r.qty}|${r.rate}|${r.cgstRate}|${r.sgstRate}`).join(',');
+
+  useEffect(() => {
+    setRows(prev => prev.map(row => {
+      const qty = parseDecimal(row.qty);
+      const rate = parseDecimal(row.rate);
+      const cgstRate = parseDecimal(row.cgstRate);
+      const sgstRate = parseDecimal(row.sgstRate);
+
+      const taxableAmt = qty.mul(rate);
+      const cgstAmt = taxableAmt.mul(cgstRate).div(100);
+      const sgstAmt = taxableAmt.mul(sgstRate).div(100);
+      const finalAmt = taxableAmt.plus(cgstAmt).plus(sgstAmt);
+
+      return {
+        ...row,
+        taxableAmt: taxableAmt.toString(),
+        cgstAmt: cgstAmt.toString(),
+        sgstAmt: sgstAmt.toString(),
+        finalAmt: finalAmt.toString(),
+      };
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowInputsKey]);
+
+  // ── Totals: sum row strings via Decimal, store back into central state as strings ──
+  useEffect(() => {
+    const totalTaxable = rows.reduce((sum, r) => sum.plus(parseDecimal(r.taxableAmt)), new Decimal(0));
+    const totalCgst = rows.reduce((sum, r) => sum.plus(parseDecimal(r.cgstAmt)), new Decimal(0));
+    const totalSgst = rows.reduce((sum, r) => sum.plus(parseDecimal(r.sgstAmt)), new Decimal(0));
+    const totalFinal = rows.reduce((sum, r) => sum.plus(parseDecimal(r.finalAmt)), new Decimal(0));
+
+    setS(prev => ({
+      ...prev,
+      final_taxable_amount: totalTaxable.toString(),
+      final_cgst_amount: totalCgst.toString(),
+      final_sgst_amount: totalSgst.toString(),
+      final_amount: totalFinal.toString(),
+      final_amount_in_words: amountInWords(totalFinal),
+    }));
+  }, [rows]);
+
+  // ── Loading screen — shown while profile fetch is in flight ──────────────────
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen bg-gray-300 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="mb-spinner" />
+          <span className="text-sm text-gray-600 font-medium">Loading bill settings...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Handlers ──────────────────────────────────────────────────────────────────
   const f = (key: keyof FormState) => (v: string) => setS(p => ({ ...p, [key]: v }));
 
   const updateRow = (index: number, field: keyof RowState, value: string) =>
     setRows(prev => prev.map((row, i) => i === index ? { ...row, [field]: value } : row));
 
-  const handleCropChange = (index: number, cropLabel: string) => {
-    const found = CROPS.find(c => c.label === cropLabel);
+  const handleCropChange = (index: number, cropName: string) => {
+    const found = cropOptions.find(c => c.crop === cropName);
     setRows(prev => prev.map((row, i) =>
-      i === index ? { ...row, crop: cropLabel, hsnCode: found?.hsn ?? '', cgstRate: '0', sgstRate: '0' } : row
+      i === index
+        ? { ...row, crop: cropName, hsnCode: found?.hsn ?? '', cgstRate: found?.cgst ?? '0', sgstRate: found?.sgst ?? '0' }
+        : row
     ));
   };
 
-  // ── Per-row calculations ──
-  const rowCalcs = rows.map(row => {
-    const qty = parseFloat(row.qty) || 0;
-    const rate = parseFloat(row.rate) || 0;
-    const cgstRate = parseFloat(row.cgstRate) || 0;
-    const sgstRate = parseFloat(row.sgstRate) || 0;
-    const taxableAmt = qty * rate;
-    const cgstAmt = (taxableAmt * cgstRate) / 100;
-    const sgstAmt = (taxableAmt * sgstRate) / 100;
-    const finalAmt = taxableAmt + cgstAmt + sgstAmt;
-    return { taxableAmt, cgstAmt, sgstAmt, finalAmt };
-  });
+  const handleBankSelect = (idx: number) => {
+    const b = bankAccountOptions[idx];
+    if (b) {
+      setSelectedBankIndex(idx);
+      setS(prev => ({ ...prev, sellerBank: b.bank, sellerAccount: b.account, sellerIFSC: b.ifsc }));
+    }
+  };
 
-  const totalTaxable = rowCalcs.reduce((sum, r) => sum + r.taxableAmt, 0);
-  const totalCgst = rowCalcs.reduce((sum, r) => sum + r.cgstAmt, 0);
-  const totalSgst = rowCalcs.reduce((sum, r) => sum + r.sgstAmt, 0);
-  const totalFinal = rowCalcs.reduce((sum, r) => sum + r.finalAmt, 0);
-  const totalTax = totalCgst + totalSgst;
+  const handleuqcChange = (index: number, uqc: string) => {
+    setRows(prev => prev.map((row, i) => i === index ? { ...row, uqc } : row));
+  };
 
-  // ── Validate then print ────────────────────────────────────────────────────
-  function handlePrint() {
+  // ── Build plain JSON payload from central state — all values as strings ──────
+  function buildPayload() {
+    return {
+      ...s,
+      crops: rows.map(row => ({ ...row })),
+    };
+  }
+
+  // ── Shared validation, reused by the Preview flow ─────────────────────────────
+  function validateBill(): string[] {
     const errs: string[] = [];
-
     if (!s.partyName.trim()) errs.push('Party / Buyer name is required.');
     if (!s.invoiceNo.trim()) errs.push('Invoice number is required.');
-
+    if(!s.partyGSTIN.trim()) errs.push('Party / Buyer GSTIN is required.');
+    if(!s.sellerGSTIN.trim()) errs.push('Seller GSTIN is required.');
+    if(!s.sellerPAN.trim()) errs.push('Seller PAN is required.');
+    if(!s.partyPAN.trim()) errs.push('Party / Buyer PAN is required.');
+    if(!s.deliveryThrough) errs.push('Delivery through is required.');
     const filledRows = rows.filter(r => r.crop !== '');
     if (filledRows.length === 0) errs.push('Select at least one crop row before printing.');
-
     rows.forEach((row, idx) => {
       if (!row.crop) return;
       if (!row.qty || parseFloat(row.qty) <= 0)
@@ -218,11 +381,92 @@ export default function MillBill() {
       if (!row.rate || parseFloat(row.rate) <= 0)
         errs.push(`Row ${idx + 1} (${row.crop}): Rate is missing or zero.`);
     });
+    return errs;
+  }
 
+  // ── Validate then print (kept as-is; still usable if wired up elsewhere) ─────
+  function handlePrint() {
+    const errs: string[] = [];
+    if (!s.partyName.trim()) errs.push('Party / Buyer name is required.');
+    if (!s.invoiceNo.trim()) errs.push('Invoice number is required.');
+    const filledRows = rows.filter(r => r.crop !== '');
+    if (filledRows.length === 0) errs.push('Select at least one crop row before printing.');
+    rows.forEach((row, idx) => {
+      if (!row.crop) return;
+      if (!row.qty || parseFloat(row.qty) <= 0)
+        errs.push(`Row ${idx + 1} (${row.crop}): Quantity is missing or zero.`);
+      if (!row.rate || parseFloat(row.rate) <= 0)
+        errs.push(`Row ${idx + 1} (${row.crop}): Rate is missing or zero.`);
+    });
     if (errs.length > 0) { setErrors(errs); return; }
+
+    // Send plain JSON, all datatypes as string, built from central state
+    const payload = buildPayload();
+    fetch(`${settings.BE_URL}/save-mill-bill`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(console.error);
+
     window.print();
   }
 
+  // ── Preview button: validate, then switch to the read-only preview view
+  //    (same visual styling as print, but no window.print() call) ──────────────
+  function handlePreview() {
+    const errs = validateBill();
+    if (errs.length > 0) { setErrors(errs); return; }
+    setViewMode('preview');
+  }
+
+  // ── Edit button (from preview): go back to the fully editable form ───────────
+  function handleEdit() {
+    setViewMode('edit');
+  }
+
+  // ── Save button (from preview): POST to backend, show saving animation,
+  //    then move to the 'saved' view with Print / Send actions ────────────────
+  async function handleSaveBill() {
+    setIsSaving(true);
+    try {
+      const payload = buildPayload();
+      const res = await fetch(`${settings.BE_URL}/save-mill-bill`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail ? String(body.detail) : 'Failed to save bill.');
+      }
+      setViewMode('saved');
+    } catch (err) {
+      console.error(err);
+      setErrors([err instanceof Error ? err.message : 'Failed to save bill. Please try again.']);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  // ── Print button (from saved view) ────────────────────────────────────────────
+  function handlePrintFinal() {
+    window.print();
+  }
+
+  // ── Send button (from saved view) — placeholder hook for whatever "send"
+  //    should do (email/WhatsApp/share); wire this up to the real action later ──
+  function handleSend() {
+    // TODO: wire up the actual send/share action
+    console.log('Send bill:', buildPayload());
+  }
+
+  // ── Decimal values derived from central-state strings, for display only ──────
+  const totalTaxableDec = parseDecimal(s.final_taxable_amount);
+  const totalCgstDec = parseDecimal(s.final_cgst_amount);
+  const totalSgstDec = parseDecimal(s.final_sgst_amount);
+  const totalFinalDec = parseDecimal(s.final_amount);
+
+  // ── Render bill ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-300 py-10 px-4 print:bg-white print:p-0">
 
@@ -230,28 +474,18 @@ export default function MillBill() {
         <ErrorPopup errors={errors} onClose={() => setErrors([])} />
       )}
 
-      {/* ── Toolbar ── */}
-      <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print-hide">
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
-                     text-sm font-medium px-4 py-2 rounded shadow-md transition-colors"
-        >
-          <Printer size={16} />
-          Print Invoice
-        </button>
-      </div>
+      {isSaving && <SavingOverlay />}
 
       {/* ══════════════════════════════════════════
           INVOICE PAPER
       ══════════════════════════════════════════ */}
-      <div className="max-w-4xl mx-auto bg-white shadow-2xl invoice-container border border-gray-600 print:shadow-none">
+      <div className={`max-w-4xl mx-auto bg-white shadow-2xl invoice-container border border-gray-600 print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
 
         {/* ── HEADER ── */}
         <div className="relative border-b border-gray-600 p-5">
           <div className="text-center">
-            <div className="text-3xl font-bold tracking-wide">{SELLER_NAME}</div>
-            <div className="mt-1 text-sm text-gray-600">{SELLER_ADDRESS}</div>
+            <div className="text-3xl font-bold tracking-wide">{s.sellerName}</div>
+            <div className="mt-1 text-sm text-gray-600">{s.sellerAddress}</div>
             <div className="flex justify-center gap-8 mt-2 text-sm">
               <span className="flex items-baseline gap-1">
                 <span className="font-semibold">PAN No.:</span>
@@ -269,33 +503,29 @@ export default function MillBill() {
         </div>
 
         {/* ── TITLE BAR ── */}
-        <div className="border border-gray-600 ">
+        <div className="border border-gray-600">
           <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
             <span className="text-base font-bold tracking-widest">TAX INVOICE</span>
           </div>
+
           {/* ── PARTY + INVOICE DETAILS ── */}
-          {/* Swapped custom grid-2-1 for Tailwind grid to shrink the left side to 55% */}
           <div className="border-b border-gray-600 grid grid-cols-[55%_45%]">
 
             {/* LEFT — party details */}
             <div className="border-r border-gray-600 p-4">
-
-              {/* ONE MASTER GRID FOR ALL LEFT DETAILS */}
               <div className="grid grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-sm">
 
-                {/* 1. M/s. Name */}
                 <span className="font-bold whitespace-nowrap text-base">M/s.</span>
-                <span></span> {/* Empty column where the colon usually goes */}
+                <span></span>
                 <input
                   value={s.partyName}
                   onChange={e => f('partyName')(e.target.value.toUpperCase())}
                   placeholder="PARTY / BUYER NAME"
                   className="bg-transparent outline-none border-b border-dashed border-gray-400
-                           hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
-                           text-gray-900 transition-colors font-bold text-base w-full"
+                             hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
+                             text-gray-900 transition-colors font-bold text-base w-full"
                 />
 
-                {/* 2. Address */}
                 <span></span>
                 <span></span>
                 <textarea
@@ -304,12 +534,11 @@ export default function MillBill() {
                   onChange={e => f('partyAddress')(e.target.value.toUpperCase())}
                   placeholder="ADDRESS..."
                   className="bg-transparent outline-none border-b border-dashed border-gray-400
-                           hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
-                           text-gray-900 transition-colors w-full resize-none overflow-hidden
-                           leading-tight text-sm"
+                             hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
+                             text-gray-900 transition-colors w-full resize-none overflow-hidden
+                             leading-tight text-sm"
                 />
 
-                {/* 3. City, State, GSTIN, PAN */}
                 {([
                   ['City', 'partyCity', false],
                   ['State', 'partyState', false],
@@ -322,14 +551,11 @@ export default function MillBill() {
                     <Field value={s[key]} onChange={f(key)} upper={up} className="text-sm w-full" />
                   </React.Fragment>
                 ))}
-
               </div>
             </div>
 
             {/* RIGHT — invoice info */}
             <div className="p-4 space-y-1 text-sm">
-
-              {/* PERFECT COLON ALIGNMENT GRID (Right Side) */}
               <div className="grid grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
 
                 <span className="whitespace-nowrap font-semibold">Invoice No.</span>
@@ -344,11 +570,11 @@ export default function MillBill() {
                     value={s.invoiceDate}
                     onChange={e => f('invoiceDate')(e.target.value)}
                     className="bg-transparent outline-none w-full border-b border-dashed border-gray-400
-                             hover:border-blue-400 focus:border-blue-600 text-sm transition-colors print-hide"
+                               hover:border-blue-400 focus:border-blue-600 text-sm transition-colors print-hide"
                   />
                   <span className="screen-hide">{formatDateForPrint(s.invoiceDate)}</span>
                 </div>
-
+                <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-4 w-[calc(100%+2rem)]"></div>
                 {([
                   ['Docket No.', 'docketNo', false],
                   ['Transport Name', 'transportName', false],
@@ -380,6 +606,7 @@ export default function MillBill() {
                     ['Description of Goods', 'center'],
                     ['HSN /\nSAC', 'center'],
                     ['Qty.', 'center'],
+                    ['UQC', 'center'],
                     ['Rate', 'center'],
                     ['Taxable\nAmt.', 'right'],
                     ['CGST\n%', 'center'],
@@ -391,7 +618,7 @@ export default function MillBill() {
                     <th
                       key={i}
                       className={`p-2 font-semibold whitespace-pre-line text-${align} line-height-1-3
-                      ${i < 10 ? 'border-r border-gray-400' : ''}`}
+                        ${i < 10 ? 'border-r border-gray-400' : ''}`}
                     >
                       {label}
                     </th>
@@ -400,33 +627,33 @@ export default function MillBill() {
               </thead>
               <tbody>
                 {rows.map((row, idx) => {
-                  const { taxableAmt, cgstAmt, sgstAmt, finalAmt } = rowCalcs[idx];
                   const isEmpty = row.crop === '';
+                  const taxableAmt = parseDecimal(row.taxableAmt);
+                  const cgstAmt = parseDecimal(row.cgstAmt);
+                  const sgstAmt = parseDecimal(row.sgstAmt);
+                  const finalAmt = parseDecimal(row.finalAmt);
 
                   return (
                     <tr key={idx} className="border-b border-gray-300 row-height-44">
 
-                      {/* Sr. No. — always visible on screen; on print only if filled */}
                       <td className="border-r border-gray-400 p-1 text-center align-middle text-sm">
                         <span className="print-hide">{idx + 1}</span>
                         {!isEmpty && <span className="screen-hide">{idx + 1}</span>}
                       </td>
 
-                      {/* Crop — dropdown on screen, plain text on print */}
                       <td className="border-r border-gray-400 p-1 align-middle">
                         <select
                           value={row.crop}
                           onChange={e => handleCropChange(idx, e.target.value)}
                           className="crop-select bg-transparent outline-none w-full border-b border-dashed
-                                   border-gray-400 hover:border-blue-400 focus:border-blue-600
-                                   text-xs transition-colors text-gray-900 print-hide"
+                                     border-gray-400 hover:border-blue-400 focus:border-blue-600
+                                     text-xs transition-colors text-gray-900 print-hide"
                         >
                           <option value="">— Select Crop —</option>
-                          {CROPS.map(c => (
-                            <option key={c.label} value={c.label}>{c.label}</option>
+                          {cropOptions.map(c => (
+                            <option key={c.crop} value={c.crop}>{c.crop}</option>
                           ))}
                         </select>
-                        {/* Print: show crop name only — empty rows show nothing */}
                         {!isEmpty && (
                           <span className="screen-hide font-medium">{row.crop}</span>
                         )}
@@ -439,25 +666,42 @@ export default function MillBill() {
                         <Field value={row.qty} onChange={v => updateRow(idx, 'qty', v)} type="number" align="right" />
                       </td>
                       <td className="border-r border-gray-400 p-1 align-middle">
+                        <select
+                          value={row.uqc}
+                          onChange={e => handleuqcChange(idx, e.target.value)}
+                          className="crop-select bg-transparent outline-none w-full border-b border-dashed
+                                     border-gray-400 hover:border-blue-400 focus:border-blue-600
+                                     text-xs transition-colors text-gray-900 print-hide text-center"
+                        >
+                          <option value="">— Select UQC —</option>
+                          {uqcOptions.map((uqc, i) => (
+                            <option key={i} value={uqc}>{uqc}</option>
+                          ))}
+                        </select>
+                        {!isEmpty && (
+                          <span className="screen-hide font-medium">{row.uqc}</span>
+                        )}
+                      </td>
+                      <td className="border-r border-gray-400 p-1 align-middle">
                         <Field value={row.rate} onChange={v => updateRow(idx, 'rate', v)} type="number" align="right" />
                       </td>
                       <td className="border-r border-gray-400 p-1 text-right align-middle font-medium">
-                        {taxableAmt > 0 ? fmt(taxableAmt) : ''}
+                        {taxableAmt.gt(0) ? fmt(taxableAmt) : ''}
                       </td>
                       <td className="border-r border-gray-400 p-1 align-middle">
                         <Field value={row.cgstRate} onChange={v => updateRow(idx, 'cgstRate', v)} type="number" align="center" />
                       </td>
                       <td className="border-r border-gray-400 p-1 text-right align-middle">
-                        {isEmpty ? '' : (cgstAmt > 0 ? fmt(cgstAmt) : '0.00')}
+                        {isEmpty ? '' : (cgstAmt.gt(0) ? fmt(cgstAmt) : '0.00')}
                       </td>
                       <td className="border-r border-gray-400 p-1 align-middle">
                         <Field value={row.sgstRate} onChange={v => updateRow(idx, 'sgstRate', v)} type="number" align="center" />
                       </td>
                       <td className="border-r border-gray-400 p-1 text-right align-middle">
-                        {isEmpty ? '' : (sgstAmt > 0 ? fmt(sgstAmt) : '0.00')}
+                        {isEmpty ? '' : (sgstAmt.gt(0) ? fmt(sgstAmt) : '0.00')}
                       </td>
                       <td className="p-1 text-right align-middle font-semibold">
-                        {finalAmt > 0 ? fmt(finalAmt) : ''}
+                        {finalAmt.gt(0) ? fmt(finalAmt) : ''}
                       </td>
                     </tr>
                   );
@@ -466,12 +710,13 @@ export default function MillBill() {
                 {/* Totals row */}
                 <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-sm">
                   <td colSpan={5} className="border-r border-gray-400 p-2 text-center">Final Amount</td>
-                  <td className="border-r border-gray-400 p-2 text-right">{fmt(totalTaxable)}</td>
+                  <td className="border-r border-gray-400 p-2 text-right"></td>
+                  <td className="border-r border-gray-400 p-2 text-right">{fmt(totalTaxableDec)}</td>
                   <td className="border-r border-gray-400" />
-                  <td className="border-r border-gray-400 p-2 text-right">{fmt(totalCgst)}</td>
+                  <td className="border-r border-gray-400 p-2 text-right">{fmt(totalCgstDec)}</td>
                   <td className="border-r border-gray-400" />
-                  <td className="border-r border-gray-400 p-2 text-right">{fmt(totalSgst)}</td>
-                  <td className="p-2 text-right">{fmt(totalFinal)}</td>
+                  <td className="border-r border-gray-400 p-2 text-right">{fmt(totalSgstDec)}</td>
+                  <td className="p-2 text-right">{fmt(totalFinalDec)}</td>
                 </tr>
               </tbody>
             </table>
@@ -480,18 +725,35 @@ export default function MillBill() {
           {/* ── FOOTER ── */}
           <div className="flex flex-col text-sm">
 
-            {/* 1. Amount in Words Row (Full width with bottom border) */}
+            {/* Amount in words */}
             <div className="border-b border border-gray-600 p-3">
               <span className="font-semibold">Amt in Word: </span>
               <span className="italic ml-2">
-                {totalFinal > 0
-                  ? amountInWords(totalFinal)
+                {totalFinalDec.gt(0)
+                  ? s.final_amount_in_words
                   : <span className="text-gray-300">Auto-generated when amount is entered</span>}
               </span>
             </div>
 
-            {/* 2. Bank Details Row (With bottom border, GSTIN/PAN ignored) */}
+            {/* Bank details */}
             <div className="border-b border-gray-600 p-3">
+
+              {bankAccountOptions.length > 1 && (
+                <div className="mb-2 print-hide">
+                  <label className="text-xs font-semibold text-gray-600 mr-2">Select Bank Account:</label>
+                  <select
+                    value={selectedBankIndex}
+                    onChange={e => handleBankSelect(Number(e.target.value))}
+                    className="bg-transparent outline-none border-b border-dashed border-gray-400
+                               hover:border-blue-400 focus:border-blue-600 text-sm transition-colors"
+                  >
+                    {bankAccountOptions.map((b, i) => (
+                      <option key={i} value={i}>{b.bank} - {b.account}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="grid grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-1/2">
                 <span className="whitespace-nowrap">Bank</span>
                 <span>:</span>
@@ -508,27 +770,85 @@ export default function MillBill() {
             </div>
           </div>
         </div>
-        {/* 3. Terms & Signatory Row */}
+
+        {/* Terms & Signatory */}
         <div className="grid grid-cols-2 p-3 min-h-[120px]">
-          {/* Left: Terms */}
           <div className="flex flex-col pr-4">
-            <div className="font-bold text-base mb-1">Terms & Condition</div>
+            <div className="font-bold text-base mb-1">Terms &amp; Condition</div>
             <textarea
               value={s.terms}
               onChange={e => f('terms')(e.target.value)}
               rows={2}
               className="w-full bg-transparent outline-none resize-none text-sm border border-dashed
-                           border-gray-300 hover:border-blue-400 focus:border-blue-600 transition-colors p-1"
+                         border-gray-300 hover:border-blue-400 focus:border-blue-600 transition-colors p-1"
             />
           </div>
-          {/* Right: Signatory */}
           <div className="flex flex-col justify-between text-right">
-            <div className="font-bold text-base">For, {SELLER_NAME}</div>
-            <div className="mt-12 text-gray-900">
-              Authorised Signatory
-            </div>
+            <div className="font-bold text-base">For, {s.sellerName}</div>
+            <div className="mt-12 text-gray-900">Authorised Signatory</div>
           </div>
         </div>
+
+      </div>
+
+      {/* ══════════════════════════════════════════
+          BOTTOM ACTION BAR — horizontally centred,
+          buttons change depending on viewMode
+      ══════════════════════════════════════════ */}
+      <div className="max-w-4xl mx-auto mt-6 flex items-center justify-center gap-4 print-hide">
+        {viewMode === 'edit' && (
+          <button
+            onClick={handlePreview}
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
+                       text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+          >
+            <Eye size={16} />
+            Preview Bill
+          </button>
+        )}
+
+        {viewMode === 'preview' && (
+          <>
+            <button
+              onClick={handleEdit}
+              className="flex items-center gap-2 bg-white hover:bg-gray-100 text-gray-800
+                         border border-gray-400 text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+            >
+              <Pencil size={16} />
+              Edit
+            </button>
+            <button
+              onClick={handleSaveBill}
+              disabled={isSaving}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60
+                         disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+            >
+              <SaveIcon size={16} />
+              Save
+            </button>
+          </>
+        )}
+
+        {viewMode === 'saved' && (
+          <>
+            <button
+              onClick={handlePrintFinal}
+              className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
+                         text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+            >
+              <Printer size={16} />
+              Print
+            </button>
+            <button
+              onClick={handleSend}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white
+                         text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+            >
+              <SendIcon size={16} />
+              Send
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
