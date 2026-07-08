@@ -14,6 +14,14 @@ class AppException(Exception):
         super().__init__(detail)
 
 
+# ═══════════════════════════ Shared 400 base ═══════════════════════════
+class BadRequestError(AppException):
+    """Base for all 400-level errors. Subclasses just build `detail`."""
+
+    def __init__(self, detail: str):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+
 # ═══════════════════════════ Generic "not found" ═══════════════════════════
 class NotFoundError(AppException):
     """Raise when a requested record does not exist."""
@@ -38,11 +46,11 @@ class DuplicateEntryError(AppException):
         super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
 
-class ForeignKeyViolationError(AppException):
+class ForeignKeyViolationError(BadRequestError):
     """Raise when a related record referenced by a FK doesn't exist (e.g. bill_id)."""
 
     def __init__(self, detail: str = "Referenced record does not exist or is linked to other data."):
-        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        super().__init__(detail=detail)
 
 
 class DatabaseConnectionError(AppException):
@@ -60,53 +68,54 @@ class DatabaseOperationError(AppException):
 
 
 # ═══════════════════════════ Business / validation exceptions ═══════════════════════════
-class MissingCropRowsError(AppException):
+class MissingCropRowsError(BadRequestError):
     """Raise when a bill is submitted with no crop rows filled in."""
 
     def __init__(self, detail: str = "At least one crop row is required to save a bill."):
-        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        super().__init__(detail=detail)
 
 
-class InvalidPANError(AppException):
+class InvalidPANError(BadRequestError):
     """Raise when a PAN fails format validation."""
 
     def __init__(self, pan: str = "", detail: str = ""):
         if not detail:
             detail = f"Invalid PAN format: '{pan}'. Expected format e.g. ABCDE1234F."
-        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        super().__init__(detail=detail)
 
 
-class InvalidGSTINError(AppException):
+class InvalidGSTINError(BadRequestError):
     """Raise when a GSTIN fails format validation."""
 
     def __init__(self, gstin: str = "", detail: str = ""):
         if not detail:
             detail = f"Invalid GSTIN format: '{gstin}'."
-        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        super().__init__(detail=detail)
 
 
-class InvalidIFSCError(AppException):
+class InvalidIFSCError(BadRequestError):
     """Raise when an IFSC code fails format validation."""
 
     def __init__(self, ifsc: str = "", detail: str = ""):
         if not detail:
             detail = f"Invalid IFSC format: '{ifsc}'. Expected format e.g. HDFC0001234."
-        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        super().__init__(detail=detail)
 
-        
-class InvalidCropRowError(AppException):
+
+class InvalidCropRowError(BadRequestError):
     """Raise when a crop row has invalid data (e.g. negative qty/rate)."""
 
     def __init__(self, crop: str = "", field: str = "", detail: str = ""):
         if not detail:
             detail = f"Invalid value for '{field}' in crop '{crop}'."
-        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
-        
-class DeliveryThroughMissing(AppException):
+        super().__init__(detail=detail)
+
+
+class DeliveryThroughMissing(BadRequestError):
     """Raise when the 'delivery_through' field is missing or empty."""
 
     def __init__(self, detail: str = "Delivery through is required."):
-        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        super().__init__(detail=detail)
 
 
 # ═══════════════════════════ Helper: translate raw SQLAlchemy errors ═══════════════════════════
@@ -127,7 +136,7 @@ def translate_integrity_error(exc: IntegrityError) -> AppException:
 
     # Postgres error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
     if pgcode == "23505" or "unique constraint" in message.lower():
-        return DuplicateEntryError(detail=f"Duplicate Invoice Number")
+        return DuplicateEntryError(detail="Duplicate Invoice Number")
     if pgcode == "23503" or "foreign key constraint" in message.lower():
         return ForeignKeyViolationError(detail=f"Foreign key constraint failed: {message}")
     if pgcode == "23502" or "not null constraint" in message.lower():

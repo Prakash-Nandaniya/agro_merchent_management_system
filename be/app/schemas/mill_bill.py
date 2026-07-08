@@ -1,10 +1,9 @@
-from datetime import date
+from datetime import date,datetime
 from decimal import Decimal
 from typing import List, Optional
 from app.core.exceptions import InvalidPANError,InvalidGSTINError,InvalidIFSCError,MissingCropRowsError,InvalidCropRowError,DeliveryThroughMissing
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, field_serializer
 import re
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 PAN_RE = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
 GSTIN_RE = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
@@ -150,3 +149,78 @@ class MillBill(BaseModel):
         bill_kwargs = self.model_dump(exclude={"crops"})
         crop_kwargs = [row.model_dump(exclude={"is_blank"}) for row in self.crops]
         return {"bill": bill_kwargs, "crops": crop_kwargs}
+
+
+
+class BillCropOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+ 
+    id: int
+    crop: str
+    hsn_code: str
+    qty: Decimal
+    uqc: str
+    rate: Decimal
+    taxable_value: Decimal
+    cgst_rate: Decimal
+    sgst_rate: Decimal
+    cgst_amount: Decimal
+    sgst_amount: Decimal
+    final_amount: Decimal
+ 
+    # Every Decimal goes out as a full-precision string — never rounded here,
+    # never allowed to collapse into a float. The frontend rounds to 2dp for display only.
+    @field_serializer(
+        "qty",
+        "rate",
+        "taxable_value",
+        "cgst_rate",
+        "sgst_rate",
+        "cgst_amount",
+        "sgst_amount",
+        "final_amount",
+    )
+    def serialize_decimal(self, value: Decimal) -> str:
+        return str(value)
+ 
+ 
+class MillBillOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+ 
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    seller_name: str
+    seller_address: str
+    seller_pan: str
+    seller_gstin: str
+    invoice_no: str
+    invoice_date: date
+    docket_no: Optional[str] = None
+    transport_name: Optional[str] = None
+    delivery_through: str
+    party_name: str
+    party_address: str
+    party_city: Optional[str] = None
+    party_state: str
+    party_gstin: str
+    party_pan: str
+    seller_bank: Optional[str] = None
+    seller_account: Optional[str] = None
+    seller_ifsc: Optional[str] = None
+    final_taxable_amount: Decimal
+    final_cgst_amount: Decimal
+    final_sgst_amount: Decimal
+    final_amount: Decimal
+    final_amount_in_words: str
+    terms: str
+    crops: List[BillCropOut] = []
+ 
+    @field_serializer(
+        "final_taxable_amount",
+        "final_cgst_amount",
+        "final_sgst_amount",
+        "final_amount",
+    )
+    def serialize_decimal(self, value: Decimal) -> str:
+        return str(value)

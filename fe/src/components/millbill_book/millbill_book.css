@@ -1,0 +1,335 @@
+:root {
+    --mbr-paper: #EFF1EE;
+    --mbr-surface: #FFFFFF;
+    --mbr-ink: #1B2420;
+    --mbr-muted: #5C6B62;
+    --mbr-line: #CBD3C8;
+    --mbr-accent: #0F6E5D;
+    --mbr-accent-soft: #E4EEEA;
+    --mbr-error: #B3432B;
+    --mbr-error-soft: #F7E9E5;
+}
+
+.mbr-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.mbr-title {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--mbr-ink);
+    margin: 0;
+}
+
+.mbr-subtitle {
+    font-size: 13px;
+    color: var(--mbr-muted);
+    margin: 4px 0 0;
+}
+
+.mbr-seal {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px solid var(--mbr-accent);
+    box-shadow: inset 0 0 0 3px var(--mbr-accent-soft);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(-4deg);
+    color: var(--mbr-accent);
+    flex-shrink: 0;
+}
+
+.mbr-seal-count {
+    font-family: Georgia, serif;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.mbr-seal-label {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+.mbr-panel {
+    background: var(--mbr-surface);
+    border: 1px solid var(--mbr-line);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.mbr-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px 16px;
+}
+
+.mbr-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mbr-label {
+    font-size: 11.5px;
+    color: var(--mbr-muted);
+    letter-spacing: 0.02em;
+}
+
+.mbr-field input,
+.mbr-field select {
+    height: 34px;
+    border: 1px solid var(--mbr-line);
+    border-radius: 6px;
+    padding: 0 10px;
+    font-size: 13.5px;
+    color: var(--mbr-ink);
+    background: var(--mbr-paper);
+}
+
+.mbr-field input:focus,
+.mbr-field select:focus {
+    outline: none;
+    border-color: var(--mbr-accent);
+    background: var(--mbr-surface);
+}
+
+.mbr-mono {
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+}
+
+.mbr-error-text {
+    font-size: 11px;
+    color: var(--mbr-error);
+}
+
+.mbr-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.mbr-btn-ghost,
+.mbr-btn-primary {
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.mbr-btn-ghost {
+    background: transparent;
+    border-color: var(--mbr-line);
+    color: var(--mbr-muted);
+}
+
+.mbr-btn-ghost:hover {
+    background: var(--mbr-paper);
+}
+
+.mbr-btn-primary {
+    background: var(--mbr-accent);
+    color: #fff;
+}
+
+.mbr-btn-primary:hover {
+    background: #0c5a4c;
+}
+
+.mbr-btn-primary:disabled {
+    background: var(--mbr-line);
+    color: var(--mbr-muted);
+    cursor: not-allowed;
+}
+
+.mbr-spin {
+    animation: mbr-spin 0.8s linear infinite;
+}
+
+@keyframes mbr-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.mbr-banner-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--mbr-error-soft);
+    color: var(--mbr-error);
+    border: 1px solid var(--mbr-error);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.mbr-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--mbr-muted);
+    font-size: 14px;
+    background: var(--mbr-surface);
+    border: 1px solid var(--mbr-line);
+    border-radius: 10px;
+}
+
+.mbr-table-wrap {
+    background: var(--mbr-surface);
+    border: 1px solid var(--mbr-line);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 14px;
+}
+
+.mbr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.mbr-table thead th {
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mbr-muted);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--mbr-line);
+    background: var(--mbr-paper);
+}
+
+.mbr-table tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--mbr-line);
+    color: var(--mbr-ink);
+}
+
+.mbr-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.mbr-table tbody tr:hover {
+    background: var(--mbr-accent-soft);
+}
+
+/* Rows now act as buttons — click routes to /show-mill-bill-from-bill-book */
+.mbr-row-clickable {
+    cursor: pointer;
+}
+
+.mbr-row-clickable:focus {
+    outline: 2px solid var(--mbr-accent);
+    outline-offset: -2px;
+}
+
+.mbr-row-clickable:active {
+    background: var(--mbr-accent-soft);
+}
+
+.mbr-num {
+    text-align: right;
+}
+
+.mbr-strong {
+    font-weight: 700;
+}
+
+.mbr-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 20px;
+}
+
+.mbr-page-btn {
+    min-width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--mbr-line);
+    background: var(--mbr-surface);
+    color: var(--mbr-ink);
+    font-size: 12.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mbr-page-btn:hover:not(:disabled) {
+    background: var(--mbr-accent-soft);
+}
+
+.mbr-page-btn:disabled {
+    color: var(--mbr-line);
+    cursor: not-allowed;
+}
+
+.mbr-page-active {
+    background: var(--mbr-accent);
+    color: #fff;
+    border-color: var(--mbr-accent);
+}
+
+.mbr-page-gap {
+    color: var(--mbr-muted);
+    padding: 0 4px;
+}
+
+.mbr-totals {
+    display: flex;
+    gap: 20px;
+    background: var(--mbr-ink);
+    border-radius: 10px;
+    padding: 16px 20px;
+    border-top: 3px solid var(--mbr-accent);
+}
+
+.mbr-total-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.mbr-total-label {
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #9DAAA1;
+}
+
+.mbr-total-value {
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 15px;
+    color: #fff;
+}
+
+.mbr-total-grand {
+    margin-left: auto;
+    text-align: right;
+}
+
+.mbr-total-grand .mbr-total-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #6FE0C4;
+}
