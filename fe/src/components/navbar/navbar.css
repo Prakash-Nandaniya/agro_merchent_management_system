@@ -1,0 +1,92 @@
+/* ── Navbar shell ─────────────────────────────────────────────────────────────*/
+.navbar {
+    width: 100%;
+    background-color: #ffffff;
+    border-bottom: 1px solid #d1d5db;
+    /* gray-300 */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    position: sticky;
+    top: 0;
+    padding: 0;
+    margin: 0;
+    z-index: 40;
+}
+
+.navbar-inner {
+    height: 6rem;
+    margin: 0;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+/* ── Left side: logo + nav buttons ───────────────────────────────────────────*/
+.navbar-left {
+    display: flex;
+    align-items: left;
+    gap: 1.5rem;
+}
+
+.navbar-logo {
+    height: 10vh;
+    width: auto;
+    object-fit: contain;
+}
+
+.navbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ── Right side ───────────────────────────────────────────────────────────────*/
+.navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ── Shared button style ─────────────────────────────────────────────────────*/
+.navbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    /* gray-700 */
+    background-color: transparent;
+    border: 1px solid black;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    cursor: pointer;
+}
+
+.navbar-btn:hover {
+    background-color: #f3f4f6;
+    /* gray-100 */
+    color: #111827;
+    /* gray-900 */
+}
+
+.navbar-btn-active {
+    background-color: #1f2937;
+    /* gray-800 */
+    color: #ffffff;
+}
+
+.navbar-btn-active:hover {
+    background-color: #111827;
+    /* gray-900 */
+    color: #ffffff;
+}
+
+/* ── Hide navbar entirely when printing ──────────────────────────────────────*/
+@media print {
+    .navbar {
+        display: none !important;
+    }
+}

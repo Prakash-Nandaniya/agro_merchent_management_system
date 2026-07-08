@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Printer, X, Eye, Pencil, Save as SaveIcon, Send as SendIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import './millbill.css';
 import React from 'react';
 import { settings } from "@/settings";
@@ -466,10 +467,11 @@ export default function MillBill() {
   const totalSgstDec = parseDecimal(s.final_sgst_amount);
   const totalFinalDec = parseDecimal(s.final_amount);
 
+
   // ── Render bill ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-300 py-10 px-4 print:bg-white print:p-0">
-
+      
       {errors.length > 0 && (
         <ErrorPopup errors={errors} onClose={() => setErrors([])} />
       )}

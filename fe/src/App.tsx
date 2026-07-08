@@ -1,20 +1,20 @@
 // src/App.tsx
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import MillBill from './features/millbill/millbill';
-import FarmerBill from './features/farmerbill/farmerbill';
-import Home from './features/home/home';
-import ProfileConfiguration from './features/profile_configuration/profileconfig';
+import MillBillPage from './pages/millbill_page/millbill_page';
+import FarmerBill from './components/farmerbill/farmerbill';
+import Home from './pages/home/home';
+import ProfileConfigurationPage from './pages/profileconfig_page/profileconfig_page';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/new-bill/mill" element={<MillBill />} />
+        <Route path="/new-bill/mill" element={<MillBillPage />} />
         <Route path="/new-bill/farmer" element={<FarmerBill />} />
         <Route path="/bill-book/mill" element={<div>Mill Bill Book Page</div>} />
         <Route path="/bill-book/farmer" element={<div>Farmer Bill Book Page</div>} />
-        <Route path="/profile-configuration" element={<ProfileConfiguration />} />
+        <Route path="/profile-configuration" element={<ProfileConfigurationPage />} />
       </Routes>
     </BrowserRouter>
   );
