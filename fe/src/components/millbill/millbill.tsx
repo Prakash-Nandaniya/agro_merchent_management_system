@@ -470,7 +470,7 @@ export default function MillBill() {
 
   // ── Render bill ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-300 py-10 px-4 print:bg-white print:p-0">
+    <div className="min-h-screen bg-gray-300 py-10 px-4 print:bg-white print:p-8">
 
       {errors.length > 0 && (
         <ErrorPopup errors={errors} onClose={() => setErrors([])} />
@@ -481,13 +481,12 @@ export default function MillBill() {
       {/* ══════════════════════════════════════════
           INVOICE PAPER
       ══════════════════════════════════════════ */}
-      <div className={`max-w-4xl mx-auto bg-white shadow-2xl   print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
-
+      <div className={`invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
         {/* ── HEADER ── */}
         <div className="relative border-b border-gray-600 p-5">
           <div className="text-center">
             <div className="text-3xl font-bold tracking-wide">{s.sellerName}</div>
-            <div className="mt-1 text-sm text-gray-600">{s.sellerAddress}</div>
+            <div className="mt-1 text-sm ">{s.sellerAddress}</div>
             <div className="flex justify-center gap-8 mt-2 text-sm">
               <span className="flex items-baseline gap-1">
                 <span className="font-semibold">PAN No.:</span>

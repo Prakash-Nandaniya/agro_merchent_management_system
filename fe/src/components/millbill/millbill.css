@@ -3,12 +3,21 @@
 /* ── Invoice paper container ──────────────────────────────────────────────────*/
 .invoice-container {
   font-family: 'Arial', sans-serif;
+  border: 1.5px solid #444;
 }
 
 /* ── Table helpers ────────────────────────────────────────────────────────────*/
-.table-collapse   { border-collapse: collapse; }
-.line-height-1-3  { line-height: 1.3; }
-.row-height-44    { height: 44px; }
+.table-collapse {
+  border-collapse: collapse;
+}
+
+.line-height-1-3 {
+  line-height: 1.3;
+}
+
+.row-height-44 {
+  height: 44px;
+}
 
 /* ── Remove number input spin buttons ─────────────────────────────────────────*/
 input[type='number']::-webkit-inner-spin-button,
@@ -16,10 +25,15 @@ input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-input[type='number'] { -moz-appearance: textfield; }
+
+input[type='number'] {
+  -moz-appearance: textfield;
+}
 
 /* ── Screen-hide: hidden on screen, shown on print ────────────────────────────*/
-.screen-hide { display: none; }
+.screen-hide {
+  display: none;
+}
 
 /* ── Loading spinner ──────────────────────────────────────────────────────────*/
 .mb-spinner {
@@ -30,16 +44,27 @@ input[type='number'] { -moz-appearance: textfield; }
   border-radius: 50%;
   animation: mb-spin 0.7s linear infinite;
 }
+
 @keyframes mb-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PREVIEW MODE (on-screen)
 ═══════════════════════════════════════════════════════════════════════════ */
-.preview-mode .print-hide  { display: none !important; }
-.preview-mode .screen-hide { display: inline !important; }
-.preview-mode select { display: none !important; }
+.preview-mode .print-hide {
+  display: none !important;
+}
+
+.preview-mode .screen-hide {
+  display: inline !important;
+}
+
+.preview-mode select {
+  display: none !important;
+}
 
 .preview-mode input,
 .preview-mode textarea {
@@ -63,39 +88,57 @@ input[type='number'] { -moz-appearance: textfield; }
   margin-bottom: 0.25rem !important;
 }
 
-.preview-mode input[type='date']::-webkit-calendar-picker-indicator { display: none !important; }
-.preview-mode input[type='date'] { -webkit-appearance: none; appearance: none; }
-.preview-mode textarea { resize: none !important; }
+.preview-mode input[type='date']::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+
+.preview-mode input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.preview-mode textarea {
+  resize: none !important;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PRINT STYLES
 ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
+
   /* 🎛️ THE MASTER FONT SIZE DIAL 🎛️ */
   /* Change this to 11px, 12px, or 13px to shrink/grow the text perfectly */
   html {
-    font-size: 12px !important; 
+    font-size: 12px !important;
   }
 
   /* Let the printer determine the page size naturally */
-  @page { margin: 5mm; size: A4; } 
-  
+  @page {
+    margin: 5mm;
+    size: auto;
+  }
+
   body {
     background-color: white !important;
   }
-  
-  /* Force the wide desktop container to fit inside the A4 paper width */
+
   .max-w-4xl {
-    max-width: 100% !important;
-    width: 100% !important;
+    max-width: 92% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
   }
 
   .invoice-container {
     box-shadow: none !important;
   }
-  
-  .print-hide  { display: none !important; }
-  .screen-hide { display: inline !important; }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  .screen-hide {
+    display: inline !important;
+  }
 
   input,
   textarea {
@@ -110,8 +153,20 @@ input[type='number'] { -moz-appearance: textfield; }
     color: transparent !important;
   }
 
-  select { display: none !important; }
-  input[type='date']::-webkit-calendar-picker-indicator { display: none !important; }
-  input[type='date'] { -webkit-appearance: none; appearance: none; }
-  textarea { resize: none !important; }
+  select {
+    display: none !important;
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }
+
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  textarea {
+    resize: none !important;
+  }
 }

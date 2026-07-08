@@ -90,7 +90,7 @@ export default function ViewMillBillFromBook() {
   const handleSend = () => console.log('Sending bill:', bill.invoice_no);
 
   return (
-    <div className="min-h-screen bg-gray-300 py-10 px-4 print:bg-white print:p-0">
+    <div className="min-h-screen bg-gray-300 py-10 px-4 print:bg-white print:p-8">
 
       {/* ── Top Navigation Bar ── */}
       <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print-hide">
@@ -107,12 +107,12 @@ export default function ViewMillBillFromBook() {
       {/* ══════════════════════════════════════════
           INVOICE PAPER
       ══════════════════════════════════════════ */}
-      <div className="max-w-4xl mx-auto bg-white shadow-2xl  print:shadow-none">
+      <div className="invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none">
         {/* ── HEADER ── */}
         <div className="relative border-b border-gray-600 p-5">
           <div className="text-center">
             <div className="text-3xl font-bold tracking-wide">{bill.seller_name}</div>
-            <div className="mt-1 text-sm text-gray-600 whitespace-pre-line">{bill.seller_address}</div>
+            <div className="mt-1 text-sm whitespace-pre-line">{bill.seller_address}</div>
             <div className="flex justify-center gap-8 mt-2 text-sm">
               <span className="flex items-baseline gap-1">
                 <span className="font-semibold">PAN No.:</span>
@@ -239,7 +239,7 @@ export default function ViewMillBillFromBook() {
                 })}
 
                 {/* Totals row */}
-                <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-sm">
+                <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-xs">
                   <td colSpan={5} className="border-r border-gray-400 p-2 text-center">Final Amount</td>
                   <td className="border-r border-gray-400 p-2 text-right"></td>
                   <td className="border-r border-gray-400 p-2 text-right">{fmt(bill.final_taxable_amount)}</td>

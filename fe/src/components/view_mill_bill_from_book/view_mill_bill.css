@@ -78,7 +78,7 @@ input[type='number'] { -moz-appearance: textfield; }
   }
 
   /* Let the printer determine the page size naturally */
-  @page { margin: 5mm; size: A4; } 
+  @page { margin: 5mm; size: auto; } 
   
   body {
     background-color: white !important;
