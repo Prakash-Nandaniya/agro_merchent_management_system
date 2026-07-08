@@ -1,31 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo,useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { create, all } from 'mathjs';
 import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from 'lucide-react';
 import './millbill_book.css';
 import { settings } from "@/settings";
-// ── Precision math: all money totals go through BigNumber, never native float ──
 const math = create(all);
 math.config({ number: 'BigNumber', precision: 64 });
 
 const PAGE_SIZE = 20;
-
-const INDIAN_STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
-  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
-  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Jammu and Kashmir',
-  'Ladakh', 'Chandigarh', 'Puducherry',
-] as const;
-
-const DELIVERY_OPTIONS = ['Self Pickup', 'By Road', 'By Rail', 'Courier'] as const;
-
-const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/;
-
-// ── Types matching the backend Pydantic models (BillCropOut / MillBillOut) ──
-// Decimal fields arrive as strings (see backend field_serializer) to preserve precision.
 
 export interface BillCrop {
   id: number;
@@ -160,16 +142,33 @@ function getPageNumbers(current: number, total: number): Array<number | string> 
   return withGaps;
 }
 
+const STORAGE_KEY = 'mill_bill_book_state';
+
+function getSavedState() {
+  const saved = sessionStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to parse session storage');
+    }
+  }
+  return null;
+}
+
 export default function MillBillBook() {
   const navigate = useNavigate();
 
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const savedState = getSavedState();
+
+  const [filters, setFilters] = useState<Filters>(savedState?.filters || EMPTY_FILTERS);
+  const [bills, setBills] = useState<MillBill[] | null>(savedState?.bills || null);
+  const [page, setPage] = useState<number>(savedState?.page || 1);
+  const [hasSearched, setHasSearched] = useState<boolean>(savedState?.hasSearched || false);
+
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [bills, setBills] = useState<MillBill[] | null>(null);
-  const [page, setPage] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [requestError, setRequestError] = useState<string>('');
-  const [hasSearched, setHasSearched] = useState<boolean>(false);
 
   function updateFilter(key: keyof Filters, rawValue: string) {
     const upperKeys: Array<keyof Filters> = ['party_gstin', 'party_pan'];
@@ -271,6 +270,16 @@ export default function MillBillBook() {
     { key: 'party_pan', label: 'Party PAN', type: 'text', placeholder: 'ABCDE1234F', mono: true },
     { key: 'party_city', label: 'Party city', type: 'text', placeholder: 'Contains...' },
   ];
+
+  useEffect(() => {
+    const stateToSave = {
+      filters,
+      bills,
+      page,
+      hasSearched
+    };
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  }, [filters, bills, page, hasSearched]);
 
   return (
     <div style={styles.page}>

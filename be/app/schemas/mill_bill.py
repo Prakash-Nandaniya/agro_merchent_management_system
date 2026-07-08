@@ -1,5 +1,5 @@
 from datetime import date,datetime
-from decimal import Decimal
+from decimal import Decimal,ROUND_HALF_UP
 from typing import List, Optional
 from app.core.exceptions import InvalidPANError,InvalidGSTINError,InvalidIFSCError,MissingCropRowsError,InvalidCropRowError,DeliveryThroughMissing
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, field_serializer
@@ -10,14 +10,9 @@ GSTIN_RE = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
 IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
 
 
-def _blank_to_zero(v):
-    """Frontend sends '' for unused numeric fields; Decimal can't parse that."""
-    return "0" if v in (None, "") else v
-
 
 def _blank_to_none(v):
     return None if isinstance(v, str) and v.strip() == "" else v
-
 
 # ═══════════════════════════ Crop row ═══════════════════════════
 class Crops(BaseModel):
@@ -25,27 +20,28 @@ class Crops(BaseModel):
 
     crop: str = Field("", max_length=100)
     hsn_code: str = Field("", max_length=6, alias="hsnCode")
-    qty: Decimal = Field(Decimal(0), max_digits=10, decimal_places=2)
+    qty: Decimal = Field(Decimal("0.00"), max_digits=10, decimal_places=2)
     uqc: str = Field("", max_length=10)
-    rate: Decimal = Field(Decimal(0), max_digits=10, decimal_places=2)
-    taxable_value: Decimal = Field(Decimal(0), max_digits=12, decimal_places=2, alias="taxableAmt")
-    cgst_rate: Decimal = Field(Decimal(0), max_digits=5, decimal_places=2, alias="cgstRate")
-    cgst_amount: Decimal = Field(Decimal(0), max_digits=12, decimal_places=2, alias="cgstAmt")
-    sgst_rate: Decimal = Field(Decimal(0), max_digits=5, decimal_places=2, alias="sgstRate")
-    sgst_amount: Decimal = Field(Decimal(0), max_digits=12, decimal_places=2, alias="sgstAmt")
-    final_amount: Decimal = Field(Decimal(0), max_digits=12, decimal_places=2, alias="finalAmt")
+    rate: Decimal = Field(Decimal("0.00"), max_digits=10, decimal_places=2)
+    taxable_value: Decimal = Field(Decimal("0.00"), max_digits=12, decimal_places=2, alias="taxableAmt")
+    cgst_rate: Decimal = Field(Decimal("0.00"), max_digits=5, decimal_places=2, alias="cgstRate")
+    cgst_amount: Decimal = Field(Decimal("0.00"), max_digits=12, decimal_places=2, alias="cgstAmt")
+    sgst_rate: Decimal = Field(Decimal("0.00"), max_digits=5, decimal_places=2, alias="sgstRate")
+    sgst_amount: Decimal = Field(Decimal("0.00"), max_digits=12, decimal_places=2, alias="sgstAmt")
+    final_amount: Decimal = Field(Decimal("0.00"), max_digits=12, decimal_places=2, alias="finalAmt")
 
-    # Pydantic can't parse "" as a Decimal, so intercept before type coercion
+    # ── Forces empty strings to "0" and safely rounds ALL numbers to 2 decimal places ──
     @field_validator("qty", "rate", "taxable_value", "cgst_rate", "cgst_amount",
                       "sgst_rate", "sgst_amount", "final_amount", mode="before")
     @classmethod
-    def _empty_string_to_zero(cls, v):
-        return _blank_to_zero(v)
+    def _parse_and_round_decimal(cls, v):
+        v = "0" if v in (None, "") else str(v)
+        # Quantize forces the number into exactly X.XX format
+        return Decimal(v).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
 
     @property
     def is_blank(self) -> bool:
         return not self.crop.strip()
-
 
 # ═══════════════════════════ MillBill ═══════════════════════════
 class MillBill(BaseModel):
@@ -60,7 +56,7 @@ class MillBill(BaseModel):
     seller_ifsc: Optional[str] = Field(None, max_length=11, alias="sellerIFSC")
 
     invoice_no: str = Field(..., min_length=1, max_length=50, alias="invoiceNo")
-    invoice_date: date = Field(..., alias="invoiceDate")  # "2026-07-07" -> date, automatically
+    invoice_date: date = Field(..., alias="invoiceDate")
 
     docket_no: Optional[str] = Field(None, max_length=50, alias="docketNo")
     transport_name: Optional[str] = Field(None, max_length=100, alias="transportName")
@@ -74,8 +70,8 @@ class MillBill(BaseModel):
     party_pan: str = Field(..., max_length=10, alias="partyPAN")
 
     final_taxable_amount: Decimal = Field(..., max_digits=12, decimal_places=2)
-    final_cgst_amount: Decimal = Field(Decimal(0), max_digits=12, decimal_places=2)
-    final_sgst_amount: Decimal = Field(Decimal(0), max_digits=12, decimal_places=2)
+    final_cgst_amount: Decimal = Field(Decimal("0.00"), max_digits=12, decimal_places=2)
+    final_sgst_amount: Decimal = Field(Decimal("0.00"), max_digits=12, decimal_places=2)
     final_amount: Decimal = Field(..., max_digits=12, decimal_places=2)
     final_amount_in_words: str = Field(..., min_length=1, max_length=500)
 
@@ -83,20 +79,19 @@ class MillBill(BaseModel):
 
     crops: List[Crops] = Field(default_factory=list)
 
-    # ── blank optional strings -> None ──
     @field_validator("docket_no", "transport_name", "party_city",
                       "seller_bank", "seller_account", "seller_ifsc", mode="before")
     @classmethod
     def _optional_blank_to_none(cls, v):
         return _blank_to_none(v)
 
-    # ── blank totals -> 0 (in case a bill somehow has no crops yet) ──
+    # ── Forces empty totals to "0" and safely rounds ALL numbers to 2 decimal places ──
     @field_validator("final_taxable_amount", "final_cgst_amount", "final_sgst_amount", "final_amount", mode="before")
     @classmethod
-    def _totals_blank_to_zero(cls, v):
-        return _blank_to_zero(v)
+    def _parse_and_round_totals(cls, v):
+        v = "0" if v in (None, "") else str(v)
+        return Decimal(v).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
 
-    # ── format checks (things Pydantic types can't express on their own) ──
     @field_validator("seller_pan", "party_pan")
     @classmethod
     def _validate_pan(cls, v: str) -> str:
@@ -130,7 +125,6 @@ class MillBill(BaseModel):
             raise DeliveryThroughMissing("Delivery through is required")
         return v
 
-    # ── business rules: drop blank crop rows, require >=1, qty/rate > 0 ──
     @model_validator(mode="after")
     def _clean_and_check_crops(self):
         real_rows = [c for c in self.crops if not c.is_blank]
@@ -144,12 +138,10 @@ class MillBill(BaseModel):
         object.__setattr__(self, "crops", real_rows)
         return self
 
-    # ── ready-to-use ORM kwargs, no re-conversion needed since types are already right ──
     def to_orm_kwargs(self) -> dict:
         bill_kwargs = self.model_dump(exclude={"crops"})
         crop_kwargs = [row.model_dump(exclude={"is_blank"}) for row in self.crops]
         return {"bill": bill_kwargs, "crops": crop_kwargs}
-
 
 
 class BillCropOut(BaseModel):

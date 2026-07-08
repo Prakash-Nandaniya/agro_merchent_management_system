@@ -368,11 +368,11 @@ export default function MillBill() {
     const errs: string[] = [];
     if (!s.partyName.trim()) errs.push('Party / Buyer name is required.');
     if (!s.invoiceNo.trim()) errs.push('Invoice number is required.');
-    if(!s.partyGSTIN.trim()) errs.push('Party / Buyer GSTIN is required.');
-    if(!s.sellerGSTIN.trim()) errs.push('Seller GSTIN is required.');
-    if(!s.sellerPAN.trim()) errs.push('Seller PAN is required.');
-    if(!s.partyPAN.trim()) errs.push('Party / Buyer PAN is required.');
-    if(!s.deliveryThrough) errs.push('Delivery through is required.');
+    if (!s.partyGSTIN.trim()) errs.push('Party / Buyer GSTIN is required.');
+    if (!s.sellerGSTIN.trim()) errs.push('Seller GSTIN is required.');
+    if (!s.sellerPAN.trim()) errs.push('Seller PAN is required.');
+    if (!s.partyPAN.trim()) errs.push('Party / Buyer PAN is required.');
+    if (!s.deliveryThrough) errs.push('Delivery through is required.');
     const filledRows = rows.filter(r => r.crop !== '');
     if (filledRows.length === 0) errs.push('Select at least one crop row before printing.');
     rows.forEach((row, idx) => {
@@ -471,7 +471,7 @@ export default function MillBill() {
   // ── Render bill ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-300 py-10 px-4 print:bg-white print:p-0">
-      
+
       {errors.length > 0 && (
         <ErrorPopup errors={errors} onClose={() => setErrors([])} />
       )}
@@ -481,7 +481,7 @@ export default function MillBill() {
       {/* ══════════════════════════════════════════
           INVOICE PAPER
       ══════════════════════════════════════════ */}
-      <div className={`max-w-4xl mx-auto bg-white shadow-2xl invoice-container border border-gray-600 print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
+      <div className={`max-w-4xl mx-auto bg-white shadow-2xl   print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
 
         {/* ── HEADER ── */}
         <div className="relative border-b border-gray-600 p-5">
@@ -599,7 +599,7 @@ export default function MillBill() {
           </div>
 
           {/* ── ITEMS TABLE ── */}
-          <div className="border-b border-gray-600 overflow-x-auto">
+          <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
             <table className="w-full text-xs table-collapse">
               <thead>
                 <tr className="bg-gray-300 border-b border-gray-600">
@@ -620,7 +620,7 @@ export default function MillBill() {
                     <th
                       key={i}
                       className={`p-2 font-semibold whitespace-pre-line text-${align} line-height-1-3
-                        ${i < 10 ? 'border-r border-gray-400' : ''}`}
+                        ${i < 12 ? 'border-r border-gray-400' : ''}`}
                     >
                       {label}
                     </th>
@@ -710,7 +710,7 @@ export default function MillBill() {
                 })}
 
                 {/* Totals row */}
-                <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-sm">
+                <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-xs">
                   <td colSpan={5} className="border-r border-gray-400 p-2 text-center">Final Amount</td>
                   <td className="border-r border-gray-400 p-2 text-right"></td>
                   <td className="border-r border-gray-400 p-2 text-right">{fmt(totalTaxableDec)}</td>
