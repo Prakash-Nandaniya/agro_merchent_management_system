@@ -169,7 +169,7 @@ const EMPTY_ROW: RowState = {
 // ─── Validation error popup ────────────────────────────────────────────────────
 function ErrorPopup({ errors, onClose }: { errors: string[]; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="bg-white border border-red-300 rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-bold text-red-600 text-base">Please fix before printing</h3>
@@ -470,7 +470,7 @@ export default function MillBill() {
 
   // ── Render bill ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-300 py-10 px-4 print:bg-white print:p-8">
+    <div className="min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-20">
 
       {errors.length > 0 && (
         <ErrorPopup errors={errors} onClose={() => setErrors([])} />
@@ -482,23 +482,24 @@ export default function MillBill() {
           INVOICE PAPER
       ══════════════════════════════════════════ */}
       <div className={`invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
+
         {/* ── HEADER ── */}
-        <div className="relative border-b border-gray-600 p-5">
+        <div className="relative border-b border-gray-600 p-3 sm:p-5 pt-10 sm:pt-5">
           <div className="text-center">
-            <div className="text-3xl font-bold tracking-wide">{s.sellerName}</div>
-            <div className="mt-1 text-sm ">{s.sellerAddress}</div>
-            <div className="flex justify-center gap-8 mt-2 text-sm">
+            <div className="text-xl sm:text-3xl font-bold tracking-wide break-words">{s.sellerName}</div>
+            <div className="mt-1 text-xs sm:text-sm text-gray-600">{s.sellerAddress}</div>
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-8 mt-2 text-xs sm:text-sm">
               <span className="flex items-baseline gap-1">
                 <span className="font-semibold">PAN No.:</span>
-                <Field value={s.sellerPAN} onChange={f('sellerPAN')} upper width="w-32" />
+                <Field value={s.sellerPAN} onChange={f('sellerPAN')} upper width="w-28 sm:w-32" />
               </span>
               <span className="flex items-baseline gap-1">
                 <span className="font-semibold">GSTIN No.:</span>
-                <Field value={s.sellerGSTIN} onChange={f('sellerGSTIN')} upper width="w-44" />
+                <Field value={s.sellerGSTIN} onChange={f('sellerGSTIN')} upper width="w-36 sm:w-44" />
               </span>
             </div>
           </div>
-          <div className="absolute top-4 right-4 border border-gray-700 px-2 py-0.5 text-sm font-bold tracking-widest">
+          <div className="absolute top-2 right-2 sm:top-4 sm:right-4 border border-gray-700 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-sm font-bold tracking-widest">
             ORIGINAL
           </div>
         </div>
@@ -506,17 +507,17 @@ export default function MillBill() {
         {/* ── TITLE BAR ── */}
         <div className="border border-gray-600">
           <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
-            <span className="text-base font-bold tracking-widest">TAX INVOICE</span>
+            <span className="text-sm sm:text-base font-bold tracking-widest">TAX INVOICE</span>
           </div>
 
           {/* ── PARTY + INVOICE DETAILS ── */}
-          <div className="border-b border-gray-600 grid grid-cols-[55%_45%]">
+          <div className="border-b border-gray-600 grid grid-cols-1 sm:grid-cols-[55%_45%]">
 
             {/* LEFT — party details */}
-            <div className="border-r border-gray-600 p-4">
-              <div className="grid grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-sm">
+            <div className="sm:border-r border-b sm:border-b-0 border-gray-600 p-3 sm:p-4">
+              <div className="grid grid-cols-[90px_10px_1fr] sm:grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-xs sm:text-sm">
 
-                <span className="font-bold whitespace-nowrap text-base">M/s.</span>
+                <span className="font-bold whitespace-nowrap text-sm sm:text-base">M/s.</span>
                 <span></span>
                 <input
                   value={s.partyName}
@@ -524,7 +525,7 @@ export default function MillBill() {
                   placeholder="PARTY / BUYER NAME"
                   className="bg-transparent outline-none border-b border-dashed border-gray-400
                              hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
-                             text-gray-900 transition-colors font-bold text-base w-full"
+                             text-gray-900 transition-colors font-bold text-sm sm:text-base w-full"
                 />
 
                 <span></span>
@@ -537,7 +538,7 @@ export default function MillBill() {
                   className="bg-transparent outline-none border-b border-dashed border-gray-400
                              hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
                              text-gray-900 transition-colors w-full resize-none overflow-hidden
-                             leading-tight text-sm"
+                             leading-tight text-xs sm:text-sm"
                 />
 
                 {([
@@ -549,19 +550,19 @@ export default function MillBill() {
                   <React.Fragment key={key}>
                     <span className="whitespace-nowrap font-medium">{label}</span>
                     <span>:</span>
-                    <Field value={s[key]} onChange={f(key)} upper={up} className="text-sm w-full" />
+                    <Field value={s[key]} onChange={f(key)} upper={up} className="text-xs sm:text-sm w-full" />
                   </React.Fragment>
                 ))}
               </div>
             </div>
 
             {/* RIGHT — invoice info */}
-            <div className="p-4 space-y-1 text-sm">
-              <div className="grid grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
+            <div className="p-3 sm:p-4 space-y-1 text-xs sm:text-sm">
+              <div className="grid grid-cols-[110px_10px_1fr] sm:grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
 
                 <span className="whitespace-nowrap font-semibold">Invoice No.</span>
                 <span>:</span>
-                <Field value={s.invoiceNo} onChange={f('invoiceNo')} bold className="text-sm w-full" />
+                <Field value={s.invoiceNo} onChange={f('invoiceNo')} bold className="text-xs sm:text-sm w-full" />
 
                 <span className="whitespace-nowrap font-semibold">Invoice Date</span>
                 <span>:</span>
@@ -571,11 +572,11 @@ export default function MillBill() {
                     value={s.invoiceDate}
                     onChange={e => f('invoiceDate')(e.target.value)}
                     className="bg-transparent outline-none w-full border-b border-dashed border-gray-400
-                               hover:border-blue-400 focus:border-blue-600 text-sm transition-colors print-hide"
+                               hover:border-blue-400 focus:border-blue-600 text-xs sm:text-sm transition-colors print-hide"
                   />
                   <span className="screen-hide">{formatDateForPrint(s.invoiceDate)}</span>
                 </div>
-                <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-4 w-[calc(100%+2rem)]"></div>
+                <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-3 sm:-mx-4 w-[calc(100%+1.5rem)] sm:w-[calc(100%+2rem)]"></div>
                 {([
                   ['Docket No.', 'docketNo', false],
                   ['Transport Name', 'transportName', false],
@@ -589,7 +590,7 @@ export default function MillBill() {
                       onChange={f(key)}
                       upper={up}
                       placeholder={key === 'deliveryThrough' ? 'Vehicle No.' : ''}
-                      className="text-sm w-full"
+                      className="text-xs sm:text-sm w-full"
                     />
                   </React.Fragment>
                 ))}
@@ -599,7 +600,7 @@ export default function MillBill() {
 
           {/* ── ITEMS TABLE ── */}
           <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
-            <table className="w-full text-xs table-collapse">
+            <table className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse">
               <thead>
                 <tr className="bg-gray-300 border-b border-gray-600">
                   {([
@@ -724,12 +725,12 @@ export default function MillBill() {
           </div>
 
           {/* ── FOOTER ── */}
-          <div className="flex flex-col text-sm">
+          <div className="flex flex-col text-xs sm:text-sm">
 
             {/* Amount in words */}
             <div className="border-b border border-gray-600 p-3">
               <span className="font-semibold">Amt in Word: </span>
-              <span className="italic ml-2">
+              <span className="italic ml-2 break-words">
                 {totalFinalDec.gt(0)
                   ? s.final_amount_in_words
                   : <span className="text-gray-300">Auto-generated when amount is entered</span>}
@@ -755,7 +756,7 @@ export default function MillBill() {
                 </div>
               )}
 
-              <div className="grid grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-1/2">
+              <div className="grid grid-cols-[80px_10px_1fr] sm:grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-full sm:w-1/2">
                 <span className="whitespace-nowrap">Bank</span>
                 <span>:</span>
                 <Field value={s.sellerBank} onChange={f('sellerBank')} placeholder="Bank Name" className="w-full" />
@@ -773,20 +774,20 @@ export default function MillBill() {
         </div>
 
         {/* Terms & Signatory */}
-        <div className="grid grid-cols-2 p-3 min-h-[120px]">
-          <div className="flex flex-col pr-4">
-            <div className="font-bold text-base mb-1">Terms &amp; Condition</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 p-3 gap-4 sm:gap-0 min-h-[120px]">
+          <div className="flex flex-col sm:pr-4">
+            <div className="font-bold text-sm sm:text-base mb-1">Terms &amp; Condition</div>
             <textarea
               value={s.terms}
               onChange={e => f('terms')(e.target.value)}
               rows={2}
-              className="w-full bg-transparent outline-none resize-none text-sm border border-dashed
+              className="w-full bg-transparent outline-none resize-none text-xs sm:text-sm border border-dashed
                          border-gray-300 hover:border-blue-400 focus:border-blue-600 transition-colors p-1"
             />
           </div>
-          <div className="flex flex-col justify-between text-right">
-            <div className="font-bold text-base">For, {s.sellerName}</div>
-            <div className="mt-12 text-gray-900">Authorised Signatory</div>
+          <div className="flex flex-col justify-between text-left sm:text-right">
+            <div className="font-bold text-sm sm:text-base">For, {s.sellerName}</div>
+            <div className="mt-8 sm:mt-12 text-gray-900">Authorised Signatory</div>
           </div>
         </div>
 
@@ -796,12 +797,12 @@ export default function MillBill() {
           BOTTOM ACTION BAR — horizontally centred,
           buttons change depending on viewMode
       ══════════════════════════════════════════ */}
-      <div className="max-w-4xl mx-auto mt-6 flex items-center justify-center gap-4 print-hide">
+      <div className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 print-hide px-2 sm:px-0">
         {viewMode === 'edit' && (
           <button
             onClick={handlePreview}
-            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
-                       text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+            className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
+                       text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
           >
             <Eye size={16} />
             Preview Bill
@@ -812,8 +813,8 @@ export default function MillBill() {
           <>
             <button
               onClick={handleEdit}
-              className="flex items-center gap-2 bg-white hover:bg-gray-100 text-gray-800
-                         border border-gray-400 text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+              className="flex items-center justify-center gap-2 bg-white hover:bg-gray-100 text-gray-800
+                         border border-gray-400 text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
             >
               <Pencil size={16} />
               Edit
@@ -821,8 +822,8 @@ export default function MillBill() {
             <button
               onClick={handleSaveBill}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60
-                         disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+              className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60
+                         disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
             >
               <SaveIcon size={16} />
               Save
@@ -834,16 +835,16 @@ export default function MillBill() {
           <>
             <button
               onClick={handlePrintFinal}
-              className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
-                         text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+              className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
+                         text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
             >
               <Printer size={16} />
               Print
             </button>
             <button
               onClick={handleSend}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white
-                         text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white
+                         text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
             >
               <SendIcon size={16} />
               Send

@@ -282,7 +282,7 @@ export default function MillBillBook() {
   }, [filters, bills, page, hasSearched]);
 
   return (
-    <div style={styles.page}>
+    <div className="mbr-page">
       <div className="mbr-header">
         <div>
           <h1 className="mbr-title">Mill bill Book</h1>
@@ -398,11 +398,11 @@ export default function MillBillBook() {
                     onKeyDown={(e) => handleRowKeyDown(e, bill)}
                     aria-label={`View bill ${bill.invoice_no}`}
                   >
-                    <td className="mbr-mono">{bill.invoice_no}</td>
-                    <td className="mbr-mono">{bill.invoice_date}</td>
-                    <td>{bill.party_name}</td>
-                    <td className="mbr-num mbr-mono">{bill.crops?.map((crop) => crop.crop).join(', ')}</td>
-                    <td className="mbr-num mbr-mono mbr-strong">{toIndianAmount(bill.final_amount)}</td>
+                    <td className="mbr-mono" data-label="Invoice no.">{bill.invoice_no}</td>
+                    <td className="mbr-mono" data-label="Date">{bill.invoice_date}</td>
+                    <td data-label="Party">{bill.party_name}</td>
+                    <td className="mbr-num mbr-mono" data-label="Crops">{bill.crops?.map((crop) => crop.crop).join(', ')}</td>
+                    <td className="mbr-num mbr-mono mbr-strong" data-label="Total">{toIndianAmount(bill.final_amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -471,12 +471,3 @@ export default function MillBillBook() {
     </div>
   );
 }
-
-const styles: { page: React.CSSProperties } = {
-  page: {
-    background: 'var(--mbr-paper)',
-    minHeight: '100%',
-    padding: '24px',
-    fontFamily: 'system-ui, -apple-system, sans-serif',
-  },
-};

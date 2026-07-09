@@ -3,7 +3,7 @@
 /* ── Invoice paper container ──────────────────────────────────────────────────*/
 .invoice-container {
   font-family: 'Arial', sans-serif;
-  border: 1.5px solid #444;
+  border: 1px solid #4b5563; /* matches border-gray-600 used elsewhere */
 }
 
 /* ── Table helpers ────────────────────────────────────────────────────────────*/
@@ -99,6 +99,15 @@ input[type='number'] {
 
 .preview-mode textarea {
   resize: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE — small polish for the horizontally-scrollable items table
+═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .table-collapse {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

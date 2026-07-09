@@ -69,8 +69,8 @@ export default function ViewMillBillFromBook() {
 
   if (!bill) {
     return (
-      <div className="min-h-screen bg-gray-300 flex flex-col items-center justify-center gap-4">
-        <div className="text-gray-700 font-medium text-lg">No bill data found.</div>
+      <div className="min-h-screen bg-gray-300 flex flex-col items-center justify-center gap-4 px-4">
+        <div className="text-gray-700 font-medium text-lg text-center">No bill data found.</div>
         <button
           onClick={() => navigate(-1)}
           className="bg-gray-800 text-white px-4 py-2 rounded shadow flex items-center gap-2"
@@ -90,7 +90,7 @@ export default function ViewMillBillFromBook() {
   const handleSend = () => console.log('Sending bill:', bill.invoice_no);
 
   return (
-    <div className="min-h-screen bg-gray-300 py-10 px-4 print:bg-white print:p-8">
+    <div className="min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
 
       {/* ── Top Navigation Bar ── */}
       <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print-hide">
@@ -109,11 +109,11 @@ export default function ViewMillBillFromBook() {
       ══════════════════════════════════════════ */}
       <div className="invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none">
         {/* ── HEADER ── */}
-        <div className="relative border-b border-gray-600 p-5">
+        <div className="relative border-b border-gray-600 p-3 sm:p-5 pt-10 sm:pt-5">
           <div className="text-center">
-            <div className="text-3xl font-bold tracking-wide">{bill.seller_name}</div>
-            <div className="mt-1 text-sm whitespace-pre-line">{bill.seller_address}</div>
-            <div className="flex justify-center gap-8 mt-2 text-sm">
+            <div className="text-xl sm:text-3xl font-bold tracking-wide break-words">{bill.seller_name}</div>
+            <div className="mt-1 text-xs sm:text-sm whitespace-pre-line">{bill.seller_address}</div>
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-8 mt-2 text-xs sm:text-sm">
               <span className="flex items-baseline gap-1">
                 <span className="font-semibold">PAN No.:</span>
                 <span className="uppercase font-medium">{bill.seller_pan}</span>
@@ -124,7 +124,7 @@ export default function ViewMillBillFromBook() {
               </span>
             </div>
           </div>
-          <div className="absolute top-4 right-4 border border-gray-700 px-2 py-0.5 text-sm font-bold tracking-widest">
+          <div className="absolute top-2 right-2 sm:top-4 sm:right-4 border border-gray-700 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-sm font-bold tracking-widest">
             ORIGINAL
           </div>
         </div>
@@ -132,63 +132,63 @@ export default function ViewMillBillFromBook() {
         {/* ── TITLE BAR ── */}
         <div className="border border-gray-600">
           <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
-            <span className="text-base font-bold tracking-widest">TAX INVOICE</span>
+            <span className="text-sm sm:text-base font-bold tracking-widest">TAX INVOICE</span>
           </div>
 
           {/* ── PARTY + INVOICE DETAILS ── */}
-          <div className="border-b border-gray-600 grid grid-cols-[55%_45%]">
+          <div className="border-b border-gray-600 grid grid-cols-1 sm:grid-cols-[55%_45%]">
 
             {/* LEFT — party details */}
-            <div className="border-r border-gray-600 p-4">
-              <div className="grid grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-sm">
-                <span className="font-bold whitespace-nowrap text-base">M/s.</span>
+            <div className="sm:border-r border-b sm:border-b-0 border-gray-600 p-3 sm:p-4">
+              <div className="grid grid-cols-[90px_10px_1fr] sm:grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-xs sm:text-sm">
+                <span className="font-bold whitespace-nowrap text-sm sm:text-base">M/s.</span>
                 <span></span>
-                <div className="font-bold text-base uppercase">{bill.party_name}</div>
+                <div className="font-bold text-sm sm:text-base uppercase break-words">{bill.party_name}</div>
 
                 <span></span>
                 <span></span>
-                <div className="uppercase leading-tight text-sm whitespace-pre-wrap">{bill.party_address}</div>
+                <div className="uppercase leading-tight text-xs sm:text-sm whitespace-pre-wrap break-words">{bill.party_address}</div>
 
                 <span className="whitespace-nowrap font-medium">City</span><span>:</span>
-                <div className="text-sm uppercase">{bill.party_city || '-'}</div>
+                <div className="text-xs sm:text-sm uppercase break-words">{bill.party_city || '-'}</div>
 
                 <span className="whitespace-nowrap font-medium">State</span><span>:</span>
-                <div className="text-sm uppercase">{bill.party_state}</div>
+                <div className="text-xs sm:text-sm uppercase break-words">{bill.party_state}</div>
 
                 <span className="whitespace-nowrap font-medium">Party GSTIN</span><span>:</span>
-                <div className="text-sm uppercase">{bill.party_gstin}</div>
+                <div className="text-xs sm:text-sm uppercase break-words">{bill.party_gstin}</div>
 
                 <span className="whitespace-nowrap font-medium">Party PAN</span><span>:</span>
-                <div className="text-sm uppercase">{bill.party_pan}</div>
+                <div className="text-xs sm:text-sm uppercase break-words">{bill.party_pan}</div>
               </div>
             </div>
 
             {/* RIGHT — invoice info */}
-            <div className="p-4 space-y-1 text-sm">
-              <div className="grid grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
+            <div className="p-3 sm:p-4 space-y-1 text-xs sm:text-sm">
+              <div className="grid grid-cols-[110px_10px_1fr] sm:grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
                 <span className="whitespace-nowrap font-semibold">Invoice No.</span><span>:</span>
-                <div className="text-sm font-bold uppercase">{bill.invoice_no}</div>
+                <div className="text-xs sm:text-sm font-bold uppercase break-words">{bill.invoice_no}</div>
 
                 <span className="whitespace-nowrap font-semibold">Invoice Date</span><span>:</span>
-                <div className="text-sm uppercase">{formatDate(bill.invoice_date)}</div>
+                <div className="text-xs sm:text-sm uppercase">{formatDate(bill.invoice_date)}</div>
 
-                <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-4 w-[calc(100%+2rem)]"></div>
+                <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-3 sm:-mx-4 w-[calc(100%+1.5rem)] sm:w-[calc(100%+2rem)]"></div>
 
                 <span className="whitespace-nowrap font-semibold">Docket No.</span><span>:</span>
-                <div className="text-sm uppercase">{bill.docket_no || ''}</div>
+                <div className="text-xs sm:text-sm uppercase break-words">{bill.docket_no || ''}</div>
 
                 <span className="whitespace-nowrap font-semibold">Transport Name</span><span>:</span>
-                <div className="text-sm uppercase">{bill.transport_name || ''}</div>
+                <div className="text-xs sm:text-sm uppercase break-words">{bill.transport_name || ''}</div>
 
                 <span className="whitespace-nowrap font-semibold">Vehicle No.</span><span>:</span>
-                <div className="text-sm uppercase">{bill.delivery_through}</div>
+                <div className="text-xs sm:text-sm uppercase break-words">{bill.delivery_through}</div>
               </div>
             </div>
           </div>
 
           {/* ── ITEMS TABLE ── */}
           <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
-            <table className="w-full text-xs table-collapse">
+            <table className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse">
               <thead>
                 <tr className="bg-gray-300 border-b border-gray-600">
                   {([
@@ -254,37 +254,37 @@ export default function ViewMillBillFromBook() {
           </div>
 
           {/* ── FOOTER ── */}
-          <div className="flex flex-col text-sm">
+          <div className="flex flex-col text-xs sm:text-sm">
             <div className="border-b border border-gray-600 p-3">
               <span className="font-semibold">Amt in Word: </span>
-              <span className="italic ml-2">{bill.final_amount_in_words}</span>
+              <span className="italic ml-2 break-words">{bill.final_amount_in_words}</span>
             </div>
 
             {/* Bank details */}
             <div className="border-b border-gray-600 p-3">
-              <div className="grid grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-1/2">
+              <div className="grid grid-cols-[80px_10px_1fr] sm:grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-full sm:w-1/2">
                 <span className="whitespace-nowrap font-medium">Bank</span><span>:</span>
-                <div className="uppercase">{bill.seller_bank || '-'}</div>
+                <div className="uppercase break-words">{bill.seller_bank || '-'}</div>
 
                 <span className="whitespace-nowrap font-medium">Account No.</span><span>:</span>
-                <div className="uppercase">{bill.seller_account || '-'}</div>
+                <div className="uppercase break-words">{bill.seller_account || '-'}</div>
 
                 <span className="whitespace-nowrap font-medium">IFSC</span><span>:</span>
-                <div className="uppercase">{bill.seller_ifsc || '-'}</div>
+                <div className="uppercase break-words">{bill.seller_ifsc || '-'}</div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Terms & Signatory */}
-        <div className="grid grid-cols-2 p-3 min-h-[120px]">
-          <div className="flex flex-col pr-4">
-            <div className="font-bold text-base mb-1">Terms &amp; Condition</div>
-            <div className="w-full bg-transparent text-sm p-1 whitespace-pre-wrap">{bill.terms}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 p-3 gap-4 sm:gap-0 min-h-[120px]">
+          <div className="flex flex-col sm:pr-4">
+            <div className="font-bold text-sm sm:text-base mb-1">Terms &amp; Condition</div>
+            <div className="w-full bg-transparent text-xs sm:text-sm p-1 whitespace-pre-wrap break-words">{bill.terms}</div>
           </div>
-          <div className="flex flex-col justify-between text-right">
-            <div className="font-bold text-base">For, {bill.seller_name}</div>
-            <div className="mt-12 text-gray-900">Authorised Signatory</div>
+          <div className="flex flex-col justify-between text-left sm:text-right">
+            <div className="font-bold text-sm sm:text-base">For, {bill.seller_name}</div>
+            <div className="mt-8 sm:mt-12 text-gray-900">Authorised Signatory</div>
           </div>
         </div>
 
@@ -293,18 +293,18 @@ export default function ViewMillBillFromBook() {
       {/* ══════════════════════════════════════════
           BOTTOM ACTION BAR
       ══════════════════════════════════════════ */}
-      <div className="max-w-4xl mx-auto mt-6 flex items-center justify-center gap-4 print-hide">
+      <div className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 print-hide px-2 sm:px-0">
         <button
           onClick={handlePrint}
-          className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
-                     text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+          className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
+                     text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
         >
           <Printer size={16} /> Print
         </button>
         <button
           onClick={handleSend}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white
-                     text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors"
+          className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white
+                     text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
         >
           <SendIcon size={16} /> Send
         </button>

@@ -3,6 +3,7 @@
 /* ── Invoice paper container ──────────────────────────────────────────────────*/
 .invoice-container {
   font-family: 'Arial', sans-serif;
+  border: 1px solid #4b5563; /* matches border-gray-600 used elsewhere */
 }
 
 /* ── Table helpers ────────────────────────────────────────────────────────────*/
@@ -68,6 +69,16 @@ input[type='number'] { -moz-appearance: textfield; }
 .preview-mode textarea { resize: none !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE — small polish for the horizontally-scrollable items table
+═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* subtle scroll hint shadow on the right edge of the scrollable table wrapper */
+  .table-collapse {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    PRINT STYLES
 ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
@@ -86,8 +97,9 @@ input[type='number'] { -moz-appearance: textfield; }
   
   /* Force the wide desktop container to fit inside the A4 paper width */
   .max-w-4xl {
-    max-width: 100% !important;
-    width: 100% !important;
+    max-width: 92% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
   }
 
   .invoice-container {
