@@ -184,7 +184,7 @@ export default function ViewMillBillFromBook() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
+    <div className="view_mill_bill_from_book min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
 
       {/* ── Top Navigation Bar ── */}
       <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print-hide">
