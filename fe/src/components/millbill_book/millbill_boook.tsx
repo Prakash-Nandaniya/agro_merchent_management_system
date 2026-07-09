@@ -1,4 +1,4 @@
-import React, { useState, useMemo,useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { create, all } from 'mathjs';
 import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from 'lucide-react';
@@ -7,7 +7,6 @@ import { settings } from "@/settings";
 const math = create(all);
 math.config({ number: 'BigNumber', precision: 64 });
 
-const PAGE_SIZE = 20;
 
 export interface BillCrop {
   id: number;
@@ -157,9 +156,25 @@ function getSavedState() {
 }
 
 export default function MillBillBook() {
-  const navigate = useNavigate();
 
+  const navigate = useNavigate();
   const savedState = getSavedState();
+
+  // ── 1. Create dynamic state for page size ──
+  const [pageSize, setPageSize] = useState(window.innerWidth < 640 ? 10 : 20);
+
+  // ── 2. Listen for screen resizing in real-time ──
+  useEffect(() => {
+    const handleResize = () => {
+      setPageSize(window.innerWidth < 640 ? 10 : 20);
+    };
+
+    // Attach the event listener
+    window.addEventListener('resize', handleResize);
+
+    // Clean it up when the component unmounts
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [filters, setFilters] = useState<Filters>(savedState?.filters || EMPTY_FILTERS);
   const [bills, setBills] = useState<MillBill[] | null>(savedState?.bills || null);
@@ -260,8 +275,8 @@ export default function MillBillBook() {
     };
   }, [bills]);
 
-  const totalPages = bills ? Math.max(1, Math.ceil(bills.length / PAGE_SIZE)) : 1;
-  const pageBills = bills ? bills.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : [];
+  const totalPages = bills ? Math.max(1, Math.ceil(bills.length / pageSize)) : 1;
+  const pageBills = bills ? bills.slice((page - 1) * pageSize, page * pageSize) : [];
 
   const filterFields: FilterField[] = [
     { key: 'invoice_no', label: 'Invoice no.', type: 'text', placeholder: 'INV-2026-0142' },
