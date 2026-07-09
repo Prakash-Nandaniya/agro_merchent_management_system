@@ -481,7 +481,7 @@ export default function MillBill() {
       {/* ══════════════════════════════════════════
           INVOICE PAPER
       ══════════════════════════════════════════ */}
-      <div className={`invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
+      <div className={`millbill invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
 
         {/* ── HEADER ── */}
         <div className="relative border-b border-gray-600 p-3 sm:p-5 pt-10 sm:pt-5">

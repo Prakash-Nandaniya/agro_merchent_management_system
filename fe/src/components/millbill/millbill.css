@@ -1,49 +1,168 @@
 @import "tailwindcss";
 
-/* ── Invoice paper container ──────────────────────────────────────────────────*/
-.invoice-container {
-  font-family: 'Arial', sans-serif;
+.millbill {
+
+  /* ── Invoice paper container ────────────────────────────────────────────────*/
+  .invoice-container {
+    font-family: 'Arial', sans-serif;
+  }
+
+  /* ── Table helpers ──────────────────────────────────────────────────────────*/
+  .table-collapse {
+    border-collapse: collapse;
+  }
+
+  .line-height-1-3 {
+    line-height: 1.3;
+  }
+
+  .row-height-44 {
+    height: 44px;
+  }
+
+  /* ── Remove number input spin buttons ───────────────────────────────────────*/
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  /* ── Screen-hide: hidden on screen, shown on print ──────────────────────────*/
+  .screen-hide {
+    display: none;
+  }
+
+  /* ── Loading spinner ─────────────────────────────────────────────────────────*/
+  .mb-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(99, 102, 241, 0.2);
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: mb-spin 0.7s linear infinite;
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+     PREVIEW MODE (on-screen)
+  ═════════════════════════════════════════════════════════════════════════ */
+  &.preview-mode,
+  .preview-mode {
+    .print-hide {
+      display: none !important;
+    }
+
+    .screen-hide {
+      display: inline !important;
+    }
+
+    select {
+      display: none !important;
+    }
+
+    input,
+    textarea {
+      /* Fix #1: Use transparent border instead of 'none' so the layout doesn't jump 1px */
+      border-color: transparent !important;
+      outline: none !important;
+      background: transparent !important;
+      pointer-events: none !important;
+      box-shadow: none !important;
+    }
+
+    /* Fix #2: Hide placeholder text so empty fields look perfectly blank like real paper */
+    input::placeholder,
+    textarea::placeholder {
+      color: transparent !important;
+    }
+
+    /* Fix #3: Force the exact same spacing as Tailwind's print:my-1 class */
+    .my-2 {
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.25rem !important;
+    }
+
+    input[type='date']::-webkit-calendar-picker-indicator {
+      display: none !important;
+    }
+
+    input[type='date'] {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    textarea {
+      resize: none !important;
+    }
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+     MOBILE — small polish for the horizontally-scrollable items table
+  ═════════════════════════════════════════════════════════════════════════ */
+  @media (max-width: 640px) {
+    .table-collapse {
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+     PRINT STYLES (scoped parts — see note below the file for html/@page)
+  ═════════════════════════════════════════════════════════════════════════ */
+  @media print {
+    .max-w-4xl {
+      max-width: 92% !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+    }
+
+    .invoice-container {
+      box-shadow: none !important;
+    }
+
+    .print-hide {
+      display: none !important;
+    }
+
+    .screen-hide {
+      display: inline !important;
+    }
+
+    input,
+    textarea {
+      border-color: transparent !important;
+      outline: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: transparent !important;
+    }
+
+    select {
+      display: none !important;
+    }
+
+    input[type='date']::-webkit-calendar-picker-indicator {
+      display: none !important;
+    }
+
+    input[type='date'] {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    textarea {
+      resize: none !important;
+    }
+  }
 }
 
-/* ── Table helpers ────────────────────────────────────────────────────────────*/
-.table-collapse {
-  border-collapse: collapse;
-}
-
-.line-height-1-3 {
-  line-height: 1.3;
-}
-
-.row-height-44 {
-  height: 44px;
-}
-
-/* ── Remove number input spin buttons ─────────────────────────────────────────*/
-input[type='number']::-webkit-inner-spin-button,
-input[type='number']::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-input[type='number'] {
-  -moz-appearance: textfield;
-}
-
-/* ── Screen-hide: hidden on screen, shown on print ────────────────────────────*/
-.screen-hide {
-  display: none;
-}
-
-/* ── Loading spinner ──────────────────────────────────────────────────────────*/
-.mb-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(99, 102, 241, 0.2);
-  border-top-color: #6366f1;
-  border-radius: 50%;
-  animation: mb-spin 0.7s linear infinite;
-}
-
+/* ── Loading spinner keyframes (must stay global — @keyframes cannot be nested) ─*/
 @keyframes mb-spin {
   to {
     transform: rotate(360deg);
@@ -51,66 +170,7 @@ input[type='number'] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PREVIEW MODE (on-screen)
-═══════════════════════════════════════════════════════════════════════════ */
-.preview-mode .print-hide {
-  display: none !important;
-}
-
-.preview-mode .screen-hide {
-  display: inline !important;
-}
-
-.preview-mode select {
-  display: none !important;
-}
-
-.preview-mode input,
-.preview-mode textarea {
-  /* Fix #1: Use transparent border instead of 'none' so the layout doesn't jump 1px */
-  border-color: transparent !important;
-  outline: none !important;
-  background: transparent !important;
-  pointer-events: none !important;
-  box-shadow: none !important;
-}
-
-/* Fix #2: Hide placeholder text so empty fields look perfectly blank like real paper */
-.preview-mode input::placeholder,
-.preview-mode textarea::placeholder {
-  color: transparent !important;
-}
-
-/* Fix #3: Force the exact same spacing as Tailwind's print:my-1 class */
-.preview-mode .my-2 {
-  margin-top: 0.25rem !important;
-  margin-bottom: 0.25rem !important;
-}
-
-.preview-mode input[type='date']::-webkit-calendar-picker-indicator {
-  display: none !important;
-}
-
-.preview-mode input[type='date'] {
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.preview-mode textarea {
-  resize: none !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   MOBILE — small polish for the horizontally-scrollable items table
-═══════════════════════════════════════════════════════════════════════════ */
-@media (max-width: 640px) {
-  .table-collapse {
-    -webkit-overflow-scrolling: touch;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   PRINT STYLES
+   NOT SCOPABLE — applies globally whenever this page prints, regardless of class
 ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
 
@@ -128,53 +188,5 @@ input[type='number'] {
 
   body {
     background-color: white !important;
-  }
-
-  .max-w-4xl {
-    max-width: 92% !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-  }
-
-  .invoice-container {
-    box-shadow: none !important;
-  }
-
-  .print-hide {
-    display: none !important;
-  }
-
-  .screen-hide {
-    display: inline !important;
-  }
-
-  input,
-  textarea {
-    border-color: transparent !important;
-    outline: none !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: transparent !important;
-  }
-
-  select {
-    display: none !important;
-  }
-
-  input[type='date']::-webkit-calendar-picker-indicator {
-    display: none !important;
-  }
-
-  input[type='date'] {
-    -webkit-appearance: none;
-    appearance: none;
-  }
-
-  textarea {
-    resize: none !important;
   }
 }
