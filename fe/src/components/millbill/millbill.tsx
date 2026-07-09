@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Printer, X, Eye, Pencil, Save as SaveIcon, Send as SendIcon } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import './millbill.css';
 import React from 'react';
 import { settings } from "@/settings";
 import Decimal from 'decimal.js';
 import karmaLogo from '@/assets/karma_trading_logo.png';
+import { toJpeg } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 
 // ─── Profile config shapes (matches backend ProfileConfigSchema) ──────────────
 interface ProfileBank { bank: string; account: string; ifsc: string }
@@ -208,10 +209,30 @@ function SavingOverlay() {
   );
 }
 
+function waitForImages(root: HTMLElement, timeoutMs = 4000): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll('img'));
+  if (imgs.length === 0) return Promise.resolve();
+
+  return Promise.all(
+    imgs.map((img) => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise<void>((res) => {
+        const done = () => res();
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', done, { once: true });
+        // safety net so a broken/slow image never blocks Send or Print forever
+        setTimeout(done, timeoutMs);
+      });
+    })
+  ).then(() => undefined);
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function MillBill() {
   // ── Central state — all bill fields as strings ───────────────────────────────
   const [s, setS] = useState<FormState>(INIT);
+  const [isSending, setIsSending] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   // ── Per-row crop state — all fields as strings ────────────────────────────────
   const [rows, setRows] = useState<RowState[]>([
@@ -385,32 +406,6 @@ export default function MillBill() {
     return errs;
   }
 
-  // ── Validate then print (kept as-is; still usable if wired up elsewhere) ─────
-  function handlePrint() {
-    const errs: string[] = [];
-    if (!s.partyName.trim()) errs.push('Party / Buyer name is required.');
-    if (!s.invoiceNo.trim()) errs.push('Invoice number is required.');
-    const filledRows = rows.filter(r => r.crop !== '');
-    if (filledRows.length === 0) errs.push('Select at least one crop row before printing.');
-    rows.forEach((row, idx) => {
-      if (!row.crop) return;
-      if (!row.qty || parseFloat(row.qty) <= 0)
-        errs.push(`Row ${idx + 1} (${row.crop}): Quantity is missing or zero.`);
-      if (!row.rate || parseFloat(row.rate) <= 0)
-        errs.push(`Row ${idx + 1} (${row.crop}): Rate is missing or zero.`);
-    });
-    if (errs.length > 0) { setErrors(errs); return; }
-
-    // Send plain JSON, all datatypes as string, built from central state
-    const payload = buildPayload();
-    fetch(`${settings.BE_URL}/save-mill-bill`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }).catch(console.error);
-
-    window.print();
-  }
 
   // ── Preview button: validate, then switch to the read-only preview view
   //    (same visual styling as print, but no window.print() call) ──────────────
@@ -449,17 +444,150 @@ export default function MillBill() {
     }
   }
 
-  // ── Print button (from saved view) ────────────────────────────────────────────
-  function handlePrintFinal() {
-    window.print();
-  }
+  const buildDesktopClone = (): Promise<{ iframe: HTMLIFrameElement; node: HTMLElement }> => {
+    return new Promise((resolve, reject) => {
+      const original = document.querySelector('.invoice-container') as HTMLElement;
+      if (!original) return reject(new Error('Invoice not found'));
 
-  // ── Send button (from saved view) — placeholder hook for whatever "send"
-  //    should do (email/WhatsApp/share); wire this up to the real action later ──
-  function handleSend() {
-    // TODO: wire up the actual send/share action
-    console.log('Send bill:', buildPayload());
-  }
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.top = '0';
+      iframe.style.left = '-99999px'; // off-screen, but still "rendered" so styles apply
+      iframe.style.width = '960px';   // > 640px so all sm: rules activate
+      iframe.style.height = '1400px';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+
+      iframe.onload = () => {
+        const doc = iframe.contentDocument!;
+
+        // Makes sure any relative asset paths resolve the same way they do
+        // on the live page instead of against a bare about:blank document.
+        const base = doc.createElement('base');
+        base.href = window.location.origin + '/';
+        doc.head.appendChild(base);
+
+        // pull in every stylesheet/style tag currently on the page (Tailwind included)
+        document.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => {
+          doc.head.appendChild(el.cloneNode(true));
+        });
+
+        const wrapper = doc.createElement('div');
+        wrapper.className = 'millbill';
+        wrapper.style.background = '#ffffff';
+        wrapper.style.padding = '32px';
+        wrapper.style.width = '896px';
+        wrapper.style.margin = '0 auto';
+        wrapper.appendChild(original.cloneNode(true));
+        doc.body.style.margin = '0';
+        doc.body.appendChild(wrapper);
+
+        const node = wrapper.querySelector('.invoice-container') as HTMLElement;
+        node.querySelectorAll('input[type="number"]').forEach(input => {
+          (input as HTMLInputElement).type = 'text';
+        });
+        waitForImages(node).then(() => {
+          resolve({ iframe, node });
+        });
+      };
+
+      iframe.src = 'about:blank';
+    });
+  };
+
+  const generateInvoicePdfBlob = async (): Promise<Blob> => {
+    const built = await buildDesktopClone();
+    const iframe = built.iframe;
+    try {
+      const element = built.node;
+
+      const dataUrl = await toJpeg(element, {
+        quality: 0.98,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+      });
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'a4' });
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 0.3;
+      const printWidth = pageWidth - margin * 2;
+      const printHeight = (imgProps.height * printWidth) / imgProps.width;
+      pdf.addImage(dataUrl, 'JPEG', margin, margin, printWidth, printHeight);
+
+      return pdf.output('blob');
+    } finally {
+      document.body.removeChild(iframe);
+    }
+  };
+
+  const handlePrint = async () => {
+    setIsPrinting(true);
+    let printFrame: HTMLIFrameElement | null = null;
+    let url: string | null = null;
+    try {
+      const blob = await generateInvoicePdfBlob();
+      url = URL.createObjectURL(blob);
+
+      printFrame = document.createElement('iframe');
+      printFrame.style.position = 'fixed';
+      printFrame.style.right = '0';
+      printFrame.style.bottom = '0';
+      printFrame.style.width = '0';
+      printFrame.style.height = '0';
+      printFrame.style.border = '0';
+      document.body.appendChild(printFrame);
+
+      await new Promise<void>((resolve) => {
+        printFrame!.onload = () => resolve();
+        printFrame!.src = url!;
+      });
+
+      printFrame.contentWindow?.focus();
+      printFrame.contentWindow?.print();
+    } catch (error) {
+      console.error('Error preparing invoice for print:', error);
+      alert('Something went wrong while preparing the invoice for printing.');
+    } finally {
+      setIsPrinting(false);
+      setTimeout(() => {
+        if (printFrame) document.body.removeChild(printFrame);
+        if (url) URL.revokeObjectURL(url);
+      }, 60000);
+    }
+  };
+
+  // ─── PDF Generation & Share Logic ──────────────────────────────────────────
+  const handleSend = async () => {
+    setIsSending(true);
+    try {
+      const pdfBlob = await generateInvoicePdfBlob();
+      const file = new File([pdfBlob], `Invoice_${s.invoiceNo}.pdf`, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Invoice ${s.invoiceNo}`,
+          text: `Hello ${s.partyName}, please find your invoice attached.`,
+        });
+      } else {
+        alert("Direct sharing is not supported on this browser. The PDF will download now so you can attach it manually.");
+        const url2 = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url2;
+        a.download = `Invoice_${s.invoiceNo}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url2);
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert("Something went wrong while preparing the file.");
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   // ── Decimal values derived from central-state strings, for display only ──────
   const totalTaxableDec = parseDecimal(s.final_taxable_amount);
@@ -481,13 +609,19 @@ export default function MillBill() {
       {/* ══════════════════════════════════════════
           INVOICE PAPER
       ══════════════════════════════════════════ */}
-      <div className={`millbill invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
+      <div className={`millbill  invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
 
         {/* ── HEADER ── */}
+        <img
+          src={karmaLogo}
+          alt=""
+          aria-hidden="true"
+          className="watermark-img"
+        />
         <div className="relative border-b border-gray-600 p-3 sm:p-5 pt-10 sm:pt-5">
           <div className="text-center">
             <div className="text-xl sm:text-3xl font-bold tracking-wide break-words">{s.sellerName}</div>
-            <div className="mt-1 text-xs sm:text-sm text-gray-600">{s.sellerAddress}</div>
+            <div className="mt-1 text-xs sm:text-sm ">{s.sellerAddress}</div>
             <div className="flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-8 mt-2 text-xs sm:text-sm">
               <span className="flex items-baseline gap-1">
                 <span className="font-semibold">PAN No.:</span>
@@ -834,7 +968,7 @@ export default function MillBill() {
         {viewMode === 'saved' && (
           <>
             <button
-              onClick={handlePrintFinal}
+              onClick={handlePrint}
               className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
                          text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
             >

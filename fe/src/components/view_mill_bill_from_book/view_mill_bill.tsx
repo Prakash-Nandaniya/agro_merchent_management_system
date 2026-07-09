@@ -4,6 +4,7 @@ import { Printer, Send as SendIcon, ArrowLeft, Loader2 } from 'lucide-react';
 import './view_mill_bill.css';
 import { toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import watermarkUrl from '@/assets/karma_trading_logo_color_bg_removed.png';
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 export interface BillCrop {
   id: number;
@@ -62,10 +63,29 @@ function formatDate(iso: string | undefined): string {
   return `${d}/${m}/${y}`;
 }
 
+function waitForImages(root: HTMLElement, timeoutMs = 4000): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll('img'));
+  if (imgs.length === 0) return Promise.resolve();
+
+  return Promise.all(
+    imgs.map((img) => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise<void>((res) => {
+        const done = () => res();
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', done, { once: true });
+        // safety net so a broken/slow image never blocks Send or Print forever
+        setTimeout(done, timeoutMs);
+      });
+    })
+  ).then(() => undefined);
+}
+
 export default function ViewMillBillFromBook() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isSending, setIsSending] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const bill = location.state?.bill as MillBill | undefined;
 
@@ -88,8 +108,6 @@ export default function ViewMillBillFromBook() {
     displayRows.push(null as any);
   }
 
-  const handlePrint = () => window.print();
-
   const buildDesktopClone = (): Promise<{ iframe: HTMLIFrameElement; node: HTMLElement }> => {
     return new Promise((resolve, reject) => {
       const original = document.querySelector('.invoice-container') as HTMLElement;
@@ -106,38 +124,38 @@ export default function ViewMillBillFromBook() {
 
       iframe.onload = () => {
         const doc = iframe.contentDocument!;
-        // pull in every stylesheet/style tag currently on the page (Tailwind included)
+        const base = doc.createElement('base');
+        base.href = window.location.origin + '/';
+        doc.head.appendChild(base);
         document.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => {
           doc.head.appendChild(el.cloneNode(true));
         });
 
         const wrapper = doc.createElement('div');
+        wrapper.className = 'view_mill_bill_from_book';
         wrapper.style.background = '#ffffff';
-        wrapper.style.padding = '32px';       
-        wrapper.style.width = '896px';        
+        wrapper.style.padding = '32px';
+        wrapper.style.width = '896px';
         wrapper.style.margin = '0 auto';
         wrapper.appendChild(original.cloneNode(true));
         doc.body.style.margin = '0';
         doc.body.appendChild(wrapper);
 
-        // give the iframe a tick to apply the newly attached stylesheets
-        setTimeout(() => {
-          const node = wrapper.querySelector('.invoice-container') as HTMLElement;
+        const node = wrapper.querySelector('.invoice-container') as HTMLElement;
+
+        waitForImages(node).then(() => {
           resolve({ iframe, node });
-        }, 150);
+        });
       };
 
       iframe.src = 'about:blank';
     });
   };
 
-  // ─── PDF Generation & Share Logic ──────────────────────────────────────────
-  const handleSend = async () => {
-    setIsSending(true);
-    let iframe: HTMLIFrameElement | null = null;
+  const generateInvoicePdfBlob = async (): Promise<Blob> => {
+    const built = await buildDesktopClone();
+    const iframe = built.iframe;
     try {
-      const built = await buildDesktopClone();
-      iframe = built.iframe;
       const element = built.node;
 
       const dataUrl = await toJpeg(element, {
@@ -154,7 +172,53 @@ export default function ViewMillBillFromBook() {
       const printHeight = (imgProps.height * printWidth) / imgProps.width;
       pdf.addImage(dataUrl, 'JPEG', margin, margin, printWidth, printHeight);
 
-      const pdfBlob = pdf.output('blob');
+      return pdf.output('blob');
+    } finally {
+      document.body.removeChild(iframe);
+    }
+  };
+
+  const handlePrint = async () => {
+    setIsPrinting(true);
+    let printFrame: HTMLIFrameElement | null = null;
+    let url: string | null = null;
+    try {
+      const blob = await generateInvoicePdfBlob();
+      url = URL.createObjectURL(blob);
+
+      printFrame = document.createElement('iframe');
+      printFrame.style.position = 'fixed';
+      printFrame.style.right = '0';
+      printFrame.style.bottom = '0';
+      printFrame.style.width = '0';
+      printFrame.style.height = '0';
+      printFrame.style.border = '0';
+      document.body.appendChild(printFrame);
+
+      await new Promise<void>((resolve) => {
+        printFrame!.onload = () => resolve();
+        printFrame!.src = url!;
+      });
+
+      printFrame.contentWindow?.focus();
+      printFrame.contentWindow?.print();
+    } catch (error) {
+      console.error('Error preparing invoice for print:', error);
+      alert('Something went wrong while preparing the invoice for printing.');
+    } finally {
+      setIsPrinting(false);
+      setTimeout(() => {
+        if (printFrame) document.body.removeChild(printFrame);
+        if (url) URL.revokeObjectURL(url);
+      }, 60000);
+    }
+  };
+
+  // ─── PDF Generation & Share Logic ──────────────────────────────────────────
+  const handleSend = async () => {
+    setIsSending(true);
+    try {
+      const pdfBlob = await generateInvoicePdfBlob();
       const file = new File([pdfBlob], `Invoice_${bill.invoice_no}.pdf`, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -165,20 +229,19 @@ export default function ViewMillBillFromBook() {
         });
       } else {
         alert("Direct sharing is not supported on this browser. The PDF will download now so you can attach it manually.");
-        const url = URL.createObjectURL(pdfBlob);
+        const url2 = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
-        a.href = url;
+        a.href = url2;
         a.download = `Invoice_${bill.invoice_no}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(url2);
       }
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert("Something went wrong while preparing the file.");
     } finally {
-      if (iframe) document.body.removeChild(iframe);
       setIsSending(false);
     }
   };
@@ -202,6 +265,13 @@ export default function ViewMillBillFromBook() {
           INVOICE PAPER
       ══════════════════════════════════════════ */}
       <div className="invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none">
+        <img
+          src={watermarkUrl}
+          alt=""
+          aria-hidden="true"
+          className="watermark-img"
+        />
+
         {/* ── HEADER ── */}
         <div className="relative border-b border-gray-600 p-3 sm:p-5 pt-10 sm:pt-5">
           <div className="text-center">
@@ -390,10 +460,12 @@ export default function ViewMillBillFromBook() {
       <div className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 print-hide px-2 sm:px-0">
         <button
           onClick={handlePrint}
-          className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
+          disabled={isPrinting}
+          className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 disabled:opacity-70 disabled:cursor-not-allowed text-white
                      text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
         >
-          <Printer size={16} /> Print
+          {isPrinting ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+          {isPrinting ? 'Preparing...' : 'Print'}
         </button>
         <button
           onClick={handleSend}

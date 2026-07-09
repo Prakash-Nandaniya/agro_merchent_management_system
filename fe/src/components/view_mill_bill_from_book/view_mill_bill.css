@@ -5,13 +5,36 @@
   /* ── Invoice paper container ────────────────────────────────────────────────*/
   .invoice-container {
     font-family: 'Arial', sans-serif;
-    /* border: 1px solid #4b5563;  */
+    position: relative;
+    isolation: isolate;
+  }
+
+  .watermark-img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 800px;
+    height: auto;
+    max-width: none;
+    opacity: 0.09;
+    pointer-events: none;
+    user-select: none;
+    z-index: -1;
   }
 
   /* ── Table helpers ──────────────────────────────────────────────────────────*/
-  .table-collapse   { border-collapse: collapse; }
-  .line-height-1-3  { line-height: 1.3; }
-  .row-height-44    { height: 44px; }
+  .table-collapse {
+    border-collapse: collapse;
+  }
+
+  .line-height-1-3 {
+    line-height: 1.3;
+  }
+
+  .row-height-44 {
+    height: 44px;
+  }
 
   /* ── Remove number input spin buttons ───────────────────────────────────────*/
   input[type='number']::-webkit-inner-spin-button,
@@ -19,10 +42,15 @@
     -webkit-appearance: none;
     margin: 0;
   }
-  input[type='number'] { -moz-appearance: textfield; }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
 
   /* ── Screen-hide: hidden on screen, shown on print ──────────────────────────*/
-  .screen-hide { display: none; }
+  .screen-hide {
+    display: none;
+  }
 
   /* ── Loading spinner ─────────────────────────────────────────────────────────*/
   .mb-spinner {
@@ -39,13 +67,20 @@
   ═════════════════════════════════════════════════════════════════════════ */
   &.preview-mode,
   .preview-mode {
-    .print-hide  { display: none !important; }
-    .screen-hide { display: inline !important; }
-    select { display: none !important; }
+    .print-hide {
+      display: none !important;
+    }
+
+    .screen-hide {
+      display: inline !important;
+    }
+
+    select {
+      display: none !important;
+    }
 
     input,
     textarea {
-      /* Fix #1: Use transparent border instead of 'none' so the layout doesn't jump 1px */
       border-color: transparent !important;
       outline: none !important;
       background: transparent !important;
@@ -53,27 +88,35 @@
       box-shadow: none !important;
     }
 
-    /* Fix #2: Hide placeholder text so empty fields look perfectly blank like real paper */
     input::placeholder,
     textarea::placeholder {
       color: transparent !important;
     }
 
-    /* Fix #3: Force the exact same spacing as Tailwind's print:my-1 class */
     .my-2 {
       margin-top: 0.25rem !important;
       margin-bottom: 0.25rem !important;
     }
 
-    input[type='date']::-webkit-calendar-picker-indicator { display: none !important; }
-    input[type='date'] { -webkit-appearance: none; appearance: none; }
-    textarea { resize: none !important; }
+    input[type='date']::-webkit-calendar-picker-indicator {
+      display: none !important;
+    }
+
+    input[type='date'] {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    textarea {
+      resize: none !important;
+    }
   }
 
   /* ═════════════════════════════════════════════════════════════════════════
      MOBILE — small polish for the horizontally-scrollable items table
   ═════════════════════════════════════════════════════════════════════════ */
   @media (max-width: 640px) {
+
     /* subtle scroll hint shadow on the right edge of the scrollable table wrapper */
     .table-collapse {
       -webkit-overflow-scrolling: touch;
@@ -84,6 +127,7 @@
      PRINT STYLES (scoped parts — see note below the file for html/@page)
   ═════════════════════════════════════════════════════════════════════════ */
   @media print {
+
     /* Force the wide desktop container to fit inside the A4 paper width */
     .max-w-4xl {
       max-width: 92% !important;
@@ -95,8 +139,13 @@
       box-shadow: none !important;
     }
 
-    .print-hide  { display: none !important; }
-    .screen-hide { display: inline !important; }
+    .print-hide {
+      display: none !important;
+    }
+
+    .screen-hide {
+      display: inline !important;
+    }
 
     input,
     textarea {
@@ -111,30 +160,45 @@
       color: transparent !important;
     }
 
-    select { display: none !important; }
-    input[type='date']::-webkit-calendar-picker-indicator { display: none !important; }
-    input[type='date'] { -webkit-appearance: none; appearance: none; }
-    textarea { resize: none !important; }
+    select {
+      display: none !important;
+    }
+
+    input[type='date']::-webkit-calendar-picker-indicator {
+      display: none !important;
+    }
+
+    input[type='date'] {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    textarea {
+      resize: none !important;
+    }
   }
 }
 
 /* ── Loading spinner keyframes (must stay global — @keyframes cannot be nested) ─*/
 @keyframes mb-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    NOT SCOPABLE — applies globally whenever this page prints, regardless of class
 ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
-  /* 🎛️ THE MASTER FONT SIZE DIAL 🎛️ */
-  /* Change this to 11px, 12px, or 13px to shrink/grow the text perfectly */
+
   html {
     font-size: 12px !important;
   }
 
-  /* Let the printer determine the page size naturally */
-  @page { margin: 5mm; size: auto; }
+  @page {
+    margin: 5mm;
+    size: A4 portrait;
+  }
 
   body {
     background-color: white !important;
