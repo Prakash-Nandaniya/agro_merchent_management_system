@@ -1,8 +1,9 @@
-import React from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Printer, Send as SendIcon, ArrowLeft } from 'lucide-react';
+import { Printer, Send as SendIcon, ArrowLeft, Loader2 } from 'lucide-react';
 import './view_mill_bill.css';
-
+import { toJpeg } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 export interface BillCrop {
   id: number;
@@ -64,6 +65,7 @@ function formatDate(iso: string | undefined): string {
 export default function ViewMillBillFromBook() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [isSending, setIsSending] = useState(false);
 
   const bill = location.state?.bill as MillBill | undefined;
 
@@ -87,7 +89,99 @@ export default function ViewMillBillFromBook() {
   }
 
   const handlePrint = () => window.print();
-  const handleSend = () => console.log('Sending bill:', bill.invoice_no);
+
+  const buildDesktopClone = (): Promise<{ iframe: HTMLIFrameElement; node: HTMLElement }> => {
+    return new Promise((resolve, reject) => {
+      const original = document.querySelector('.invoice-container') as HTMLElement;
+      if (!original) return reject(new Error('Invoice not found'));
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.top = '0';
+      iframe.style.left = '-99999px'; // off-screen, but still "rendered" so styles apply
+      iframe.style.width = '960px';   // > 640px so all sm: rules activate
+      iframe.style.height = '1400px';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+
+      iframe.onload = () => {
+        const doc = iframe.contentDocument!;
+        // pull in every stylesheet/style tag currently on the page (Tailwind included)
+        document.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => {
+          doc.head.appendChild(el.cloneNode(true));
+        });
+
+        const wrapper = doc.createElement('div');
+        wrapper.style.background = '#ffffff';
+        wrapper.style.padding = '32px';       
+        wrapper.style.width = '896px';        
+        wrapper.style.margin = '0 auto';
+        wrapper.appendChild(original.cloneNode(true));
+        doc.body.style.margin = '0';
+        doc.body.appendChild(wrapper);
+
+        // give the iframe a tick to apply the newly attached stylesheets
+        setTimeout(() => {
+          const node = wrapper.querySelector('.invoice-container') as HTMLElement;
+          resolve({ iframe, node });
+        }, 150);
+      };
+
+      iframe.src = 'about:blank';
+    });
+  };
+
+  // ─── PDF Generation & Share Logic ──────────────────────────────────────────
+  const handleSend = async () => {
+    setIsSending(true);
+    let iframe: HTMLIFrameElement | null = null;
+    try {
+      const built = await buildDesktopClone();
+      iframe = built.iframe;
+      const element = built.node;
+
+      const dataUrl = await toJpeg(element, {
+        quality: 0.98,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+      });
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'a4' });
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 0.3;
+      const printWidth = pageWidth - margin * 2;
+      const printHeight = (imgProps.height * printWidth) / imgProps.width;
+      pdf.addImage(dataUrl, 'JPEG', margin, margin, printWidth, printHeight);
+
+      const pdfBlob = pdf.output('blob');
+      const file = new File([pdfBlob], `Invoice_${bill.invoice_no}.pdf`, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Invoice ${bill.invoice_no}`,
+          text: `Hello ${bill.party_name}, please find your invoice attached.`,
+        });
+      } else {
+        alert("Direct sharing is not supported on this browser. The PDF will download now so you can attach it manually.");
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Invoice_${bill.invoice_no}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert("Something went wrong while preparing the file.");
+    } finally {
+      if (iframe) document.body.removeChild(iframe);
+      setIsSending(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
@@ -303,10 +397,12 @@ export default function ViewMillBillFromBook() {
         </button>
         <button
           onClick={handleSend}
-          className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white
+          disabled={isSending}
+          className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed text-white
                      text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
         >
-          <SendIcon size={16} /> Send
+          {isSending ? <Loader2 size={16} className="animate-spin" /> : <SendIcon size={16} />}
+          {isSending ? 'Preparing PDF...' : 'Send'}
         </button>
       </div>
     </div>

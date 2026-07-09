@@ -3,8 +3,10 @@
 /* ── Invoice paper container ──────────────────────────────────────────────────*/
 .invoice-container {
   font-family: 'Arial', sans-serif;
-  border: 1px solid #4b5563; /* matches border-gray-600 used elsewhere */
+  /* border: 1px solid #4b5563;  */
 }
+
+
 
 /* ── Table helpers ────────────────────────────────────────────────────────────*/
 .table-collapse   { border-collapse: collapse; }
