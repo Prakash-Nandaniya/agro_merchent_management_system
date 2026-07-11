@@ -37,12 +37,6 @@ class Crops(BaseModel):
         v = "0" if v in (None, "") else str(v)
         return Decimal(v).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
 
-    @field_validator("uqc")
-    @classmethod
-    def _validate_uqc(cls, v: str) -> str:
-        if len(v) < 1:
-            raise UQCIsMissing("UQC is required")
-        return v
 
     @property
     def is_blank(self) -> bool:
@@ -139,6 +133,9 @@ class MillBill(BaseModel):
                 raise InvalidCropRowError(crop=row.crop, field="qty", detail=f"qty must be > 0 for crop '{row.crop}'")
             if row.rate <= 0:
                 raise InvalidCropRowError(crop=row.crop, field="rate", detail=f"rate must be > 0 for crop '{row.crop}'")
+            if len(row.uqc)<1:
+                raise InvalidCropRowError(crop=row.crop, field="rate", detail=f"UQC is required for crop '{row.crop}'")
+
         object.__setattr__(self, "crops", real_rows)
         return self
 

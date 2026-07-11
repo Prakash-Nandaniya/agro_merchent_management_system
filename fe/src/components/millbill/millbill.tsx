@@ -406,6 +406,8 @@ export default function MillBill() {
         errs.push(`Row ${idx + 1} (${row.crop}): Quantity is missing or zero.`);
       if (!row.rate || parseFloat(row.rate) <= 0)
         errs.push(`Row ${idx + 1} (${row.crop}): Rate is missing or zero.`);
+      if (!row.uqc)                                                              
+        errs.push(`Row ${idx + 1} (${row.crop}): UQC is required.`);
     });
     return errs;
   }
@@ -663,6 +665,7 @@ export default function MillBill() {
                   value={s.partyName}
                   onChange={e => f('partyName')(e.target.value.toUpperCase())}
                   placeholder="PARTY / BUYER NAME"
+                  spellCheck={false}
                   className="bg-transparent outline-none border-b border-dashed border-gray-400
                              hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
                              text-gray-900 transition-colors font-bold text-sm sm:text-base w-full"
@@ -675,6 +678,7 @@ export default function MillBill() {
                   value={s.partyAddress}
                   onChange={e => f('partyAddress')(e.target.value.toUpperCase())}
                   placeholder="ADDRESS..."
+                  spellCheck={false}
                   className="bg-transparent outline-none border-b border-dashed border-gray-400
                              hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
                              text-gray-900 transition-colors w-full resize-none overflow-hidden
@@ -702,7 +706,6 @@ export default function MillBill() {
 
                 <span className="whitespace-nowrap font-semibold">Invoice No.</span>
                 <span>:</span>
-                <Field value={s.invoiceNo} onChange={f('invoiceNo')} bold className="text-xs sm:text-sm w-full" />
                 <Field value={s.invoiceNo} onChange={f('invoiceNo')} bold readOnly placeholder="Auto-generated on save" className="text-xs sm:text-sm w-full" />
                 <span className="whitespace-nowrap font-semibold">Invoice Date</span>
                 <span>:</span>

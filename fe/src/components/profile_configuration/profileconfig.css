@@ -349,7 +349,6 @@ input[type='number'] {
 /* ── Logout footer ─────────────────────────────────────────────────────────── */
 .pc-logout-footer {
   display: flex;
-  justify-content: flex-end;
   padding-top: 0.75rem;
   margin-top: 0.25rem;
   border-top: 1px solid #e5e7eb;

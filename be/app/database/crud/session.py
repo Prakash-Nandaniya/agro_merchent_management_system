@@ -1,7 +1,6 @@
 import uuid
 from sqlalchemy import select
-from sqlalchemy.orm import Session as ORMSession  # renamed to avoid clashing with your Session model
-
+from sqlalchemy.orm import Session as ORMSession  
 from app.database.models.session import Session
 from app.core.exceptions import NotAuthenticatedException
 

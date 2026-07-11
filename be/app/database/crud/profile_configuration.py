@@ -12,8 +12,7 @@ def update_configuration(db: Session, config_data: dict) -> ProfileConfigSchema 
     account = db.query(Account).first()
     if not account:
         return None
-
-    account.configuration = config_data
+    account.configuration = config_data.model_dump()
     db.commit()
     db.refresh(account)
     return account.configuration

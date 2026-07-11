@@ -5,6 +5,7 @@ import { settings } from '@/settings';
 import './login.css';
 
 export default function Login() {
+  const [fullName, setFullName] = useState('');
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,7 +22,11 @@ export default function Login() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ user_name: userName, password }),
+        body: JSON.stringify({
+          current_session_user_name: fullName,
+          user_name: userName,
+          password,
+        }),
       });
 
       if (!res.ok) {
@@ -44,6 +49,17 @@ export default function Login() {
         <p className="login-subtitle">Enter your credentials to continue</p>
 
         {error && <div className="login-error">{error}</div>}
+
+        <label className="login-label" htmlFor="full_name">Your Name</label>
+        <input
+          id="full_name"
+          className="login-input"
+          type="text"
+          value={fullName}
+          onChange={e => setFullName(e.target.value)}
+          autoComplete="name"
+          required
+        />
 
         <label className="login-label" htmlFor="user_name">Username</label>
         <input

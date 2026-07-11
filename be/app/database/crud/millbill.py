@@ -12,7 +12,6 @@ def save_mill_bill(db: Session, payload: MillBillSchema, created_by: str) -> Mil
     try:
         account = db.execute(
             select(Account)
-            .where(Account.user_name == created_by)  
             .with_for_update()
         ).scalar_one_or_none()
     except SQLAlchemyError as e:
