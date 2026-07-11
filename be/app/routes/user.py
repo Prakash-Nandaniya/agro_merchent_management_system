@@ -20,8 +20,6 @@ async def login_user(
 ):
     account = authenticate_account(db, payload.user_name, payload.password)
 
-    # session_user_name is the person's entered NAME, not the account username —
-    # this is what gets resolved later as `created_by` on bills.
     session = create_session(db, user_name=payload.current_session_user_name)
     token = create_access_token(session_id=session.id)
 
