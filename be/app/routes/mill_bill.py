@@ -1,17 +1,17 @@
-from fastapi import APIRouter, Depends,HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.schemas.mill_bill import MillBill, MillBillOut
 from app.database.crud.millbill import save_mill_bill, get_mill_bill
-from app.core.exceptions import translate_integrity_error
 from typing import List
+from fastapi import Request
 
 router = APIRouter()
 
-
 @router.post("/save-mill-bill")
-def create_bill(payload: MillBill, db: Session = Depends(get_db)):
-    bill = save_mill_bill(db, payload)
+def create_bill(request:Request,payload: MillBill,db: Session = Depends(get_db)):
+    current_user_name = request.state.current_user
+    bill = save_mill_bill(db, payload, created_by=current_user_name)
     return {"id": bill.id, "invoice_no": bill.invoice_no}
 
 

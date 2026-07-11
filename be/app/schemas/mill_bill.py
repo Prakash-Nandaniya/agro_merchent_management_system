@@ -1,7 +1,7 @@
 from datetime import date,datetime
 from decimal import Decimal,ROUND_HALF_UP
 from typing import List, Optional
-from app.core.exceptions import InvalidPANError,InvalidGSTINError,InvalidIFSCError,MissingCropRowsError,InvalidCropRowError,DeliveryThroughMissing
+from app.core.exceptions import InvalidPANError,InvalidGSTINError,InvalidIFSCError,MissingCropRowsError,InvalidCropRowError,DeliveryThroughMissing,UQCIsMissing
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, field_serializer
 import re
 
@@ -38,6 +38,18 @@ class Crops(BaseModel):
         v = "0" if v in (None, "") else str(v)
         # Quantize forces the number into exactly X.XX format
         return Decimal(v).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
+
+    # MOVED HERE from MillBill — "uqc" is a field on Crops, not on MillBill.
+    # A field_validator targeting a field name that doesn't exist on the
+    # class it's attached to raises PydanticUserError at import time, which
+    # was breaking this entire module. Also fixed `v.length` (not a real
+    # attribute on str) -> `len(v)`.
+    @field_validator("uqc")
+    @classmethod
+    def _validate_uqc(cls, v: str) -> str:
+        if len(v) < 1:
+            raise UQCIsMissing("UQC is required")
+        return v
 
     @property
     def is_blank(self) -> bool:
@@ -78,6 +90,11 @@ class MillBill(BaseModel):
     terms: str = Field("As per provided in the Quotation and Order Form.")
 
     crops: List[Crops] = Field(default_factory=list)
+
+    # NOTE: created_by is intentionally NOT a field here. It must come from
+    # the verified JWT server-side (see app/core/auth.py's
+    # get_current_account_id), never from client-supplied request body —
+    # otherwise anyone could set created_by to anything they want.
 
     @field_validator("docket_no", "transport_name", "party_city",
                       "seller_bank", "seller_account", "seller_ifsc", mode="before")
@@ -181,6 +198,7 @@ class MillBillOut(BaseModel):
  
     id: int
     created_at: datetime
+    created_by: str
     updated_at: datetime
     seller_name: str
     seller_address: str

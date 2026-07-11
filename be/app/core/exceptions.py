@@ -116,6 +116,12 @@ class DeliveryThroughMissing(BadRequestError):
 
     def __init__(self, detail: str = "Delivery through is required."):
         super().__init__(detail=detail)
+        
+class UQCIsMissing(BadRequestError):
+    """Raise when the 'uqc' field is missing or empty."""
+
+    def __init__(self, detail: str = "UQC is missing"):
+        super().__init__(detail=detail)
 
 
 # ═══════════════════════════ Helper: translate raw SQLAlchemy errors ═══════════════════════════
@@ -144,6 +150,20 @@ def translate_integrity_error(exc: IntegrityError) -> AppException:
 
     return DatabaseOperationError(detail=f"Database integrity error: {message}")
 
+# ═══════════════════════════ Auth Exceptions ═══════════════════════════
+class InvalidCredentialsException(AppException):
+    def __init__(self, message: str = "Invalid username or password"):
+        super().__init__(message, status_code=401)
+
+
+class NotAuthenticatedException(AppException):
+    def __init__(self, message: str = "User not authenticated"):
+        super().__init__(message, status_code=401)
+
+
+class UserNotFoundException(AppException):
+    def __init__(self, message: str = "User not found"):
+        super().__init__(message, status_code=404)
 
 # ═══════════════════════════ Exception Handlers ═══════════════════════════
 def add_exception_handlers(app: FastAPI):

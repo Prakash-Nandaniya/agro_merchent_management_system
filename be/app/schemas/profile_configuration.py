@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from typing import List, Dict
-from decimal import Decimal
 
 class SellerSchema(BaseModel):
     name: str
