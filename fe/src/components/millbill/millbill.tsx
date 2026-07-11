@@ -7,6 +7,7 @@ import Decimal from 'decimal.js';
 import karmaLogo from '@/assets/karma_trading_logo.png';
 import { toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import { apiFetch } from '@/utils/apifetch';
 
 // ─── Profile config shapes (matches backend ProfileConfigSchema) ──────────────
 interface ProfileBank { bank: string; account: string; ifsc: string }
@@ -259,7 +260,7 @@ export default function MillBill() {
 
   // ── Fetch profile config on mount ─────────────────────────────────────────────
   useEffect(() => {
-    fetch(`${settings.BE_URL}/profile-configuration`)
+    apiFetch(`${settings.BE_URL}/profile-configuration`)
       .then(r => r.json())
       .then((data: ProfileData & { detail?: string }) => {
         if (!data || data.detail) return;   // 404 — no profile saved yet, keep defaults
@@ -429,7 +430,7 @@ export default function MillBill() {
     setIsSaving(true);
     try {
       const payload = buildPayload();
-      const res = await fetch(`${settings.BE_URL}/save-mill-bill`, {
+      const res = await apiFetch(`${settings.BE_URL}/save-mill-bill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -438,7 +439,7 @@ export default function MillBill() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail ? String(body.detail) : 'Failed to save bill.');
       }
-      const savedBill = await res.json();               
+      const savedBill = await res.json();
       setS(prev => ({ ...prev, invoiceNo: savedBill.invoice_no }));
       setViewMode('saved');
     } catch (err) {

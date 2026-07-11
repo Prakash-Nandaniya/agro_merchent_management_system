@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.session import get_db
-from app.database.crud.profile_configuration import get_profile, update_profile
+from be.app.database.crud.profile_configuration import get_profile, update_profile
 from app.schemas.profile_configuration import ProfileConfigSchema
 
 router = APIRouter()

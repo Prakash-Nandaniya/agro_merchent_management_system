@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import './profileconfig.css'
 import { settings } from "@/settings"
+import { apiFetch } from '@/utils/apifetch';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 // NOTE: cgst/sgst are kept as `string` end-to-end (not converted to number)
@@ -32,7 +33,8 @@ export default function ProfileConfig() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+    const [loggingOut, setLoggingOut] = useState(false)
     // bank add / edit
     const [addingBank, setAddingBank] = useState(false)
     const [newBank, setNewBank] = useState<Bank>(EMPTY_BANK)
@@ -47,7 +49,7 @@ export default function ProfileConfig() {
 
     // ── Load config on mount ──────────────────────────────────────────────────────
     useEffect(() => {
-        fetch(`${settings.BE_URL}/profile-configuration`)
+        apiFetch(`${settings.BE_URL}/profile-configuration`)
             .then(r => {
                 if (!r.ok) return null   // 404 (or any error) → treat as "no profile yet"
                 return r.json()
@@ -152,7 +154,7 @@ export default function ProfileConfig() {
         setSaving(true)
         setSaveMsg(null)
         try {
-            const res = await fetch(`${settings.BE_URL}/profile-configuration`, {
+            const res = await apiFetch(`${settings.BE_URL}/profile-configuration`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(config)
@@ -163,6 +165,18 @@ export default function ProfileConfig() {
             setSaveMsg({ type: 'error', text: 'Failed to save. Please try again.' })
         } finally {
             setSaving(false)
+        }
+    }
+
+    // ── Logout ────────────────────────────────────────────────────────────────────
+    const handleLogout = async () => {
+        setLoggingOut(true)
+        try {
+            await apiFetch(`${settings.BE_URL}/logout`, { method: 'POST' })
+        } catch (err) {
+            console.error(err) // harmless — session may already be invalid
+        } finally {
+            window.location.href = '/login'
         }
     }
 
@@ -425,7 +439,40 @@ export default function ProfileConfig() {
                     }
                 </button>
             </div>
+            {/* ══ LOGOUT ═════════════════════════════════════════════════════════════ */}
+            <div className="pc-logout-footer">
+                <button className="pc-btn pc-btn--logout" onClick={() => setShowLogoutConfirm(true)}>
+                    Logout
+                </button>
+            </div>
 
+            {showLogoutConfirm && (
+                <div className="pc-modal-overlay">
+                    <div className="pc-modal">
+                        <h3 className="pc-modal-title">Log out?</h3>
+                        <p className="pc-modal-text">Are you sure you want to log out?</p>
+                        <div className="pc-modal-actions">
+                            <button
+                                className="pc-btn pc-btn--cancel"
+                                onClick={() => setShowLogoutConfirm(false)}
+                                disabled={loggingOut}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="pc-btn pc-btn--logout-confirm"
+                                onClick={handleLogout}
+                                disabled={loggingOut}
+                            >
+                                {loggingOut
+                                    ? <><span className="pc-spinner" /> Logging out...</>
+                                    : 'Yes, Logout'
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -6,6 +6,7 @@ import Home from './pages/home/home';
 import ProfileConfigurationPage from './pages/profileconfig_page/profileconfig_page';
 import MillBillBookPage from './pages/millbillBook/millbillbook';
 import ViewMillBillFromBookPage from './pages/view_mill_bill_from_book_page/millbillview';
+import Login from './pages/login/login'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/bill-book/farmer" element={<div>Farmer Bill Book Page</div>} />
         <Route path="/profile-configuration" element={<ProfileConfigurationPage />} />
         <Route path="/show-mill-bill-from-bill-book" element={<ViewMillBillFromBookPage />} />
+        <Route path="/login" element={<Login />} />
       </Routes>
     </BrowserRouter>
   );

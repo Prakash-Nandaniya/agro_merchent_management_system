@@ -4,6 +4,8 @@ import { create, all } from 'mathjs';
 import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from 'lucide-react';
 import './millbill_book.css';
 import { settings } from "@/settings";
+import { apiFetch } from '@/utils/apifetch';
+
 const math = create(all);
 math.config({ number: 'BigNumber', precision: 64 });
 
@@ -223,7 +225,7 @@ export default function MillBillBook() {
     setHasSearched(true);
 
     try {
-      const res = await fetch(`${settings.BE_URL}/get-mill-bill`, {
+      const res = await apiFetch(`${settings.BE_URL}/get-mill-bill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
