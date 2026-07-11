@@ -30,20 +30,13 @@ class Crops(BaseModel):
     sgst_amount: Decimal = Field(Decimal("0.00"), max_digits=12, decimal_places=2, alias="sgstAmt")
     final_amount: Decimal = Field(Decimal("0.00"), max_digits=12, decimal_places=2, alias="finalAmt")
 
-    # ── Forces empty strings to "0" and safely rounds ALL numbers to 2 decimal places ──
     @field_validator("qty", "rate", "taxable_value", "cgst_rate", "cgst_amount",
                       "sgst_rate", "sgst_amount", "final_amount", mode="before")
     @classmethod
     def _parse_and_round_decimal(cls, v):
         v = "0" if v in (None, "") else str(v)
-        # Quantize forces the number into exactly X.XX format
         return Decimal(v).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
 
-    # MOVED HERE from MillBill — "uqc" is a field on Crops, not on MillBill.
-    # A field_validator targeting a field name that doesn't exist on the
-    # class it's attached to raises PydanticUserError at import time, which
-    # was breaking this entire module. Also fixed `v.length` (not a real
-    # attribute on str) -> `len(v)`.
     @field_validator("uqc")
     @classmethod
     def _validate_uqc(cls, v: str) -> str:
@@ -67,7 +60,6 @@ class MillBill(BaseModel):
     seller_account: Optional[str] = Field(None, max_length=30, alias="sellerAccount")
     seller_ifsc: Optional[str] = Field(None, max_length=11, alias="sellerIFSC")
 
-    invoice_no: str = Field(..., min_length=1, max_length=50, alias="invoiceNo")
     invoice_date: date = Field(..., alias="invoiceDate")
 
     docket_no: Optional[str] = Field(None, max_length=50, alias="docketNo")
@@ -91,10 +83,6 @@ class MillBill(BaseModel):
 
     crops: List[Crops] = Field(default_factory=list)
 
-    # NOTE: created_by is intentionally NOT a field here. It must come from
-    # the verified JWT server-side (see app/core/auth.py's
-    # get_current_account_id), never from client-supplied request body —
-    # otherwise anyone could set created_by to anything they want.
 
     @field_validator("docket_no", "transport_name", "party_city",
                       "seller_bank", "seller_account", "seller_ifsc", mode="before")
@@ -102,7 +90,6 @@ class MillBill(BaseModel):
     def _optional_blank_to_none(cls, v):
         return _blank_to_none(v)
 
-    # ── Forces empty totals to "0" and safely rounds ALL numbers to 2 decimal places ──
     @field_validator("final_taxable_amount", "final_cgst_amount", "final_sgst_amount", "final_amount", mode="before")
     @classmethod
     def _parse_and_round_totals(cls, v):
@@ -177,8 +164,6 @@ class BillCropOut(BaseModel):
     sgst_amount: Decimal
     final_amount: Decimal
  
-    # Every Decimal goes out as a full-precision string — never rounded here,
-    # never allowed to collapse into a float. The frontend rounds to 2dp for display only.
     @field_serializer(
         "qty",
         "rate",

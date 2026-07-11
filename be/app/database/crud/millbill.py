@@ -1,38 +1,56 @@
 from typing import List
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError,SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
-from app.core.exceptions import translate_integrity_error, NotFoundError
+from app.core.exceptions import translate_integrity_error, NotFoundError, DatabaseOperationException
 from app.database.models.mill import MillBill, BillCrop
 from app.schemas.mill_bill import MillBill as MillBillSchema  # ← alias avoids colliding with the ORM MillBill above
+from sqlalchemy import select
+from app.database.models.account import Account  
 
 
 def save_mill_bill(db: Session, payload: MillBillSchema, created_by: str) -> MillBill:
-    """
-    created_by is deliberately a separate argument, not part of `payload`.
-    It comes from the verified JWT (see app/core/auth.py ->
-    get_current_account_id), set by the route — never trust a client to
-    supply their own created_by in the request body.
-    """
+    try:
+        account = db.execute(
+            select(Account)
+            .where(Account.user_name == created_by)  
+            .with_for_update()
+        ).scalar_one_or_none()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise DatabaseOperationException() from e
+
+    if account is None:
+        db.rollback()
+        raise NotFoundError(resource="Account")
+
+    new_invoice_no = int(account.last_millbill_invoiceNo)+1
     data = payload.to_orm_kwargs()
-    mill_bill = MillBill(**data["bill"], created_by=created_by)
+    mill_bill = MillBill(
+        **data["bill"],
+        created_by=created_by,
+        invoice_no=new_invoice_no,  
+    )
     mill_bill.crops = [BillCrop(**row) for row in data["crops"]]
+
+    account.last_millbill_invoiceNo = new_invoice_no
+
     db.add(mill_bill)
+    db.add(account)
+
     try:
         db.commit()
     except IntegrityError as e:
         db.rollback()
         raise translate_integrity_error(e)
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise DatabaseOperationException() from e
+
     db.refresh(mill_bill)
     return mill_bill
 
 
 def get_mill_bill(db: Session, filter: dict) -> List[MillBill]:
-    """
-    Returns MillBill rows (with crops eager-loaded) matching `filter`.
-    If filter is empty -> return everything.
-    Raises NotFoundError if nothing matches (router no longer needs
-    to check this).
-    """
     query = db.query(MillBill).options(joinedload(MillBill.crops))
     if filter:
         for field, value in filter.items():

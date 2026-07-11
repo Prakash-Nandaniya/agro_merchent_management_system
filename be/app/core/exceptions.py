@@ -65,6 +65,10 @@ class DatabaseOperationError(AppException):
 
     def __init__(self, detail: str = "A database error occurred while processing your request."):
         super().__init__(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
+        
+class DatabaseOperationException(AppException):
+    def __init__(self, message: str = "Database server error, please try again later"):
+        super().__init__(message, status_code=500)
 
 
 # ═══════════════════════════ Business / validation exceptions ═══════════════════════════

@@ -86,11 +86,13 @@ interface FieldProps {
   bold?: boolean;
   upper?: boolean;
   width?: string;
+  readOnly?: boolean;
 }
 
 function Field({
   value, onChange, placeholder = '', className = '',
   type = 'text', align = 'left', bold = false, upper = false, width = 'w-full',
+  readOnly = false,
 }: FieldProps) {
   return (
     <input
@@ -98,10 +100,11 @@ function Field({
       value={value}
       onChange={e => onChange(upper ? e.target.value.toUpperCase() : e.target.value)}
       placeholder={placeholder}
+      readOnly={readOnly}
       className={[
         'bg-transparent outline-none',
         'border-b border-dashed border-gray-400',
-        'hover:border-blue-400 focus:border-blue-600',
+        readOnly ? 'cursor-not-allowed text-gray-500' : 'hover:border-blue-400 focus:border-blue-600',
         'placeholder:text-gray-300 text-gray-900',
         'transition-colors duration-150',
         width,
@@ -378,8 +381,9 @@ export default function MillBill() {
 
   // ── Build plain JSON payload from central state — all values as strings ──────
   function buildPayload() {
+    const { invoiceNo, ...rest } = s;
     return {
-      ...s,
+      ...rest,
       crops: rows.map(row => ({ ...row })),
     };
   }
@@ -388,7 +392,6 @@ export default function MillBill() {
   function validateBill(): string[] {
     const errs: string[] = [];
     if (!s.partyName.trim()) errs.push('Party / Buyer name is required.');
-    if (!s.invoiceNo.trim()) errs.push('Invoice number is required.');
     if (!s.partyGSTIN.trim()) errs.push('Party / Buyer GSTIN is required.');
     if (!s.sellerGSTIN.trim()) errs.push('Seller GSTIN is required.');
     if (!s.sellerPAN.trim()) errs.push('Seller PAN is required.');
@@ -435,6 +438,8 @@ export default function MillBill() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail ? String(body.detail) : 'Failed to save bill.');
       }
+      const savedBill = await res.json();               
+      setS(prev => ({ ...prev, invoiceNo: savedBill.invoice_no }));
       setViewMode('saved');
     } catch (err) {
       console.error(err);
@@ -697,7 +702,7 @@ export default function MillBill() {
                 <span className="whitespace-nowrap font-semibold">Invoice No.</span>
                 <span>:</span>
                 <Field value={s.invoiceNo} onChange={f('invoiceNo')} bold className="text-xs sm:text-sm w-full" />
-
+                <Field value={s.invoiceNo} onChange={f('invoiceNo')} bold readOnly placeholder="Auto-generated on save" className="text-xs sm:text-sm w-full" />
                 <span className="whitespace-nowrap font-semibold">Invoice Date</span>
                 <span>:</span>
                 <div className="flex-1 w-full">
