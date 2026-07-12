@@ -9,7 +9,6 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
     ...init,
     credentials: 'include', 
   });
-  console.log("hello there")
   if (res.status === 401) {
     if (navigateRef) {
       navigateRef('/login');

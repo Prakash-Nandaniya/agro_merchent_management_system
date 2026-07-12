@@ -69,7 +69,16 @@ class DatabaseOperationError(AppException):
 class DatabaseOperationException(AppException):
     def __init__(self, message: str = "Database server error, please try again later"):
         super().__init__(message, status_code=500)
+        
+        
 
+# ═══════════════════════════ PDF Generation error ═══════════════════════════
+
+class PdfGenerationFailed(AppException):
+    """Raise when the pdf generation fails."""
+
+    def __init__(self, detail: str ):
+        super().__init__(status_code=500, detail=detail)
 
 # ═══════════════════════════ Business / validation exceptions ═══════════════════════════
 class MissingCropRowsError(BadRequestError):

@@ -36,6 +36,11 @@
     height: 44px;
   }
 
+  .row-height-44 td {
+    height: 44px;
+    box-sizing: border-box;
+  }
+
   /* ── Remove number input spin buttons ───────────────────────────────────────*/
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button {
@@ -62,9 +67,6 @@
     animation: mb-spin 0.7s linear infinite;
   }
 
-  /* ═════════════════════════════════════════════════════════════════════════
-     PREVIEW MODE (on-screen)
-  ═════════════════════════════════════════════════════════════════════════ */
   &.preview-mode,
   .preview-mode {
     .print-hide {
@@ -112,23 +114,13 @@
     }
   }
 
-  /* ═════════════════════════════════════════════════════════════════════════
-     MOBILE — small polish for the horizontally-scrollable items table
-  ═════════════════════════════════════════════════════════════════════════ */
   @media (max-width: 640px) {
-
-    /* subtle scroll hint shadow on the right edge of the scrollable table wrapper */
     .table-collapse {
       -webkit-overflow-scrolling: touch;
     }
   }
 
-  /* ═════════════════════════════════════════════════════════════════════════
-     PRINT STYLES (scoped parts — see note below the file for html/@page)
-  ═════════════════════════════════════════════════════════════════════════ */
   @media print {
-
-    /* Force the wide desktop container to fit inside the A4 paper width */
     .max-w-4xl {
       max-width: 92% !important;
       margin-left: auto !important;
@@ -179,16 +171,12 @@
   }
 }
 
-/* ── Loading spinner keyframes (must stay global — @keyframes cannot be nested) ─*/
 @keyframes mb-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   NOT SCOPABLE — applies globally whenever this page prints, regardless of class
-═══════════════════════════════════════════════════════════════════════════ */
 @media print {
 
   html {

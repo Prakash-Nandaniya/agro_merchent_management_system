@@ -1,26 +1,70 @@
-import { useState, useEffect } from 'react';
-import { Printer, X, Eye, Pencil, Save as SaveIcon, Send as SendIcon } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Printer, X, Eye, Pencil, Save as SaveIcon, Send as SendIcon, Loader2 } from 'lucide-react';
 import './millbill.css';
 import React from 'react';
 import { settings } from "@/settings";
 import Decimal from 'decimal.js';
 import karmaLogo from '@/assets/karma_trading_logo.png';
-import { toJpeg } from 'html-to-image';
-import { jsPDF } from 'jspdf';
 import { apiFetch } from '@/utils/apifetch';
 
 // ─── Profile config shapes (matches backend ProfileConfigSchema) ──────────────
 interface ProfileBank { bank: string; account: string; ifsc: string }
-interface ProfileCrop { hsn: string; cgst: string; sgst: string }
 interface ProfileData {
   seller: { name: string; address: string; pan: string; gstin: string };
   bank_accounts: ProfileBank[];
   crops: Record<string, ProfileCrop>;
   terms_and_conditions: string;
 }
+interface ProfileCrop { hsn: string; cgst: string; sgst: string }
 
 // ─── Crop option shape: array of dict, "crop" as key ───────────────────────────
 interface CropOption { crop: string; hsn: string; cgst: string; sgst: string }
+
+// ─── Shape returned by POST /save-mill-bill — same shape /generate-pdf expects.
+//     We just pass this straight back through rather than re-deriving it. ──────
+interface BillCrop {
+  id: number;
+  crop: string;
+  hsn_code: string;
+  qty: string;
+  uqc: string;
+  rate: string;
+  taxable_value: string;
+  cgst_rate: string;
+  sgst_rate: string;
+  cgst_amount: string;
+  sgst_amount: string;
+  final_amount: string;
+}
+
+interface SavedMillBill {
+  seller_name: string;
+  seller_address: string;
+  seller_pan: string;
+  seller_gstin: string;
+  invoice_no: string;
+  invoice_date: string;
+  docket_no?: string | null;
+  transport_name?: string | null;
+  delivery_through: string;
+  party_name: string;
+  party_address: string;
+  party_city?: string | null;
+  party_state: string;
+  party_gstin: string;
+  party_pan: string;
+  seller_bank?: string | null;
+  seller_account?: string | null;
+  seller_ifsc?: string | null;
+  final_taxable_amount: string;
+  final_cgst_amount: string;
+  final_sgst_amount: string;
+  final_amount: string;
+  final_amount_in_words: string;
+  terms: string;
+  crops: BillCrop[];
+  created_by: string;
+}
 
 // ─── Number → Indian words ─────────────────────────────────────────────────────
 const ONES = [
@@ -144,14 +188,13 @@ const INIT = {
   final_amount: '',
   final_amount_in_words: '',
   terms: '',
-  createdBy:'',
+  createdBy: '',
 };
 
 type FormState = typeof INIT;
 
-// UQC options 
+// UQC options
 const uqcOptions = ["KGS", "TONS", "MTN", "NOS",];
-
 
 // ─── Per-crop-row state — every field is a plain string ───────────────────────
 interface RowState {
@@ -214,24 +257,6 @@ function SavingOverlay() {
   );
 }
 
-function waitForImages(root: HTMLElement, timeoutMs = 4000): Promise<void> {
-  const imgs = Array.from(root.querySelectorAll('img'));
-  if (imgs.length === 0) return Promise.resolve();
-
-  return Promise.all(
-    imgs.map((img) => {
-      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-      return new Promise<void>((res) => {
-        const done = () => res();
-        img.addEventListener('load', done, { once: true });
-        img.addEventListener('error', done, { once: true });
-        // safety net so a broken/slow image never blocks Send or Print forever
-        setTimeout(done, timeoutMs);
-      });
-    })
-  ).then(() => undefined);
-}
-
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function MillBill() {
   // ── Central state — all bill fields as strings ───────────────────────────────
@@ -258,6 +283,10 @@ export default function MillBill() {
   const [cropOptions, setCropOptions] = useState<CropOption[]>([]);
   const [bankAccountOptions, setBankAccountOptions] = useState<ProfileBank[]>([]);
   const [selectedBankIndex, setSelectedBankIndex] = useState(0);
+
+  // ── Cache the backend-rendered PDF for this saved bill — Print and Send
+  //    reuse the same blob instead of hitting the backend twice ────────────────
+  const pdfBlobRef = useRef<Blob | null>(null);
 
   // ── Fetch profile config on mount ─────────────────────────────────────────────
   useEffect(() => {
@@ -381,12 +410,63 @@ export default function MillBill() {
     setRows(prev => prev.map((row, i) => i === index ? { ...row, uqc } : row));
   };
 
-  // ── Build plain JSON payload from central state — all values as strings ──────
+  // ── Build plain JSON payload for the /save-mill-bill endpoint ────────────────
   function buildPayload() {
     const { invoiceNo, ...rest } = s;
     return {
       ...rest,
       crops: rows.map(row => ({ ...row })),
+    };
+  }
+
+  // ── Build the exact payload the backend's MillBill/BillCrop Pydantic schema
+  //    expects for /generate-pdf. /save-mill-bill only returns {id, invoice_no},
+  //    not a full bill, so this is built from live form state instead — crop
+  //    "id" is synthetic (row index) since the template doesn't read it, it's
+  //    only there to satisfy BillCrop's required `id: int`. ────────────────────
+  function buildBillForPdf(): SavedMillBill {
+    return {
+      seller_name: s.sellerName,
+      seller_address: s.sellerAddress,
+      seller_pan: s.sellerPAN,
+      seller_gstin: s.sellerGSTIN,
+      invoice_no: s.invoiceNo,
+      invoice_date: s.invoiceDate,
+      docket_no: s.docketNo || null,
+      transport_name: s.transportName || null,
+      delivery_through: s.deliveryThrough,
+      party_name: s.partyName,
+      party_address: s.partyAddress,
+      party_city: s.partyCity || null,
+      party_state: s.partyState,
+      party_gstin: s.partyGSTIN,
+      party_pan: s.partyPAN,
+      seller_bank: s.sellerBank || null,
+      seller_account: s.sellerAccount || null,
+      seller_ifsc: s.sellerIFSC || null,
+      final_taxable_amount: s.final_taxable_amount,
+      final_cgst_amount: s.final_cgst_amount,
+      final_sgst_amount: s.final_sgst_amount,
+      final_amount: s.final_amount,
+      final_amount_in_words: s.final_amount_in_words,
+      terms: s.terms,
+      created_by: s.createdBy || '',
+      crops: rows
+        .filter(r => r.crop !== '')
+        .map((r, idx) => ({
+          id: idx + 1,
+          crop: r.crop,
+          hsn_code: r.hsnCode,
+          qty: r.qty,
+          uqc: r.uqc,
+          rate: r.rate,
+          taxable_value: r.taxableAmt,
+          cgst_rate: r.cgstRate,
+          sgst_rate: r.sgstRate,
+          cgst_amount: r.cgstAmt,
+          sgst_amount: r.sgstAmt,
+          final_amount: r.finalAmt,
+        })),
     };
   }
 
@@ -407,12 +487,11 @@ export default function MillBill() {
         errs.push(`Row ${idx + 1} (${row.crop}): Quantity is missing or zero.`);
       if (!row.rate || parseFloat(row.rate) <= 0)
         errs.push(`Row ${idx + 1} (${row.crop}): Rate is missing or zero.`);
-      if (!row.uqc)                                                              
+      if (!row.uqc)
         errs.push(`Row ${idx + 1} (${row.crop}): UQC is required.`);
     });
     return errs;
   }
-
 
   // ── Preview button: validate, then switch to the read-only preview view
   //    (same visual styling as print, but no window.print() call) ──────────────
@@ -442,8 +521,13 @@ export default function MillBill() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail ? String(body.detail) : 'Failed to save bill.');
       }
-      const savedBill = await res.json();
-      setS(prev => ({ ...prev, invoiceNo: savedBill.invoice_no,createdBy:savedBill.created_by }));
+      const savedBillResp = await res.json();
+      setS(prev => ({
+        ...prev,
+        invoiceNo: savedBillResp.invoice_no,
+        createdBy: savedBillResp.created_by ?? prev.createdBy,
+      }));
+      pdfBlobRef.current = null; // reset cache — invoice_no just changed
       setViewMode('saved');
     } catch (err) {
       console.error(err);
@@ -453,89 +537,37 @@ export default function MillBill() {
     }
   }
 
-  const buildDesktopClone = (): Promise<{ iframe: HTMLIFrameElement; node: HTMLElement }> => {
-    return new Promise((resolve, reject) => {
-      const original = document.querySelector('.invoice-container') as HTMLElement;
-      if (!original) return reject(new Error('Invoice not found'));
+  // ══════════════════════════════════════════════════════════════════════
+  // Calls the backend (Playwright + Jinja2) to render the invoice into a
+  // real PDF — the ONLY place a PDF is generated. Same endpoint and pattern
+  // as ViewMillBillFromBook's fetchInvoicePdf.
+  // ══════════════════════════════════════════════════════════════════════
+  async function fetchInvoicePdf(): Promise<Blob> {
+    if (pdfBlobRef.current) return pdfBlobRef.current;
 
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.top = '0';
-      iframe.style.left = '-99999px'; // off-screen, but still "rendered" so styles apply
-      iframe.style.width = '960px';   // > 640px so all sm: rules activate
-      iframe.style.height = '1400px';
-      iframe.style.border = '0';
-      document.body.appendChild(iframe);
-
-      iframe.onload = () => {
-        const doc = iframe.contentDocument!;
-
-        // Makes sure any relative asset paths resolve the same way they do
-        // on the live page instead of against a bare about:blank document.
-        const base = doc.createElement('base');
-        base.href = window.location.origin + '/';
-        doc.head.appendChild(base);
-
-        // pull in every stylesheet/style tag currently on the page (Tailwind included)
-        document.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => {
-          doc.head.appendChild(el.cloneNode(true));
-        });
-
-        const wrapper = doc.createElement('div');
-        wrapper.className = 'millbill';
-        wrapper.style.background = '#ffffff';
-        wrapper.style.padding = '32px';
-        wrapper.style.width = '896px';
-        wrapper.style.margin = '0 auto';
-        wrapper.appendChild(original.cloneNode(true));
-        doc.body.style.margin = '0';
-        doc.body.appendChild(wrapper);
-
-        const node = wrapper.querySelector('.invoice-container') as HTMLElement;
-        node.querySelectorAll('input[type="number"]').forEach(input => {
-          (input as HTMLInputElement).type = 'text';
-        });
-        waitForImages(node).then(() => {
-          resolve({ iframe, node });
-        });
-      };
-
-      iframe.src = 'about:blank';
+    const res = await apiFetch(`${settings.BE_URL}/generate-pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildBillForPdf()),
     });
-  };
 
-  const generateInvoicePdfBlob = async (): Promise<Blob> => {
-    const built = await buildDesktopClone();
-    const iframe = built.iframe;
-    try {
-      const element = built.node;
-
-      const dataUrl = await toJpeg(element, {
-        quality: 0.98,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-      });
-
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'a4' });
-      const imgProps = pdf.getImageProperties(dataUrl);
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const margin = 0.3;
-      const printWidth = pageWidth - margin * 2;
-      const printHeight = (imgProps.height * printWidth) / imgProps.width;
-      pdf.addImage(dataUrl, 'JPEG', margin, margin, printWidth, printHeight);
-
-      return pdf.output('blob');
-    } finally {
-      document.body.removeChild(iframe);
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
     }
-  };
 
+    const blob = await res.blob();
+    pdfBlobRef.current = blob;
+    return blob;
+  }
+
+  // ── Print: fetch the backend PDF, hand it to the browser's print dialog ──
   const handlePrint = async () => {
     setIsPrinting(true);
     let printFrame: HTMLIFrameElement | null = null;
     let url: string | null = null;
     try {
-      const blob = await generateInvoicePdfBlob();
+      const blob = await fetchInvoicePdf();
       url = URL.createObjectURL(blob);
 
       printFrame = document.createElement('iframe');
@@ -566,11 +598,11 @@ export default function MillBill() {
     }
   };
 
-  // ─── PDF Generation & Share Logic ──────────────────────────────────────────
+  // ── Send: fetch the backend PDF, share it as a file ──
   const handleSend = async () => {
     setIsSending(true);
     try {
-      const pdfBlob = await generateInvoicePdfBlob();
+      const pdfBlob = await fetchInvoicePdf();
       const file = new File([pdfBlob], `Invoice_${s.invoiceNo}.pdf`, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -603,7 +635,6 @@ export default function MillBill() {
   const totalCgstDec = parseDecimal(s.final_cgst_amount);
   const totalSgstDec = parseDecimal(s.final_sgst_amount);
   const totalFinalDec = parseDecimal(s.final_amount);
-
 
   // ── Render bill ───────────────────────────────────────────────────────────────
   return (
@@ -855,8 +886,7 @@ export default function MillBill() {
 
                 {/* Totals row */}
                 <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-xs">
-                  <td colSpan={5} className="border-r border-gray-400 p-2 text-center">Final Amount</td>
-                  <td className="border-r border-gray-400 p-2 text-right"></td>
+                  <td colSpan={6} className="border-r border-gray-400 p-2 text-center">Final Amount</td>
                   <td className="border-r border-gray-400 p-2 text-right">{fmt(totalTaxableDec)}</td>
                   <td className="border-r border-gray-400" />
                   <td className="border-r border-gray-400 p-2 text-right">{fmt(totalCgstDec)}</td>
@@ -979,19 +1009,21 @@ export default function MillBill() {
           <>
             <button
               onClick={handlePrint}
-              className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
-                         text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
+              disabled={isPrinting}
+              className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 disabled:opacity-70
+                         disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
             >
-              <Printer size={16} />
-              Print
+              {isPrinting ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+              {isPrinting ? 'Preparing...' : 'Print'}
             </button>
             <button
               onClick={handleSend}
-              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white
-                         text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
+              disabled={isSending}
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-70
+                         disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
             >
-              <SendIcon size={16} />
-              Send
+              {isSending ? <Loader2 size={16} className="animate-spin" /> : <SendIcon size={16} />}
+              {isSending ? 'Preparing PDF...' : 'Send'}
             </button>
           </>
         )}

@@ -191,7 +191,7 @@ export default function MillBillBook() {
   const [requestError, setRequestError] = useState<string>('');
 
   function updateFilter(key: keyof Filters, rawValue: string) {
-    const upperKeys: Array<keyof Filters> = ['party_gstin', 'party_pan'];
+    const upperKeys: Array<keyof Filters> = ['party_gstin', 'party_pan','created_by'];
     const value = upperKeys.includes(key) ? rawValue.toUpperCase() : rawValue;
     setFilters((prev) => ({ ...prev, [key]: value }));
 

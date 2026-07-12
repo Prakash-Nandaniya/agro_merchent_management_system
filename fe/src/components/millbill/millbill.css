@@ -135,7 +135,10 @@
   }
 
   /* ═════════════════════════════════════════════════════════════════════════
-     PRINT STYLES (scoped parts — see note below the file for html/@page)
+     PRINT STYLES (scoped parts) — only relevant now while still in 'edit' or
+     'preview' mode (Ctrl+P on the live page). The 'saved' view's Print button
+     no longer triggers window.print() on this page directly — it prints the
+     backend-rendered PDF blob inside its own iframe instead.
   ═════════════════════════════════════════════════════════════════════════ */
   @media print {
     .max-w-4xl {
@@ -206,7 +209,7 @@
 
   @page {
     margin: 5mm;
-    size: auto;
+    size: A4 portrait;
   }
 
   body {

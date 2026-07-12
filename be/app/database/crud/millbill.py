@@ -26,7 +26,7 @@ def save_mill_bill(db: Session, payload: MillBillSchema, created_by: str) -> Mil
     data = payload.to_orm_kwargs()
     mill_bill = MillBill(
         **data["bill"],
-        created_by=created_by,
+        created_by=created_by.upper(),
         invoice_no=new_invoice_no,  
     )
     mill_bill.crops = [BillCrop(**row) for row in data["crops"]]
