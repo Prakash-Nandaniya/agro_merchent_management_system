@@ -284,8 +284,6 @@ export default function MillBill() {
   const [bankAccountOptions, setBankAccountOptions] = useState<ProfileBank[]>([]);
   const [selectedBankIndex, setSelectedBankIndex] = useState(0);
 
-  // ── Cache the backend-rendered PDF for this saved bill — Print and Send
-  //    reuse the same blob instead of hitting the backend twice ────────────────
   const pdfBlobRef = useRef<Blob | null>(null);
 
   // ── Fetch profile config on mount ─────────────────────────────────────────────
@@ -351,7 +349,6 @@ export default function MillBill() {
         finalAmt: finalAmt.toString(),
       };
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowInputsKey]);
 
   // ── Totals: sum row strings via Decimal, store back into central state as strings ──
@@ -419,11 +416,6 @@ export default function MillBill() {
     };
   }
 
-  // ── Build the exact payload the backend's MillBill/BillCrop Pydantic schema
-  //    expects for /generate-pdf. /save-mill-bill only returns {id, invoice_no},
-  //    not a full bill, so this is built from live form state instead — crop
-  //    "id" is synthetic (row index) since the template doesn't read it, it's
-  //    only there to satisfy BillCrop's required `id: int`. ────────────────────
   function buildBillForPdf(): SavedMillBill {
     return {
       seller_name: s.sellerName,
@@ -494,7 +486,6 @@ export default function MillBill() {
   }
 
   // ── Preview button: validate, then switch to the read-only preview view
-  //    (same visual styling as print, but no window.print() call) ──────────────
   function handlePreview() {
     const errs = validateBill();
     if (errs.length > 0) { setErrors(errs); return; }
@@ -537,11 +528,6 @@ export default function MillBill() {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // Calls the backend (Playwright + Jinja2) to render the invoice into a
-  // real PDF — the ONLY place a PDF is generated. Same endpoint and pattern
-  // as ViewMillBillFromBook's fetchInvoicePdf.
-  // ══════════════════════════════════════════════════════════════════════
   async function fetchInvoicePdf(): Promise<Blob> {
     if (pdfBlobRef.current) return pdfBlobRef.current;
 
@@ -967,10 +953,7 @@ export default function MillBill() {
 
       </div>
 
-      {/* ══════════════════════════════════════════
-          BOTTOM ACTION BAR — horizontally centred,
-          buttons change depending on viewMode
-      ══════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════════ BOTTOM ACTION BAR — horizontally centred, ══════════════════════════════════════════ */}
       <div className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 print-hide px-2 sm:px-0">
         {viewMode === 'edit' && (
           <button

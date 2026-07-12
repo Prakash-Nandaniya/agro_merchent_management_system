@@ -65,13 +65,6 @@ function formatDate(iso: string | undefined): string {
   return `${d}/${m}/${y}`;
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// InvoiceDocument — the responsive on-screen preview. This is ALL the user
-// sees while browsing. It is not touched, rasterized, or captured by
-// anything — Print/Send hit the backend separately and get back a real PDF
-// generated there (Playwright + Jinja2). This component is purely for
-// on-screen display.
-// ══════════════════════════════════════════════════════════════════════════
 function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: any[] }) {
   return (
     <div className="invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none">
@@ -279,8 +272,7 @@ export default function ViewMillBillFromBook() {
 
   const bill = location.state?.bill as MillBill | undefined;
 
-  // Cache the backend PDF once fetched — Print and Send reuse the same
-  // blob rather than hitting the backend twice for one viewing session.
+  
   const pdfBlobRef = useRef<Blob | null>(null);
 
   if (!bill) {
@@ -302,11 +294,6 @@ export default function ViewMillBillFromBook() {
     displayRows.push(null as any);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // Calls the backend (Playwright + Jinja2) to render the invoice into a
-  // real PDF. This is the ONLY place a PDF is generated — nothing on the
-  // frontend rasterizes or draws anything.
-  // ══════════════════════════════════════════════════════════════════════
   async function fetchInvoicePdf(): Promise<Blob> {
     if (pdfBlobRef.current) return pdfBlobRef.current;
 
