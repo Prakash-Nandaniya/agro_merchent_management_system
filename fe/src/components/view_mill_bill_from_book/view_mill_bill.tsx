@@ -342,7 +342,7 @@ export default function ViewMillBillFromBook() {
       printFrame.contentWindow?.print();
     } catch (error) {
       console.error('Error preparing invoice for print:', error);
-      alert('Something went wrong while preparing the invoice for printing.');
+      alert(error instanceof Error ? error.message : 'Something went wrong while preparing the invoice for printing.');
     } finally {
       setIsPrinting(false);
       setTimeout(() => {
@@ -379,7 +379,7 @@ export default function ViewMillBillFromBook() {
       }
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert("Something went wrong while preparing the file.");
+      alert(error instanceof Error ? error.message : "Something went wrong while preparing the file.");
     } finally {
       setIsSending(false);
     }
@@ -407,7 +407,7 @@ export default function ViewMillBillFromBook() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading PDF:', error);
-      alert("Something went wrong while downloading the file.");
+      alert(error instanceof Error ? error.message : "Something went wrong while downloading the file.");
     } finally {
       setIsDownloading(false);
     }

@@ -571,7 +571,7 @@ export default function MillBill() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading PDF:', error);
-      alert("Something went wrong while downloading the file.");
+      alert(error instanceof Error ? error.message : "Something went wrong while downloading the file.");
     } finally {
       setIsDownloading(false);
     }
@@ -604,7 +604,7 @@ export default function MillBill() {
       printFrame.contentWindow?.print();
     } catch (error) {
       console.error('Error preparing invoice for print:', error);
-      alert('Something went wrong while preparing the invoice for printing.');
+      alert(error instanceof Error ? error.message : 'Something went wrong while preparing the invoice for printing.');
     } finally {
       setIsPrinting(false);
       setTimeout(() => {
@@ -641,7 +641,7 @@ export default function MillBill() {
       }
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert("Something went wrong while preparing the file.");
+      alert(error instanceof Error ? error.message : "Something went wrong while preparing the file.");
     } finally {
       setIsSending(false);
     }
