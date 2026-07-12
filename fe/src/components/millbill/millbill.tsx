@@ -144,6 +144,7 @@ const INIT = {
   final_amount: '',
   final_amount_in_words: '',
   terms: '',
+  createdBy:'',
 };
 
 type FormState = typeof INIT;
@@ -442,7 +443,7 @@ export default function MillBill() {
         throw new Error(body?.detail ? String(body.detail) : 'Failed to save bill.');
       }
       const savedBill = await res.json();
-      setS(prev => ({ ...prev, invoiceNo: savedBill.invoice_no }));
+      setS(prev => ({ ...prev, invoiceNo: savedBill.invoice_no,createdBy:savedBill.created_by }));
       setViewMode('saved');
     } catch (err) {
       console.error(err);
@@ -794,7 +795,7 @@ export default function MillBill() {
                                      border-gray-400 hover:border-blue-400 focus:border-blue-600
                                      text-xs transition-colors text-gray-900 print-hide"
                         >
-                          <option value="">— Select Crop —</option>
+                          <option value="">—Select—</option>
                           {cropOptions.map(c => (
                             <option key={c.crop} value={c.crop}>{c.crop}</option>
                           ))}
@@ -818,7 +819,7 @@ export default function MillBill() {
                                      border-gray-400 hover:border-blue-400 focus:border-blue-600
                                      text-xs transition-colors text-gray-900 print-hide text-center"
                         >
-                          <option value="">— Select UQC —</option>
+                          <option value="">—Select—</option>
                           {uqcOptions.map((uqc, i) => (
                             <option key={i} value={uqc}>{uqc}</option>
                           ))}

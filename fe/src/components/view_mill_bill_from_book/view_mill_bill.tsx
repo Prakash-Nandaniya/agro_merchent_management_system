@@ -47,6 +47,7 @@ export interface MillBill {
   final_amount_in_words: string;
   terms: string;
   crops: BillCrop[];
+  created_by: string;
 }
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
@@ -457,6 +458,10 @@ export default function ViewMillBillFromBook() {
       {/* ══════════════════════════════════════════
           BOTTOM ACTION BAR
       ══════════════════════════════════════════ */}
+      <div className="max-w-4xl mx-auto mt-6 flex flex-row items-center justify-center gap-1.5 sm:gap-4 print-hide px-2 sm:px-0 flex-wrap">
+        <span className="whitespace-nowrap font-semibold text-xs sm:text-sm">Bill created by:</span>
+        <div className="text-xs sm:text-sm uppercase break-words">{bill.created_by || ''}</div>
+      </div>
       <div className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 print-hide px-2 sm:px-0">
         <button
           onClick={handlePrint}

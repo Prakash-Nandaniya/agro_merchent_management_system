@@ -54,6 +54,7 @@ export interface MillBill {
   final_amount_in_words: string;
   terms: string;
   crops: BillCrop[];
+  created_by: string;
 }
 
 interface Filters {
@@ -64,6 +65,7 @@ interface Filters {
   party_city: string;
   invoice_date_from: string;
   invoice_date_to: string;
+  created_by: string;
 }
 
 const EMPTY_FILTERS: Filters = {
@@ -74,6 +76,7 @@ const EMPTY_FILTERS: Filters = {
   party_city: '',
   invoice_date_from: '',
   invoice_date_to: '',
+  created_by: '',
 };
 
 type FieldErrorKey =
@@ -286,6 +289,7 @@ export default function MillBillBook() {
     { key: 'party_gstin', label: 'Party GSTIN', type: 'text', placeholder: '24ABCDE1234F1Z5', mono: true },
     { key: 'party_pan', label: 'Party PAN', type: 'text', placeholder: 'ABCDE1234F', mono: true },
     { key: 'party_city', label: 'Party city', type: 'text', placeholder: 'Contains...' },
+    { key: 'created_by', label: 'Created By', type: 'text', placeholder: 'Contains...' },
   ];
 
   useEffect(() => {
