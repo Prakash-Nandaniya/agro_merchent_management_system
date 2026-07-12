@@ -27,7 +27,7 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 85%;
+      width: 95%;
       opacity: 0.08;
       z-index: 0;
       pointer-events: none;
@@ -111,7 +111,7 @@
     .field-grid {
       display: grid;
       grid-template-columns: 100px 10px 1fr;
-      row-gap: 3px;
+      row-gap: 2px;
       align-items: baseline;
     }
 
@@ -131,6 +131,10 @@
       font-weight: bold;
       font-size: 14px;
       text-transform: uppercase;
+    }
+    
+    .abc{
+      margin-top: 2px;
     }
 
     .divider {
@@ -308,9 +312,9 @@
             <span class="label">M/s.</span><span></span>
             <span class="party-name">{{ bill.party_name }}</span>
             <span></span><span></span>
-            <span class="value" style="text-transform:uppercase; white-space:pre-wrap; line-height:1.5; margin-top:-3px;">{{ bill.party_address }}</span>
+            <span class="value" style="text-transform:uppercase; white-space:pre-wrap; line-height:1; margin-top:-3px;">{{ bill.party_address }}</span>
 
-            <span class="label">City</span><span>:</span>
+            <span class="abc label">City</span><span>:</span>
             <span class="value">{{ bill.party_city or '-' }}</span>
 
             <span class="label">State</span><span>:</span>

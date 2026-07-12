@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Printer, X, Eye, Pencil, Save as SaveIcon, Send as SendIcon, Loader2 } from 'lucide-react';
+import { Printer, X, Eye, Pencil, Save as SaveIcon, Send as SendIcon, Loader2, Download } from 'lucide-react';
 import './millbill.css';
 import React from 'react';
 import { settings } from "@/settings";
@@ -263,6 +263,7 @@ export default function MillBill() {
   const [s, setS] = useState<FormState>(INIT);
   const [isSending, setIsSending] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // ── Per-row crop state — all fields as strings ────────────────────────────────
   const [rows, setRows] = useState<RowState[]>([
@@ -401,6 +402,12 @@ export default function MillBill() {
       setSelectedBankIndex(idx);
       setS(prev => ({ ...prev, sellerBank: b.bank, sellerAccount: b.account, sellerIFSC: b.ifsc }));
     }
+  };
+
+  // Helper to generate the clean file name
+  const getDynamicFileName = () => {
+    const safePartyName = s.partyName.trim().replace(/\s+/g, '_');
+    return `${safePartyName}_${s.invoiceNo}.pdf`;
   };
 
   const handleuqcChange = (index: number, uqc: string) => {
@@ -547,6 +554,29 @@ export default function MillBill() {
     return blob;
   }
 
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const pdfBlob = await fetchInvoicePdf();
+      const fileName = getDynamicFileName();
+
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName; // Forces the browser to download with this name
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert("Something went wrong while downloading the file.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   // ── Print: fetch the backend PDF, hand it to the browser's print dialog ──
   const handlePrint = async () => {
     setIsPrinting(true);
@@ -589,7 +619,8 @@ export default function MillBill() {
     setIsSending(true);
     try {
       const pdfBlob = await fetchInvoicePdf();
-      const file = new File([pdfBlob], `Invoice_${s.invoiceNo}.pdf`, { type: 'application/pdf' });
+      const safePartyName = s.partyName.trim().replace(/\s+/g, '_');
+      const file = new File([pdfBlob], `${safePartyName}_${s.invoiceNo}.pdf`, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
@@ -602,7 +633,7 @@ export default function MillBill() {
         const url2 = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url2;
-        a.download = `Invoice_${s.invoiceNo}.pdf`;
+        a.download = `${safePartyName}_${s.invoiceNo}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1007,6 +1038,15 @@ export default function MillBill() {
             >
               {isSending ? <Loader2 size={16} className="animate-spin" /> : <SendIcon size={16} />}
               {isSending ? 'Preparing PDF...' : 'Send'}
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={isPrinting || isDownloading || isSending}
+              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-70
+                         disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
+            >
+              {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {isDownloading ? 'Downloading...' : 'Download'}
             </button>
           </>
         )}

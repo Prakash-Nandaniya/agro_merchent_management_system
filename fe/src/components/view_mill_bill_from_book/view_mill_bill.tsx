@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Printer, Send as SendIcon, ArrowLeft, Loader2 } from 'lucide-react';
+import { Printer, Send as SendIcon, ArrowLeft, Loader2, Download } from 'lucide-react';
 import './view_mill_bill.css';
 import watermarkUrl from '@/assets/karma_trading_logo_color_bg_removed.png';
 import { settings } from '@/settings';
@@ -266,13 +266,15 @@ function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: a
 
 export default function ViewMillBillFromBook() {
   const location = useLocation();
+
   const navigate = useNavigate();
+
   const [isSending, setIsSending] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const bill = location.state?.bill as MillBill | undefined;
 
-  
   const pdfBlobRef = useRef<Blob | null>(null);
 
   if (!bill) {
@@ -355,7 +357,8 @@ export default function ViewMillBillFromBook() {
     setIsSending(true);
     try {
       const pdfBlob = await fetchInvoicePdf();
-      const file = new File([pdfBlob], `Invoice_${bill.invoice_no}.pdf`, { type: 'application/pdf' });
+      const safePartyName = bill.party_name.trim().replace(/\s+/g, '_');
+      const file = new File([pdfBlob], `${safePartyName}_${bill.invoice_no}.pdf`, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
@@ -368,7 +371,7 @@ export default function ViewMillBillFromBook() {
         const url2 = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url2;
-        a.download = `Invoice_${bill.invoice_no}.pdf`;
+        a.download = `${safePartyName}_${bill.invoice_no}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -379,6 +382,34 @@ export default function ViewMillBillFromBook() {
       alert("Something went wrong while preparing the file.");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const getDynamicFileName = () => {
+    const safePartyName = bill.party_name.trim().replace(/\s+/g, '_');
+    return `${safePartyName}_${bill.invoice_no}.pdf`;
+  };
+
+  // ── Download: fetch the backend PDF and trigger a direct download ──
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const pdfBlob = await fetchInvoicePdf();
+      const fileName = getDynamicFileName();
+
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName; // Forces the browser to download with this name
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert("Something went wrong while downloading the file.");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -425,6 +456,15 @@ export default function ViewMillBillFromBook() {
         >
           {isSending ? <Loader2 size={16} className="animate-spin" /> : <SendIcon size={16} />}
           {isSending ? 'Preparing PDF...' : 'Send'}
+        </button>
+        <button
+          onClick={handleDownload}
+          disabled={isPrinting || isDownloading || isSending}
+          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-70 disabled:cursor-not-allowed text-white
+                     text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
+        >
+          {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+          {isDownloading ? 'Downloading...' : 'Download'}
         </button>
       </div>
     </div>
