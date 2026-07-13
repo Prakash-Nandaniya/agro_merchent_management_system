@@ -324,7 +324,7 @@ export default function ProfileConfig() {
             {/* ══ CROPS ══════════════════════════════════════════════════════════════ */}
             <section className="pc-card">
                 <div className="pc-card-header">
-                    <h2 className="pc-card-title" style={{ margin: 0 }}>Crop Catalog</h2>
+                    <h2 className="pc-card-title" style={{ margin: 0 }}>Crops</h2>
                     {!addingCrop && (
                         <button className="pc-btn pc-btn--add" onClick={() => setAddingCrop(true)}>
                             + Add Crop
