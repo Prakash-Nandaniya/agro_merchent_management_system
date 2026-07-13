@@ -20,8 +20,6 @@ interface ProfileCrop { hsn: string; cgst: string; sgst: string }
 // ─── Crop option shape: array of dict, "crop" as key ───────────────────────────
 interface CropOption { crop: string; hsn: string; cgst: string; sgst: string }
 
-// ─── Shape returned by POST /save-mill-bill — same shape /generate-pdf expects.
-//     We just pass this straight back through rather than re-deriving it. ──────
 interface BillCrop {
   id: number;
   crop: string;
@@ -538,7 +536,7 @@ export default function MillBill() {
   async function fetchInvoicePdf(): Promise<Blob> {
     if (pdfBlobRef.current) return pdfBlobRef.current;
 
-    const res = await apiFetch(`${settings.BE_URL}/generate-pdf`, {
+    const res = await apiFetch(`${settings.BE_URL}/generate-mill-bill-pdf`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(buildBillForPdf()),

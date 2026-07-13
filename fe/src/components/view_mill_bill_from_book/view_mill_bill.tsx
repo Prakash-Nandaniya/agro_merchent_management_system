@@ -299,7 +299,7 @@ export default function ViewMillBillFromBook() {
   async function fetchInvoicePdf(): Promise<Blob> {
     if (pdfBlobRef.current) return pdfBlobRef.current;
 
-    const res = await apiFetch(`${settings.BE_URL}/generate-pdf`, {
+    const res = await apiFetch(`${settings.BE_URL}/generate-mill-bill-pdf`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bill),

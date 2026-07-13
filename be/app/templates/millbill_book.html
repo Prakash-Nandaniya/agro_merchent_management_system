@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #111;
+    }
+
+    .invoice-page {
+      position: relative;
+      width: 690px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    /* One PDF page per bill — skipped on the very last bill so there's
+       no trailing blank page at the end of the book. */
+    .invoice-page.page-break {
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 95%;
+      opacity: 0.08;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .header {
+      text-align: center;
+      border-bottom: 1px solid #4b5563;
+      padding: 20px;
+      position: relative;
+    }
+
+    .seller-name {
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+
+    .seller-address {
+      font-size: 12px;
+      margin-top: 6px;
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+
+    .seller-ids {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+
+    .seller-ids b {
+      font-weight: 600;
+    }
+
+    .original-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      border: 1px solid #374151;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .title-bar {
+      text-align: center;
+      background: #e5e7eb;
+      border: 1px solid #4b5563;
+      border-top: none;
+      padding: 6px;
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .details-row {
+      display: grid;
+      grid-template-columns: 55% 45%;
+      border: 1px solid #4b5563;
+      border-top: none;
+    }
+
+    .details-col {
+      padding: 14px 16px;
+      font-size: 13px;
+    }
+
+    .details-col.left {
+      border-right: 1px solid #4b5563;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 100px 10px 1fr;
+      row-gap: 1px;
+      align-items: baseline;
+    }
+
+    .field-grid .label {
+      font-weight: 600;
+      white-space: nowrap;
+      line-height: 1.5;
+    }
+
+    .field-grid .value {
+      text-transform: uppercase;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+
+    .party-name {
+      font-weight: bold;
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+
+    .abc {
+      margin-top: 4px;
+    }
+
+    .divider {
+      grid-column: 1 / -1;
+      border-bottom: 1px solid #9ca3af;
+      margin: 8px -16px;
+    }
+
+    table.items {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      border: 1px solid #4b5563;
+      border-top: none;
+    }
+
+    table.items th {
+      background: #d1d5db;
+      border-bottom: 1px solid #4b5563;
+      border-right: 1px solid #9ca3af;
+      padding: 6px 4px;
+      font-weight: 600;
+      white-space: pre-line;
+      line-height: 1.3;
+    }
+
+    table.items th:last-child {
+      border-right: none;
+    }
+
+    table.items td {
+      border-right: 1px solid #9ca3af;
+      border-bottom: 1px solid #d1d5db;
+      padding: 6px 4px;
+      height: 42px;
+      vertical-align: middle;
+      line-height: 1.35;
+    }
+
+    table.items td:last-child {
+      border-right: none;
+    }
+
+    .crop-cell {
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .crop-cell .crop-common-name {
+      display: block;
+      font-weight: 400;
+      font-size: 10px;
+      color: #374151;
+    }
+
+    .ta-c {
+      text-align: center;
+    }
+
+    .ta-r {
+      text-align: right;
+    }
+
+    .totals-row td {
+      background: #e5e7eb;
+      font-weight: bold;
+      border-top: 2px solid #4b5563;
+    }
+
+    .footer-block {
+      border: 1px solid #4b5563;
+      border-top: none;
+      font-size: 13px;
+    }
+
+    .words-row {
+      border-bottom: 1px solid #4b5563;
+      padding: 10px 12px;
+      border-top: 2px solid #4b5563;
+    }
+
+    .words-row .label {
+      font-weight: 600;
+    }
+
+    .words-row .value {
+      font-style: italic;
+      margin-left: 8px;
+    }
+
+    .bank-row {
+      padding: 10px 12px;
+    }
+
+    .bank-grid {
+      display: grid;
+      grid-template-columns: 90px 10px 1fr;
+      row-gap: 3px;
+      align-items: baseline;
+      width: 50%;
+    }
+
+    .bank-grid .label {
+      font-weight: 600;
+      white-space: nowrap;
+      line-height: 1.3;
+    }
+
+    .bank-grid .value {
+      text-transform: uppercase;
+      line-height: 1.5;
+    }
+
+    .terms-signatory {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 14px;
+      min-height: 110px;
+    }
+
+    .terms h4 {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .terms p {
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .signatory {
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .signatory .for-name {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .signatory .auth-label {
+      margin-top: 40px;
+      color: #111827;
+    }
+  </style>
+</head>
+
+<body>
+  {% for item in bills %}
+  <div class="invoice-page{{ ' page-break' if not loop.last else '' }}">
+    {% if item.watermark_data_uri %}
+    <img class="watermark" src="{{ item.watermark_data_uri }}" alt="" />
+    {% endif %}
+
+    <div class="content">
+      <div class="header">
+        <div class="seller-name">{{ item.bill.seller_name }}</div>
+        <div class="seller-address">{{ item.bill.seller_address }}</div>
+        <div class="seller-ids">
+          <span><b>PAN No.:</b> {{ item.bill.seller_pan|upper }}</span>
+          <span><b>GSTIN No.:</b> {{ item.bill.seller_gstin|upper }}</span>
+        </div>
+        <div class="original-badge">ORIGINAL</div>
+      </div>
+
+      <div class="title-bar">TAX INVOICE</div>
+
+      <div class="details-row">
+        <div class="details-col left">
+          <div class="field-grid">
+            <span class="label">M/s.</span><span></span>
+            <span class="party-name">{{ item.bill.party_name }}</span>
+            <span></span><span></span>
+            <span class="value" style="text-transform:uppercase; white-space:pre-wrap; line-height:1; margin-top:-3px;">{{ item.bill.party_address }}</span>
+
+            <span class="abc label">City</span><span>:</span>
+            <span class="value">{{ item.bill.party_city or '-' }}</span>
+
+            <span class="label">State</span><span>:</span>
+            <span class="value">{{ item.bill.party_state }}</span>
+
+            <span class="label">Party GSTIN</span><span>:</span>
+            <span class="value">{{ item.bill.party_gstin }}</span>
+
+            <span class="label">Party PAN</span><span>:</span>
+            <span class="value">{{ item.bill.party_pan }}</span>
+          </div>
+        </div>
+
+        <div class="details-col">
+          <div class="field-grid" style="grid-template-columns: 135px 10px 1fr;">
+            <span class="label">Invoice No.</span><span>:</span>
+            <span class="value" style="font-weight:bold;">{{ item.bill.invoice_no }}</span>
+
+            <span class="label">Invoice Date</span><span>:</span>
+            <span class="value">{{ item.invoice_date }}</span>
+
+            <div class="divider"></div>
+
+            <span class="label">Docket No.</span><span>:</span>
+            <span class="value">{{ item.bill.docket_no or '' }}</span>
+
+            <span class="label">Transport Name</span><span>:</span>
+            <span class="value">{{ item.bill.transport_name or '' }}</span>
+
+            <span class="label">Vehicle No.</span><span>:</span>
+            <span class="value">{{ item.bill.delivery_through }}</span>
+          </div>
+        </div>
+      </div>
+
+      <table class="items">
+        <thead>
+          <tr>
+            <th class="ta-c">Sr.<br />No.</th>
+            <th class="ta-c">Crop</th>
+            <th class="ta-c">HSN /<br />SAC</th>
+            <th class="ta-c">Qty.</th>
+            <th class="ta-c">UQC</th>
+            <th class="ta-c">Rate</th>
+            <th class="ta-r">Taxable<br />Amt.</th>
+            <th class="ta-c">CGST<br />%</th>
+            <th class="ta-r">CGST<br />Amt.</th>
+            <th class="ta-c">SGST<br />%</th>
+            <th class="ta-r">SGST<br />Amt.</th>
+            <th class="ta-r">FINAL<br />AMT</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in item.rows %}
+          <tr>
+            <td class="ta-c">{{ loop.index }}</td>
+            {% if row %}
+            <td class="crop-cell">
+              {{ row.crop_line1 }}
+              {% if row.crop_line2 %}<span class="crop-common-name">{{ row.crop_line2 }}</span>{% endif %}
+            </td>
+            <td class="ta-c">{{ row.hsn_code }}</td>
+            <td class="ta-r">{{ row.qty }}</td>
+            <td class="ta-c">{{ row.uqc }}</td>
+            <td class="ta-r">{{ row.rate }}</td>
+            <td class="ta-r" style="font-weight:500;">{{ row.taxable_value }}</td>
+            <td class="ta-c">{{ row.cgst_rate }}</td>
+            <td class="ta-r">{{ row.cgst_amount }}</td>
+            <td class="ta-c">{{ row.sgst_rate }}</td>
+            <td class="ta-r">{{ row.sgst_amount }}</td>
+            <td class="ta-r" style="font-weight:600;">{{ row.final_amount }}</td>
+            {% else %}
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+          <tr class="totals-row">
+            <td colspan="6" class="ta-c">Final Amount</td>
+            <td class="ta-r">{{ item.final_taxable_amount }}</td>
+            <td></td>
+            <td class="ta-r">{{ item.final_cgst_amount }}</td>
+            <td></td>
+            <td class="ta-r">{{ item.final_sgst_amount }}</td>
+            <td class="ta-r">{{ item.final_amount }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="footer-block">
+        <div class="words-row">
+          <span class="label">Amt in Word:</span>
+          <span class="value">{{ item.bill.final_amount_in_words }}</span>
+        </div>
+        <div class="bank-row">
+          <div class="bank-grid">
+            <span class="label">Bank</span><span>:</span>
+            <span class="value">{{ item.bill.seller_bank or '-' }}</span>
+
+            <span class="label">Account No.</span><span>:</span>
+            <span class="value">{{ item.bill.seller_account or '-' }}</span>
+
+            <span class="label">IFSC</span><span>:</span>
+            <span class="value">{{ item.bill.seller_ifsc or '-' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="terms-signatory">
+        <div class="terms">
+          <h4>Terms &amp; Condition</h4>
+          <p>{{ item.bill.terms }}</p>
+        </div>
+        <div class="signatory">
+          <div class="for-name">For, {{ item.bill.seller_name }}</div>
+          <div class="auth-label">Authorised Signatory</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</body>
+
+</html>

@@ -1,14 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { create, all } from 'mathjs';
-import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, AlertTriangle, FileSpreadsheet, Download } from 'lucide-react';
 import './millbill_book.css';
 import { settings } from "@/settings";
 import { apiFetch } from '@/utils/apifetch';
 
 const math = create(all);
 math.config({ number: 'BigNumber', precision: 64 });
-
 
 export interface BillCrop {
   id: number;
@@ -189,9 +189,11 @@ export default function MillBillBook() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [requestError, setRequestError] = useState<string>('');
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isDownloadingBook, setIsDownloadingBook] = useState<boolean>(false);
 
   function updateFilter(key: keyof Filters, rawValue: string) {
-    const upperKeys: Array<keyof Filters> = ['party_gstin', 'party_pan','created_by'];
+    const upperKeys: Array<keyof Filters> = ['party_gstin', 'party_pan', 'created_by'];
     const value = upperKeys.includes(key) ? rawValue.toUpperCase() : rawValue;
     setFilters((prev) => ({ ...prev, [key]: value }));
 
@@ -262,6 +264,127 @@ export default function MillBillBook() {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       goToBill(bill);
+    }
+  }
+
+  // ── Excel export: one row per bill, every bill field as its own column,
+  //    then Crop 1, Crop 2, ... Crop N trailing columns, where N is the
+  //    highest crop count found across all bills in the current result set ──
+  function handleDownloadExcel() {
+    if (!bills || bills.length === 0) return;
+
+    setIsExporting(true);
+    try {
+      const maxCrops = bills.reduce(
+        (max, bill) => Math.max(max, bill.crops?.length || 0),
+        0
+      );
+
+      const rows = bills.map((bill) => {
+        const row: Record<string, string> = {
+          'Invoice No.': bill.invoice_no,
+          'Invoice Date': formatDateDMY(bill.invoice_date),
+          'Seller Name': bill.seller_name,
+          'Seller Address': bill.seller_address,
+          'Seller PAN': bill.seller_pan,
+          'Seller GSTIN': bill.seller_gstin,
+          'Party Name': bill.party_name,
+          'Party Address': bill.party_address,
+          'Party City': bill.party_city || '',
+          'Party State': bill.party_state,
+          'Party GSTIN': bill.party_gstin,
+          'Party PAN': bill.party_pan,
+          'Docket No.': bill.docket_no || '',
+          'Transport Name': bill.transport_name || '',
+          'Vehicle No.': bill.delivery_through,
+          'Seller Bank': bill.seller_bank || '',
+          'Seller Account': bill.seller_account || '',
+          'Seller IFSC': bill.seller_ifsc || '',
+          'Taxable Amount': toIndianAmount(bill.final_taxable_amount),
+          'CGST Amount': toIndianAmount(bill.final_cgst_amount),
+          'SGST Amount': toIndianAmount(bill.final_sgst_amount),
+          'Final Amount': toIndianAmount(bill.final_amount),
+          'Amount In Words': bill.final_amount_in_words,
+        };
+
+        // Full per-crop breakdown, trailing — Crop 1 Name, Crop 1 HSN, Crop 1
+        // Qty, ... Crop 2 Name, Crop 2 HSN, ... up through the highest crop
+        // count found across all bills in the current result set.
+        for (let i = 0; i < maxCrops; i++) {
+          const crop = bill.crops?.[i];
+          const n = i + 1;
+          row[`Crop ${n} Name`] = crop?.crop || '';
+          row[`Crop ${n} HSN`] = crop?.hsn_code || '';
+          row[`Crop ${n} Qty`] = crop?.qty || '';
+          row[`Crop ${n} UQC`] = crop?.uqc || '';
+          row[`Crop ${n} Rate`] = crop?.rate || '';
+          row[`Crop ${n} Taxable Amt`] = crop ? toIndianAmount(crop.taxable_value) : '';
+          row[`Crop ${n} CGST %`] = crop?.cgst_rate || '';
+          row[`Crop ${n} CGST Amt`] = crop ? toIndianAmount(crop.cgst_amount) : '';
+          row[`Crop ${n} SGST %`] = crop?.sgst_rate || '';
+          row[`Crop ${n} SGST Amt`] = crop ? toIndianAmount(crop.sgst_amount) : '';
+          row[`Crop ${n} Final Amt`] = crop ? toIndianAmount(crop.final_amount) : '';
+        }
+
+        return row;
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Mill Bills');
+
+      const fileName = `mill_bills_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+    } catch (err) {
+      console.error('Error exporting bills to Excel:', err);
+      alert('Something went wrong while generating the Excel file.');
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  // Converts an ISO date string (yyyy-mm-dd) to dd/mm/yyyy for display
+  function formatDateDMY(isoDate: string | undefined | null): string {
+    if (!isoDate) return '';
+    const [y, m, d] = isoDate.split('-');
+    if (!y || !m || !d) return isoDate; // fallback if format is unexpected
+    return `${d}/${m}/${y}`;
+  }
+
+  // ── PDF export of the whole book: sends the currently filtered/sorted
+  //    bills list to the backend and downloads the returned PDF as one file ──
+  async function handleDownloadBook() {
+    if (!bills || bills.length === 0) return;
+
+    setIsDownloadingBook(true);
+    try {
+      const res = await apiFetch(`${settings.BE_URL}/generate-mill-bill-book-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bills),
+      });
+
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
+      }
+
+      const blob = await res.blob();
+      const fileName = `mill_bill_book_${new Date().toISOString().split('T')[0]}.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading bill book PDF:', err);
+      alert(err instanceof Error ? err.message : 'Something went wrong while downloading the book PDF.');
+    } finally {
+      setIsDownloadingBook(false);
     }
   }
 
@@ -420,7 +543,7 @@ export default function MillBillBook() {
                     aria-label={`View bill ${bill.invoice_no}`}
                   >
                     <td className="mbr-mono" data-label="Invoice no.">{bill.invoice_no}</td>
-                    <td className="mbr-mono" data-label="Date">{bill.invoice_date}</td>
+                    <td className="mbr-mono" data-label="Date">{formatDateDMY(bill.invoice_date)}</td>
                     <td data-label="Party">{bill.party_name}</td>
                     <td className="mbr-num mbr-mono" data-label="Crops">{bill.crops?.map((crop) => crop.crop).join(', ')}</td>
                     <td className="mbr-num mbr-mono mbr-strong" data-label="Total">{toIndianAmount(bill.final_amount)}</td>
@@ -487,6 +610,28 @@ export default function MillBillBook() {
               </div>
             </div>
           )}
+
+          <div className="mbr-export-bar">
+            <button
+              className="mbr-btn-export mbr-btn-export--excel"
+              onClick={handleDownloadExcel}
+              disabled={isExporting}
+              type="button"
+            >
+              {isExporting ? <Loader2 size={14} className="mbr-spin" /> : <FileSpreadsheet size={14} />}
+              {isExporting ? 'Preparing...' : 'Download Excel'}
+            </button>
+
+            <button
+              className="mbr-btn-export mbr-btn-export--book"
+              onClick={handleDownloadBook}
+              disabled={isDownloadingBook}
+              type="button"
+            >
+              {isDownloadingBook ? <Loader2 size={14} className="mbr-spin" /> : <Download size={14} />}
+              {isDownloadingBook ? 'Preparing...' : 'Download Book'}
+            </button>
+          </div>
         </>
       )}
     </div>
