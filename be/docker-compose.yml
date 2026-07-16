@@ -1,0 +1,11 @@
+services:
+  api:
+    image: prakashnandaniya/karmatrading:v2
+    container_name: local-karmatrading-BE
+    ports:
+      - "8000:80"
+    env_file:
+      - .env
+    volumes:
+      - .:/KarmaTrading_BE
+    command: uvicorn app.main:app --host 0.0.0.0 --port 80 --reload

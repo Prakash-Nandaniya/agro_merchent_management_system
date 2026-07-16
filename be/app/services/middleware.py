@@ -20,7 +20,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return JSONResponse(status_code=401, content={"detail": "User not authenticated"})
 
         try:
-            payload = decode_access_token(token)  # signature + expiry check only, no DB
+            payload = decode_access_token(token)  
         except AppException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
         except Exception:

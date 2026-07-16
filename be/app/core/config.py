@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     SECRET_KEY:str
     MAX_SESSION_AGE_IN_SECONDS:int
     ALGORITHM: str 
+    FE_URL:str
 
 
 settings = Settings()
