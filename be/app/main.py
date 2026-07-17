@@ -14,7 +14,7 @@ app.add_middleware(AuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,                        
-    allow_origins=[settings.FE_URL],
+    allow_origins=[str(settings.FE_URL)],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
