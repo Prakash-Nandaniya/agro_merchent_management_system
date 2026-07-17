@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+body {
+  overscroll-behavior-y: contain;
+}
+
 .millbill {
   &.invoice-container,
   .invoice-container {

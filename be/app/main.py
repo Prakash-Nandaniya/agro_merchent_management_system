@@ -12,9 +12,11 @@ add_exception_handlers(app)
 
 app.add_middleware(AuthMiddleware)        
 
+lst_of_origins=settings.FE_URL.split(",")
+
 app.add_middleware(
     CORSMiddleware,                        
-    allow_origins=[str(settings.FE_URL)],
+    allow_origins=lst_of_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

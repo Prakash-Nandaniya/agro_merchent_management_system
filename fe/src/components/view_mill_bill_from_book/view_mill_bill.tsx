@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState,useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Printer, Send as SendIcon, ArrowLeft, Loader2, Download } from 'lucide-react';
 import './view_mill_bill.css';
@@ -412,6 +412,22 @@ export default function ViewMillBillFromBook() {
       setIsDownloading(false);
     }
   };
+
+  useEffect(() => {
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    const originalContent = viewportMeta?.getAttribute('content') ?? 'width=device-width, initial-scale=1.0';
+
+    if (viewportMeta) {
+      viewportMeta.setAttribute('content', 'width=925, user-scalable=yes');
+    }
+
+    // Restore normal mobile viewport when leaving this page
+    return () => {
+      if (viewportMeta) {
+        viewportMeta.setAttribute('content', originalContent);
+      }
+    };
+  }, []);
 
   return (
     <div className="view_mill_bill_from_book min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">

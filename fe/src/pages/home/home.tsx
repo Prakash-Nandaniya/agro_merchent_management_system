@@ -2,27 +2,41 @@ import BillButton from "@/components/bill_button/billbutton";
 import BillBookButton from "@/components/view_bill_book_button/billbookbutton";
 import Navbar from "@/components/navbar/navbar";
 import './home.css';
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch } from '@/utils/apifetch';
 import { settings } from "@/settings"
+
 export default function Home() {
+    const [isChecking, setIsChecking] = useState(true);
+    const [isAuthorized, setIsAuthorized] = useState(false);
+
     useEffect(() => {
         const checkHealth = async () => {
             try {
                 const res = await apiFetch(`${settings.BE_URL}/health`);
                 if (res.ok) {
                     console.log('Health check passed');
-                    // const data = await res.json(); // if your endpoint returns JSON
+                    setIsAuthorized(true);
                 }
             } catch (error) {
-                // apiFetch automatically handles the 401/403 redirects, 
-                // so you only need to catch network or other thrown errors here.
                 console.error('Health check failed:', error);
+            } finally {
+                setIsChecking(false);
             }
         };
 
         checkHealth();
     }, []);
+
+    if (isChecking) {
+        return (
+            <div></div>
+        );
+    }
+
+    if (!isAuthorized) {
+        return (<div>UnAutherized</div>);
+    }
 
     return (
         <div className="min-h-screen bg-gray-300 print:bg-white">
@@ -38,5 +52,5 @@ export default function Home() {
                 </div>
             </div>
         </div>
-    )
+    );
 }
