@@ -1,4 +1,3 @@
-/* src/pages/login.css */
 .login-page {
   min-height: 100vh;
   display: flex;
@@ -68,6 +67,36 @@
 .login-input:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* ── Password field with eye-icon toggle ────────────────────────────────────*/
+.login-password-wrap {
+  position: relative;
+}
+
+.login-password-input {
+  padding-right: 2.5rem;
+}
+
+.login-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.625rem;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.login-password-toggle:hover {
+  color: #374151;
 }
 
 .login-button {

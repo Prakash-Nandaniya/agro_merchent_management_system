@@ -1,6 +1,6 @@
-// src/pages/Login.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { settings } from '@/settings';
 import './login.css';
 
@@ -8,6 +8,7 @@ export default function Login() {
   const [fullName, setFullName] = useState('');
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -73,15 +74,26 @@ export default function Login() {
         />
 
         <label className="login-label" htmlFor="password">Password</label>
-        <input
-          id="password"
-          className="login-input"
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          autoComplete="current-password"
-          required
-        />
+        <div className="login-password-wrap">
+          <input
+            id="password"
+            className="login-input login-password-input"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+          <button
+            type="button"
+            className="login-password-toggle"
+            onClick={() => setShowPassword(prev => !prev)}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            tabIndex={-1}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
 
         <button className="login-button" type="submit" disabled={loading}>
           {loading ? 'Signing in...' : 'Sign in'}

@@ -35,7 +35,7 @@ export default function Home() {
     }
 
     if (!isAuthorized) {
-        return (<div>UnAutherized</div>);
+        return (<div></div>);
     }
 
     return (

@@ -1,4 +1,4 @@
-import { useRef, useState,useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Printer, Send as SendIcon, ArrowLeft, Loader2, Download } from 'lucide-react';
 import './view_mill_bill.css';
@@ -273,6 +273,10 @@ export default function ViewMillBillFromBook() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
+  // ── Full-page overlay shown only while the PDF is actually being generated
+  //    (i.e. not yet cached). Independent of the per-button labels above. ──
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
   const bill = location.state?.bill as MillBill | undefined;
 
   const pdfBlobRef = useRef<Blob | null>(null);
@@ -296,23 +300,31 @@ export default function ViewMillBillFromBook() {
     displayRows.push(null as any);
   }
 
+  // Returns the cached blob instantly if present (no overlay shown).
+  // Otherwise shows the full-page "Generating PDF..." overlay for the
+  // duration of the actual network fetch, then hides it once done.
   async function fetchInvoicePdf(): Promise<Blob> {
     if (pdfBlobRef.current) return pdfBlobRef.current;
 
-    const res = await apiFetch(`${settings.BE_URL}/generate-mill-bill-pdf`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bill),
-    });
+    setIsGeneratingPdf(true);
+    try {
+      const res = await apiFetch(`${settings.BE_URL}/generate-mill-bill-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bill),
+      });
 
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
+      }
+
+      const blob = await res.blob();
+      pdfBlobRef.current = blob;
+      return blob;
+    } finally {
+      setIsGeneratingPdf(false);
     }
-
-    const blob = await res.blob();
-    pdfBlobRef.current = blob;
-    return blob;
   }
 
   // ── Print: fetch the backend PDF, hand it to the browser's print dialog ──
@@ -431,6 +443,14 @@ export default function ViewMillBillFromBook() {
 
   return (
     <div className="view_mill_bill_from_book min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
+
+      {/* ── Full-page overlay while PDF is generating (only for uncached fetches) ── */}
+      {isGeneratingPdf && (
+        <div className="pdf-generating-overlay print-hide">
+          <div className="mb-spinner" />
+          <div className="pdf-generating-text">Generating PDF...</div>
+        </div>
+      )}
 
       {/* ── Top Navigation Bar ── */}
       <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print-hide">
