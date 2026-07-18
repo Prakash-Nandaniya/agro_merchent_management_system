@@ -285,6 +285,12 @@ export default function MillBill() {
 
   const pdfBlobRef = useRef<Blob | null>(null);
 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const zoomOuterRef = useRef<HTMLDivElement | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const DESKTOP_WIDTH = 925;
+
   // ── Fetch profile config on mount ─────────────────────────────────────────────
   useEffect(() => {
     apiFetch(`${settings.BE_URL}/profile-configuration`)
@@ -366,6 +372,23 @@ export default function MillBill() {
       final_amount_in_words: amountInWords(totalFinal),
     }));
   }, [rows]);
+
+  useEffect(() => {
+    const computeZoom = () => {
+      const el = zoomOuterRef.current;
+      if (!el) return;
+      const availableWidth = el.clientWidth;
+      setZoomLevel(availableWidth < DESKTOP_WIDTH ? availableWidth / DESKTOP_WIDTH : 1);
+    };
+
+    computeZoom();
+    window.addEventListener('resize', computeZoom);
+    window.addEventListener('orientationchange', computeZoom);
+    return () => {
+      window.removeEventListener('resize', computeZoom);
+      window.removeEventListener('orientationchange', computeZoom);
+    };
+  }, [profileLoading]);
 
   // ── Loading screen — shown while profile fetch is in flight ──────────────────
   if (profileLoading) {
@@ -533,25 +556,32 @@ export default function MillBill() {
     }
   }
 
+  // Returns the cached blob instantly if present (no overlay shown).
+  // Otherwise shows the full-page "Generating PDF..." overlay for the
+  // duration of the actual network fetch, then hides it once done.
   async function fetchInvoicePdf(): Promise<Blob> {
     if (pdfBlobRef.current) return pdfBlobRef.current;
 
-    const res = await apiFetch(`${settings.BE_URL}/generate-mill-bill-pdf`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildBillForPdf()),
-    });
+    setIsGeneratingPdf(true);
+    try {
+      const res = await apiFetch(`${settings.BE_URL}/generate-mill-bill-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildBillForPdf()),
+      });
 
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
+      }
+
+      const blob = await res.blob();
+      pdfBlobRef.current = blob;
+      return blob;
+    } finally {
+      setIsGeneratingPdf(false);
     }
-
-    const blob = await res.blob();
-    pdfBlobRef.current = blob;
-    return blob;
   }
-
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -562,7 +592,7 @@ export default function MillBill() {
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName; // Forces the browser to download with this name
+      a.download = fileName; 
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -661,325 +691,336 @@ export default function MillBill() {
 
       {isSaving && <SavingOverlay />}
 
-      {/* ══════════════════════════════════════════
-          INVOICE PAPER
-      ══════════════════════════════════════════ */}
-      <div className={`millbill  invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
-
-        {/* ── HEADER ── */}
-        <img
-          src={karmaLogo}
-          alt=""
-          aria-hidden="true"
-          className="watermark-img"
-        />
-        <div className="relative border-b border-gray-600 p-3 sm:p-5 pt-10 sm:pt-5">
-          <div className="text-center">
-            <div className="text-xl sm:text-3xl font-bold tracking-wide break-words">{s.sellerName}</div>
-            <div className="mt-1 text-xs sm:text-sm ">{s.sellerAddress}</div>
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-8 mt-2 text-xs sm:text-sm">
-              <span className="flex items-baseline gap-1">
-                <span className="font-semibold">PAN No.:</span>
-                <Field value={s.sellerPAN} onChange={f('sellerPAN')} upper width="w-28 sm:w-32" />
-              </span>
-              <span className="flex items-baseline gap-1">
-                <span className="font-semibold">GSTIN No.:</span>
-                <Field value={s.sellerGSTIN} onChange={f('sellerGSTIN')} upper width="w-36 sm:w-44" />
-              </span>
-            </div>
-          </div>
-          <div className="absolute top-2 right-2 sm:top-4 sm:right-4 border border-gray-700 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-sm font-bold tracking-widest">
-            ORIGINAL
-          </div>
+      {isGeneratingPdf && (
+        <div className="pdf-generating-overlay print-hide">
+          <div className="mb-spinner" />
+          <div className="pdf-generating-text">Generating PDF...</div>
         </div>
+      )}
 
-        {/* ── TITLE BAR ── */}
-        <div className="border border-gray-600">
-          <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
-            <span className="text-sm sm:text-base font-bold tracking-widest">TAX INVOICE</span>
-          </div>
+      <div ref={zoomOuterRef} className="invoice-zoom-outer">
+        <div
+          className="invoice-zoom-inner"
+          style={{ width: DESKTOP_WIDTH, zoom: zoomLevel }}
+        >
+          <div className={`millbill invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
 
-          {/* ── PARTY + INVOICE DETAILS ── */}
-          <div className="border-b border-gray-600 grid grid-cols-1 sm:grid-cols-[55%_45%]">
-
-            {/* LEFT — party details */}
-            <div className="sm:border-r border-b sm:border-b-0 border-gray-600 p-3 sm:p-4">
-              <div className="grid grid-cols-[90px_10px_1fr] sm:grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-xs sm:text-sm">
-
-                <span className="font-bold whitespace-nowrap text-sm sm:text-base">M/s.</span>
-                <span></span>
-                <input
-                  value={s.partyName}
-                  onChange={e => f('partyName')(e.target.value.toUpperCase())}
-                  placeholder="PARTY / BUYER NAME"
-                  spellCheck={false}
-                  className="bg-transparent outline-none border-b border-dashed border-gray-400
-                             hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
-                             text-gray-900 transition-colors font-bold text-sm sm:text-base w-full"
-                />
-
-                <span></span>
-                <span></span>
-                <textarea
-                  rows={s.partyAddress.length > 45 || s.partyAddress.includes('\n') ? 2 : 1}
-                  value={s.partyAddress}
-                  onChange={e => f('partyAddress')(e.target.value.toUpperCase())}
-                  placeholder="ADDRESS..."
-                  spellCheck={false}
-                  className="bg-transparent outline-none border-b border-dashed border-gray-400
-                             hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
-                             text-gray-900 transition-colors w-full resize-none overflow-hidden
-                             leading-tight text-xs sm:text-sm"
-                />
-
-                {([
-                  ['City', 'partyCity', false],
-                  ['State', 'partyState', false],
-                  ['Party GSTIN', 'partyGSTIN', true],
-                  ['Party PAN', 'partyPAN', true],
-                ] as [string, keyof FormState, boolean][]).map(([label, key, up]) => (
-                  <React.Fragment key={key}>
-                    <span className="whitespace-nowrap font-medium">{label}</span>
-                    <span>:</span>
-                    <Field value={s[key]} onChange={f(key)} upper={up} className="text-xs sm:text-sm w-full" />
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-
-            {/* RIGHT — invoice info */}
-            <div className="p-3 sm:p-4 space-y-1 text-xs sm:text-sm">
-              <div className="grid grid-cols-[110px_10px_1fr] sm:grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
-
-                <span className="whitespace-nowrap font-semibold">Invoice No.</span>
-                <span>:</span>
-                <Field value={s.invoiceNo} onChange={f('invoiceNo')} bold readOnly placeholder="Auto-generated on save" className="text-xs sm:text-sm w-full" />
-                <span className="whitespace-nowrap font-semibold">Invoice Date</span>
-                <span>:</span>
-                <div className="flex-1 w-full">
-                  <input
-                    type="date"
-                    value={s.invoiceDate}
-                    onChange={e => f('invoiceDate')(e.target.value)}
-                    className="bg-transparent outline-none w-full border-b border-dashed border-gray-400
-                               hover:border-blue-400 focus:border-blue-600 text-xs sm:text-sm transition-colors print-hide"
-                  />
-                  <span className="screen-hide">{formatDateForPrint(s.invoiceDate)}</span>
-                </div>
-                <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-3 sm:-mx-4 w-[calc(100%+1.5rem)] sm:w-[calc(100%+2rem)]"></div>
-                {([
-                  ['Docket No.', 'docketNo', false],
-                  ['Transport Name', 'transportName', false],
-                  ['Delivery Through', 'deliveryThrough', true],
-                ] as [string, keyof FormState, boolean][]).map(([label, key, up]) => (
-                  <React.Fragment key={key}>
-                    <span className="whitespace-nowrap font-semibold">{label}</span>
-                    <span>:</span>
-                    <Field
-                      value={s[key]}
-                      onChange={f(key)}
-                      upper={up}
-                      placeholder={key === 'deliveryThrough' ? 'Vehicle No.' : ''}
-                      className="text-xs sm:text-sm w-full"
-                    />
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── ITEMS TABLE ── */}
-          <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
-            <table className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse">
-              <thead>
-                <tr className="bg-gray-300 border-b border-gray-600">
-                  {([
-                    ['Sr.\nNo.', 'center'],
-                    ['Description of Goods', 'center'],
-                    ['HSN /\nSAC', 'center'],
-                    ['Qty.', 'center'],
-                    ['UQC', 'center'],
-                    ['Rate', 'center'],
-                    ['Taxable\nAmt.', 'right'],
-                    ['CGST\n%', 'center'],
-                    ['CGST\nAmt.', 'right'],
-                    ['SGST\n%', 'center'],
-                    ['SGST\nAmt.', 'right'],
-                    ['FINAL\nAMT', 'right'],
-                  ] as [string, string][]).map(([label, align], i) => (
-                    <th
-                      key={i}
-                      className={`p-2 font-semibold whitespace-pre-line text-${align} line-height-1-3
-                        ${i < 12 ? 'border-r border-gray-400' : ''}`}
-                    >
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, idx) => {
-                  const isEmpty = row.crop === '';
-                  const taxableAmt = parseDecimal(row.taxableAmt);
-                  const cgstAmt = parseDecimal(row.cgstAmt);
-                  const sgstAmt = parseDecimal(row.sgstAmt);
-                  const finalAmt = parseDecimal(row.finalAmt);
-
-                  return (
-                    <tr key={idx} className="border-b border-gray-300 row-height-44">
-
-                      <td className="border-r border-gray-400 p-1 text-center align-middle text-sm">
-                        <span className="print-hide">{idx + 1}</span>
-                        {!isEmpty && <span className="screen-hide">{idx + 1}</span>}
-                      </td>
-
-                      <td className="border-r border-gray-400 p-1 align-middle">
-                        <select
-                          value={row.crop}
-                          onChange={e => handleCropChange(idx, e.target.value)}
-                          className="crop-select bg-transparent outline-none w-full border-b border-dashed
-                                     border-gray-400 hover:border-blue-400 focus:border-blue-600
-                                     text-xs transition-colors text-gray-900 print-hide"
-                        >
-                          <option value="">—Select—</option>
-                          {cropOptions.map(c => (
-                            <option key={c.crop} value={c.crop}>{c.crop}</option>
-                          ))}
-                        </select>
-                        {!isEmpty && (
-                          <span className="screen-hide font-medium">{row.crop}</span>
-                        )}
-                      </td>
-
-                      <td className="border-r border-gray-400 p-1 align-middle">
-                        <Field value={row.hsnCode} onChange={v => updateRow(idx, 'hsnCode', v)} align="center" />
-                      </td>
-                      <td className="border-r border-gray-400 p-1 align-middle">
-                        <Field value={row.qty} onChange={v => updateRow(idx, 'qty', v)} type="number" align="right" />
-                      </td>
-                      <td className="border-r border-gray-400 p-1 align-middle">
-                        <select
-                          value={row.uqc}
-                          onChange={e => handleuqcChange(idx, e.target.value)}
-                          className="crop-select bg-transparent outline-none w-full border-b border-dashed
-                                     border-gray-400 hover:border-blue-400 focus:border-blue-600
-                                     text-xs transition-colors text-gray-900 print-hide text-center"
-                        >
-                          <option value="">—Select—</option>
-                          {uqcOptions.map((uqc, i) => (
-                            <option key={i} value={uqc}>{uqc}</option>
-                          ))}
-                        </select>
-                        {!isEmpty && (
-                          <span className="screen-hide font-medium">{row.uqc}</span>
-                        )}
-                      </td>
-                      <td className="border-r border-gray-400 p-1 align-middle">
-                        <Field value={row.rate} onChange={v => updateRow(idx, 'rate', v)} type="number" align="right" />
-                      </td>
-                      <td className="border-r border-gray-400 p-1 text-right align-middle font-medium">
-                        {taxableAmt.gt(0) ? fmt(taxableAmt) : ''}
-                      </td>
-                      <td className="border-r border-gray-400 p-1 align-middle">
-                        <Field value={row.cgstRate} onChange={v => updateRow(idx, 'cgstRate', v)} type="number" align="center" />
-                      </td>
-                      <td className="border-r border-gray-400 p-1 text-right align-middle">
-                        {isEmpty ? '' : (cgstAmt.gt(0) ? fmt(cgstAmt) : '0.00')}
-                      </td>
-                      <td className="border-r border-gray-400 p-1 align-middle">
-                        <Field value={row.sgstRate} onChange={v => updateRow(idx, 'sgstRate', v)} type="number" align="center" />
-                      </td>
-                      <td className="border-r border-gray-400 p-1 text-right align-middle">
-                        {isEmpty ? '' : (sgstAmt.gt(0) ? fmt(sgstAmt) : '0.00')}
-                      </td>
-                      <td className="p-1 text-right align-middle font-semibold">
-                        {finalAmt.gt(0) ? fmt(finalAmt) : ''}
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {/* Totals row */}
-                <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-xs">
-                  <td colSpan={6} className="border-r border-gray-400 p-2 text-center">Final Amount</td>
-                  <td className="border-r border-gray-400 p-2 text-right">{fmt(totalTaxableDec)}</td>
-                  <td className="border-r border-gray-400" />
-                  <td className="border-r border-gray-400 p-2 text-right">{fmt(totalCgstDec)}</td>
-                  <td className="border-r border-gray-400" />
-                  <td className="border-r border-gray-400 p-2 text-right">{fmt(totalSgstDec)}</td>
-                  <td className="p-2 text-right">{fmt(totalFinalDec)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* ── FOOTER ── */}
-          <div className="flex flex-col text-xs sm:text-sm">
-
-            {/* Amount in words */}
-            <div className="border-b border border-gray-600 p-3">
-              <span className="font-semibold">Amt in Word: </span>
-              <span className="italic ml-2 break-words">
-                {totalFinalDec.gt(0)
-                  ? s.final_amount_in_words
-                  : <span className="text-gray-300">Auto-generated when amount is entered</span>}
-              </span>
-            </div>
-
-            {/* Bank details */}
-            <div className="border-b border-gray-600 p-3">
-
-              {bankAccountOptions.length > 1 && (
-                <div className="mb-2 print-hide">
-                  <label className="text-xs font-semibold text-gray-600 mr-2">Select Bank Account:</label>
-                  <select
-                    value={selectedBankIndex}
-                    onChange={e => handleBankSelect(Number(e.target.value))}
-                    className="bg-transparent outline-none border-b border-dashed border-gray-400
-                               hover:border-blue-400 focus:border-blue-600 text-sm transition-colors"
-                  >
-                    {bankAccountOptions.map((b, i) => (
-                      <option key={i} value={i}>{b.bank} - {b.account}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="grid grid-cols-[80px_10px_1fr] sm:grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-full sm:w-1/2">
-                <span className="whitespace-nowrap">Bank</span>
-                <span>:</span>
-                <Field value={s.sellerBank} onChange={f('sellerBank')} placeholder="Bank Name" className="w-full" />
-
-                <span className="whitespace-nowrap">Account No.</span>
-                <span>:</span>
-                <Field value={s.sellerAccount} onChange={f('sellerAccount')} placeholder="000000000000" className="w-full" />
-
-                <span className="whitespace-nowrap">IFSC</span>
-                <span>:</span>
-                <Field value={s.sellerIFSC} onChange={f('sellerIFSC')} placeholder="XXXX0000000" upper className="w-full" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Terms & Signatory */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 p-3 gap-4 sm:gap-0 min-h-[120px]">
-          <div className="flex flex-col sm:pr-4">
-            <div className="font-bold text-sm sm:text-base mb-1">Terms &amp; Condition</div>
-            <textarea
-              value={s.terms}
-              onChange={e => f('terms')(e.target.value)}
-              rows={2}
-              className="w-full bg-transparent outline-none resize-none text-xs sm:text-sm border border-dashed
-                         border-gray-300 hover:border-blue-400 focus:border-blue-600 transition-colors p-1"
+            {/* ── HEADER ── */}
+            <img
+              src={karmaLogo}
+              alt=""
+              aria-hidden="true"
+              className="watermark-img"
             />
-          </div>
-          <div className="flex flex-col justify-between text-left sm:text-right">
-            <div className="font-bold text-sm sm:text-base">For, {s.sellerName}</div>
-            <div className="mt-8 sm:mt-12 text-gray-900">Authorised Signatory</div>
+            <div className="relative border-b border-gray-600 p-5">
+              <div className="text-center">
+                <div className="text-3xl font-bold tracking-wide break-words">{s.sellerName}</div>
+                <div className="mt-1 text-sm">{s.sellerAddress}</div>
+                <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
+                  <span className="flex items-baseline gap-1">
+                    <span className="font-semibold">PAN No.:</span>
+                    <Field value={s.sellerPAN} onChange={f('sellerPAN')} upper width="w-32" />
+                  </span>
+                  <span className="flex items-baseline gap-1">
+                    <span className="font-semibold">GSTIN No.:</span>
+                    <Field value={s.sellerGSTIN} onChange={f('sellerGSTIN')} upper width="w-44" />
+                  </span>
+                </div>
+              </div>
+              <div className="absolute top-4 right-4 border border-gray-700 px-2 py-0.5 text-sm font-bold tracking-widest">
+                ORIGINAL
+              </div>
+            </div>
+
+            {/* ── TITLE BAR ── */}
+            <div className="border border-gray-600">
+              <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
+                <span className="text-base font-bold tracking-widest">TAX INVOICE</span>
+              </div>
+
+              {/* ── PARTY + INVOICE DETAILS ── */}
+              <div className="border-b border-gray-600 grid grid-cols-[55%_45%]">
+
+                {/* LEFT — party details */}
+                <div className="border-r border-gray-600 p-4">
+                  <div className="grid grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-sm">
+
+                    <span className="font-bold whitespace-nowrap text-base">M/s.</span>
+                    <span></span>
+                    <input
+                      value={s.partyName}
+                      onChange={e => f('partyName')(e.target.value.toUpperCase())}
+                      placeholder="PARTY / BUYER NAME"
+                      spellCheck={false}
+                      className="bg-transparent outline-none border-b border-dashed border-gray-400
+                                 hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
+                                 text-gray-900 transition-colors font-bold text-base w-full"
+                    />
+
+                    <span></span>
+                    <span></span>
+                    <textarea
+                      rows={s.partyAddress.length > 45 || s.partyAddress.includes('\n') ? 2 : 1}
+                      value={s.partyAddress}
+                      onChange={e => f('partyAddress')(e.target.value.toUpperCase())}
+                      placeholder="ADDRESS..."
+                      spellCheck={false}
+                      className="bg-transparent outline-none border-b border-dashed border-gray-400
+                                 hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
+                                 text-gray-900 transition-colors w-full resize-none overflow-hidden
+                                 leading-tight text-sm"
+                    />
+
+                    {([
+                      ['City', 'partyCity', false],
+                      ['State', 'partyState', false],
+                      ['Party GSTIN', 'partyGSTIN', true],
+                      ['Party PAN', 'partyPAN', true],
+                    ] as [string, keyof FormState, boolean][]).map(([label, key, up]) => (
+                      <React.Fragment key={key}>
+                        <span className="whitespace-nowrap font-medium">{label}</span>
+                        <span>:</span>
+                        <Field value={s[key]} onChange={f(key)} upper={up} className="text-sm w-full" />
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+
+                {/* RIGHT — invoice info */}
+                <div className="p-4 space-y-1 text-sm">
+                  <div className="grid grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
+
+                    <span className="whitespace-nowrap font-semibold">Invoice No.</span>
+                    <span>:</span>
+                    <Field value={s.invoiceNo} onChange={f('invoiceNo')} bold readOnly placeholder="Auto-generated on save" className="text-sm w-full" />
+                    <span className="whitespace-nowrap font-semibold">Invoice Date</span>
+                    <span>:</span>
+                    <div className="flex-1 w-full">
+                      <input
+                        type="date"
+                        value={s.invoiceDate}
+                        onChange={e => f('invoiceDate')(e.target.value)}
+                        className="bg-transparent outline-none w-full border-b border-dashed border-gray-400
+                                   hover:border-blue-400 focus:border-blue-600 text-sm transition-colors print-hide"
+                      />
+                      <span className="screen-hide">{formatDateForPrint(s.invoiceDate)}</span>
+                    </div>
+                    <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-4 w-[calc(100%+2rem)]"></div>
+                    {([
+                      ['Docket No.', 'docketNo', false],
+                      ['Transport Name', 'transportName', false],
+                      ['Delivery Through', 'deliveryThrough', true],
+                    ] as [string, keyof FormState, boolean][]).map(([label, key, up]) => (
+                      <React.Fragment key={key}>
+                        <span className="whitespace-nowrap font-semibold">{label}</span>
+                        <span>:</span>
+                        <Field
+                          value={s[key]}
+                          onChange={f(key)}
+                          upper={up}
+                          placeholder={key === 'deliveryThrough' ? 'Vehicle No.' : ''}
+                          className="text-sm w-full"
+                        />
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── ITEMS TABLE ── */}
+              <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
+                <table className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse">
+                  <thead>
+                    <tr className="bg-gray-300 border-b border-gray-600">
+                      {([
+                        ['Sr.\nNo.', 'center'],
+                        ['Description of Goods', 'center'],
+                        ['HSN /\nSAC', 'center'],
+                        ['Qty.', 'center'],
+                        ['UQC', 'center'],
+                        ['Rate', 'center'],
+                        ['Taxable\nAmt.', 'right'],
+                        ['CGST\n%', 'center'],
+                        ['CGST\nAmt.', 'right'],
+                        ['SGST\n%', 'center'],
+                        ['SGST\nAmt.', 'right'],
+                        ['FINAL\nAMT', 'right'],
+                      ] as [string, string][]).map(([label, align], i) => (
+                        <th
+                          key={i}
+                          className={`p-2 font-semibold whitespace-pre-line text-${align} line-height-1-3
+                            ${i < 12 ? 'border-r border-gray-400' : ''}`}
+                        >
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, idx) => {
+                      const isEmpty = row.crop === '';
+                      const taxableAmt = parseDecimal(row.taxableAmt);
+                      const cgstAmt = parseDecimal(row.cgstAmt);
+                      const sgstAmt = parseDecimal(row.sgstAmt);
+                      const finalAmt = parseDecimal(row.finalAmt);
+
+                      return (
+                        <tr key={idx} className="border-b border-gray-300 row-height-44">
+
+                          <td className="border-r border-gray-400 p-1 text-center align-middle text-sm">
+                            <span className="print-hide">{idx + 1}</span>
+                            {!isEmpty && <span className="screen-hide">{idx + 1}</span>}
+                          </td>
+
+                          <td className="border-r border-gray-400 p-1 align-middle">
+                            <select
+                              value={row.crop}
+                              onChange={e => handleCropChange(idx, e.target.value)}
+                              className="crop-select bg-transparent outline-none w-full border-b border-dashed
+                                         border-gray-400 hover:border-blue-400 focus:border-blue-600
+                                         text-xs transition-colors text-gray-900 print-hide"
+                            >
+                              <option value="">—Select—</option>
+                              {cropOptions.map(c => (
+                                <option key={c.crop} value={c.crop}>{c.crop}</option>
+                              ))}
+                            </select>
+                            {!isEmpty && (
+                              <span className="screen-hide font-medium">{row.crop}</span>
+                            )}
+                          </td>
+
+                          <td className="border-r border-gray-400 p-1 align-middle">
+                            <Field value={row.hsnCode} onChange={v => updateRow(idx, 'hsnCode', v)} align="center" />
+                          </td>
+                          <td className="border-r border-gray-400 p-1 align-middle">
+                            <Field value={row.qty} onChange={v => updateRow(idx, 'qty', v)} type="number" align="right" />
+                          </td>
+                          <td className="border-r border-gray-400 p-1 align-middle">
+                            <select
+                              value={row.uqc}
+                              onChange={e => handleuqcChange(idx, e.target.value)}
+                              className="crop-select bg-transparent outline-none w-full border-b border-dashed
+                                         border-gray-400 hover:border-blue-400 focus:border-blue-600
+                                         text-xs transition-colors text-gray-900 print-hide text-center"
+                            >
+                              <option value="">—Select—</option>
+                              {uqcOptions.map((uqc, i) => (
+                                <option key={i} value={uqc}>{uqc}</option>
+                              ))}
+                            </select>
+                            {!isEmpty && (
+                              <span className="screen-hide font-medium">{row.uqc}</span>
+                            )}
+                          </td>
+                          <td className="border-r border-gray-400 p-1 align-middle">
+                            <Field value={row.rate} onChange={v => updateRow(idx, 'rate', v)} type="number" align="right" />
+                          </td>
+                          <td className="border-r border-gray-400 p-1 text-right align-middle font-medium">
+                            {taxableAmt.gt(0) ? fmt(taxableAmt) : ''}
+                          </td>
+                          <td className="border-r border-gray-400 p-1 align-middle">
+                            <Field value={row.cgstRate} onChange={v => updateRow(idx, 'cgstRate', v)} type="number" align="center" />
+                          </td>
+                          <td className="border-r border-gray-400 p-1 text-right align-middle">
+                            {isEmpty ? '' : (cgstAmt.gt(0) ? fmt(cgstAmt) : '0.00')}
+                          </td>
+                          <td className="border-r border-gray-400 p-1 align-middle">
+                            <Field value={row.sgstRate} onChange={v => updateRow(idx, 'sgstRate', v)} type="number" align="center" />
+                          </td>
+                          <td className="border-r border-gray-400 p-1 text-right align-middle">
+                            {isEmpty ? '' : (sgstAmt.gt(0) ? fmt(sgstAmt) : '0.00')}
+                          </td>
+                          <td className="p-1 text-right align-middle font-semibold">
+                            {finalAmt.gt(0) ? fmt(finalAmt) : ''}
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {/* Totals row */}
+                    <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-xs">
+                      <td colSpan={6} className="border-r border-gray-400 p-2 text-center">Final Amount</td>
+                      <td className="border-r border-gray-400 p-2 text-right">{fmt(totalTaxableDec)}</td>
+                      <td className="border-r border-gray-400" />
+                      <td className="border-r border-gray-400 p-2 text-right">{fmt(totalCgstDec)}</td>
+                      <td className="border-r border-gray-400" />
+                      <td className="border-r border-gray-400 p-2 text-right">{fmt(totalSgstDec)}</td>
+                      <td className="p-2 text-right">{fmt(totalFinalDec)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── FOOTER ── */}
+              <div className="flex flex-col text-sm">
+
+                {/* Amount in words */}
+                <div className="border-b border border-gray-600 p-3">
+                  <span className="font-semibold">Amt in Word: </span>
+                  <span className="italic ml-2 break-words">
+                    {totalFinalDec.gt(0)
+                      ? s.final_amount_in_words
+                      : <span className="text-gray-300">Auto-generated when amount is entered</span>}
+                  </span>
+                </div>
+
+                {/* Bank details */}
+                <div className="border-b border-gray-600 p-3">
+
+                  {bankAccountOptions.length > 1 && (
+                    <div className="mb-2 print-hide">
+                      <label className="text-xs font-semibold text-gray-600 mr-2">Select Bank Account:</label>
+                      <select
+                        value={selectedBankIndex}
+                        onChange={e => handleBankSelect(Number(e.target.value))}
+                        className="bg-transparent outline-none border-b border-dashed border-gray-400
+                                   hover:border-blue-400 focus:border-blue-600 text-sm transition-colors"
+                      >
+                        {bankAccountOptions.map((b, i) => (
+                          <option key={i} value={i}>{b.bank} - {b.account}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-1/2">
+                    <span className="whitespace-nowrap">Bank</span>
+                    <span>:</span>
+                    <Field value={s.sellerBank} onChange={f('sellerBank')} placeholder="Bank Name" className="w-full" />
+
+                    <span className="whitespace-nowrap">Account No.</span>
+                    <span>:</span>
+                    <Field value={s.sellerAccount} onChange={f('sellerAccount')} placeholder="000000000000" className="w-full" />
+
+                    <span className="whitespace-nowrap">IFSC</span>
+                    <span>:</span>
+                    <Field value={s.sellerIFSC} onChange={f('sellerIFSC')} placeholder="XXXX0000000" upper className="w-full" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Terms & Signatory */}
+            <div className="grid grid-cols-2 p-3 gap-0 min-h-[120px]">
+              <div className="flex flex-col pr-4">
+                <div className="font-bold text-base mb-1">Terms &amp; Condition</div>
+                <textarea
+                  value={s.terms}
+                  onChange={e => f('terms')(e.target.value)}
+                  rows={2}
+                  className="w-full bg-transparent outline-none resize-none text-sm border border-dashed
+                             border-gray-300 hover:border-blue-400 focus:border-blue-600 transition-colors p-1"
+                />
+              </div>
+              <div className="flex flex-col justify-between text-right">
+                <div className="font-bold text-base">For, {s.sellerName}</div>
+                <div className="mt-12 text-gray-900">Authorised Signatory</div>
+              </div>
+            </div>
+
           </div>
         </div>
-
       </div>
 
       {/* ══════════════════════════════════════════ BOTTOM ACTION BAR — horizontally centred, ══════════════════════════════════════════ */}

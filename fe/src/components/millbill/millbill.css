@@ -4,6 +4,34 @@ body {
   overscroll-behavior-y: contain;
 }
 
+/* ── Scoped desktop-mode zoom: only the invoice paper scales, page untouched ──*/
+.invoice-zoom-outer {
+  width: 100%;
+}
+
+.invoice-zoom-inner {
+  margin: 0 auto;
+}
+
+.pdf-generating-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.pdf-generating-text {
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .millbill {
   &.invoice-container,
   .invoice-container {

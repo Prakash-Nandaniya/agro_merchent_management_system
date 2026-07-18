@@ -65,8 +65,6 @@ function formatDate(iso: string | undefined): string {
   return `${d}/${m}/${y}`;
 }
 
-// ─── Invoice — fixed desktop layout only. No responsive (sm:) classes here;
-//     the whole box is scaled uniformly via CSS zoom in the parent instead. ──
 function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: any[] }) {
   return (
     <div className="invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none">
@@ -275,8 +273,6 @@ export default function ViewMillBillFromBook() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // ── Full-page overlay shown only while the PDF is actually being generated
-  //    (i.e. not yet cached). Independent of the per-button labels above. ──
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const bill = location.state?.bill as MillBill | undefined;
@@ -437,7 +433,7 @@ export default function ViewMillBillFromBook() {
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName; // Forces the browser to download with this name
+      a.download = fileName; 
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -453,7 +449,6 @@ export default function ViewMillBillFromBook() {
   return (
     <div className="view_mill_bill_from_book min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
 
-      {/* ── Full-page overlay while PDF is generating (only for uncached fetches) ── */}
       {isGeneratingPdf && (
         <div className="pdf-generating-overlay print-hide">
           <div className="mb-spinner" />
@@ -473,10 +468,6 @@ export default function ViewMillBillFromBook() {
         </button>
       </div>
 
-      {/* ── Invoice — desktop-mode zoom-to-fit, scoped only to this box ──
-           Above DESKTOP_WIDTH-equivalent screens: zoom stays 1, nothing changes.
-           Below it: everything inside (text, borders, table, watermark) shrinks
-           together proportionally, exactly like zooming out in the browser. ── */}
       <div ref={zoomOuterRef} className="invoice-zoom-outer">
         <div className="invoice-zoom-inner" style={{ width: DESKTOP_WIDTH, zoom: zoomLevel }}>
           <InvoiceDocument bill={bill} displayRows={displayRows} />
