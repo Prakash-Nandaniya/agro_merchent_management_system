@@ -65,6 +65,8 @@ function formatDate(iso: string | undefined): string {
   return `${d}/${m}/${y}`;
 }
 
+// ─── Invoice — fixed desktop layout only. No responsive (sm:) classes here;
+//     the whole box is scaled uniformly via CSS zoom in the parent instead. ──
 function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: any[] }) {
   return (
     <div className="invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none">
@@ -76,11 +78,11 @@ function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: a
       />
 
       {/* ── HEADER ── */}
-      <div className="relative border-b border-gray-600 p-3 sm:p-5 pt-10 sm:pt-5">
+      <div className="relative border-b border-gray-600 p-5 pt-5">
         <div className="text-center">
-          <div className="text-xl sm:text-3xl font-bold tracking-wide break-words">{bill.seller_name}</div>
-          <div className="mt-1 text-xs sm:text-sm whitespace-pre-line">{bill.seller_address}</div>
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-1 sm:gap-8 mt-2 text-xs sm:text-sm">
+          <div className="text-3xl font-bold tracking-wide break-words">{bill.seller_name}</div>
+          <div className="mt-1 text-sm whitespace-pre-line">{bill.seller_address}</div>
+          <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
             <span className="flex items-baseline gap-1">
               <span className="font-semibold">PAN No.:</span>
               <span className="uppercase font-medium">{bill.seller_pan}</span>
@@ -91,7 +93,7 @@ function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: a
             </span>
           </div>
         </div>
-        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 border border-gray-700 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-sm font-bold tracking-widest">
+        <div className="absolute top-4 right-4 border border-gray-700 px-2 py-0.5 text-sm font-bold tracking-widest">
           ORIGINAL
         </div>
       </div>
@@ -99,56 +101,56 @@ function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: a
       {/* ── TITLE BAR ── */}
       <div className="border border-gray-600">
         <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
-          <span className="text-sm sm:text-base font-bold tracking-widest">TAX INVOICE</span>
+          <span className="text-base font-bold tracking-widest">TAX INVOICE</span>
         </div>
 
         {/* ── PARTY + INVOICE DETAILS ── */}
-        <div className="border-b border-gray-600 grid grid-cols-1 sm:grid-cols-[55%_45%]">
+        <div className="border-b border-gray-600 grid grid-cols-[55%_45%]">
 
           {/* LEFT — party details */}
-          <div className="sm:border-r border-b sm:border-b-0 border-gray-600 p-3 sm:p-4">
-            <div className="grid grid-cols-[90px_10px_1fr] sm:grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-xs sm:text-sm">
-              <span className="font-bold whitespace-nowrap text-sm sm:text-base">M/s.</span>
+          <div className="border-r border-gray-600 p-4">
+            <div className="grid grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-sm">
+              <span className="font-bold whitespace-nowrap text-base">M/s.</span>
               <span></span>
-              <div className="font-bold text-sm sm:text-base uppercase break-words">{bill.party_name}</div>
+              <div className="font-bold text-base uppercase break-words">{bill.party_name}</div>
 
               <span></span>
               <span></span>
-              <div className="uppercase leading-tight text-xs sm:text-sm whitespace-pre-wrap break-words">{bill.party_address}</div>
+              <div className="uppercase leading-tight text-sm whitespace-pre-wrap break-words">{bill.party_address}</div>
 
               <span className="whitespace-nowrap font-medium">City</span><span>:</span>
-              <div className="text-xs sm:text-sm uppercase break-words">{bill.party_city || '-'}</div>
+              <div className="text-sm uppercase break-words">{bill.party_city || '-'}</div>
 
               <span className="whitespace-nowrap font-medium">State</span><span>:</span>
-              <div className="text-xs sm:text-sm uppercase break-words">{bill.party_state}</div>
+              <div className="text-sm uppercase break-words">{bill.party_state}</div>
 
               <span className="whitespace-nowrap font-medium">Party GSTIN</span><span>:</span>
-              <div className="text-xs sm:text-sm uppercase break-words">{bill.party_gstin}</div>
+              <div className="text-sm uppercase break-words">{bill.party_gstin}</div>
 
               <span className="whitespace-nowrap font-medium">Party PAN</span><span>:</span>
-              <div className="text-xs sm:text-sm uppercase break-words">{bill.party_pan}</div>
+              <div className="text-sm uppercase break-words">{bill.party_pan}</div>
             </div>
           </div>
 
           {/* RIGHT — invoice info */}
-          <div className="p-3 sm:p-4 space-y-1 text-xs sm:text-sm">
-            <div className="grid grid-cols-[110px_10px_1fr] sm:grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
+          <div className="p-4 space-y-1 text-sm">
+            <div className="grid grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
               <span className="whitespace-nowrap font-semibold">Invoice No.</span><span>:</span>
-              <div className="text-xs sm:text-sm font-bold uppercase break-words">{bill.invoice_no}</div>
+              <div className="text-sm font-bold uppercase break-words">{bill.invoice_no}</div>
 
               <span className="whitespace-nowrap font-semibold">Invoice Date</span><span>:</span>
-              <div className="text-xs sm:text-sm uppercase">{formatDate(bill.invoice_date)}</div>
+              <div className="text-sm uppercase">{formatDate(bill.invoice_date)}</div>
 
-              <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-3 sm:-mx-4 w-[calc(100%+1.5rem)] sm:w-[calc(100%+2rem)]"></div>
+              <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-4 w-[calc(100%+2rem)]"></div>
 
               <span className="whitespace-nowrap font-semibold">Docket No.</span><span>:</span>
-              <div className="text-xs sm:text-sm uppercase break-words">{bill.docket_no || ''}</div>
+              <div className="text-sm uppercase break-words">{bill.docket_no || ''}</div>
 
               <span className="whitespace-nowrap font-semibold">Transport Name</span><span>:</span>
-              <div className="text-xs sm:text-sm uppercase break-words">{bill.transport_name || ''}</div>
+              <div className="text-sm uppercase break-words">{bill.transport_name || ''}</div>
 
               <span className="whitespace-nowrap font-semibold">Vehicle No.</span><span>:</span>
-              <div className="text-xs sm:text-sm uppercase break-words">{bill.delivery_through}</div>
+              <div className="text-sm uppercase break-words">{bill.delivery_through}</div>
             </div>
           </div>
         </div>
@@ -227,7 +229,7 @@ function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: a
         </div>
 
         {/* ── FOOTER ── */}
-        <div className="flex flex-col text-xs sm:text-sm">
+        <div className="flex flex-col text-sm">
           <div className="border-b border border-gray-600 p-3">
             <span className="font-semibold">Amt in Word: </span>
             <span className="italic ml-2 break-words">{bill.final_amount_in_words}</span>
@@ -235,7 +237,7 @@ function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: a
 
           {/* Bank details */}
           <div className="border-b border-gray-600 p-3">
-            <div className="grid grid-cols-[80px_10px_1fr] sm:grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-full sm:w-1/2">
+            <div className="grid grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-1/2">
               <span className="whitespace-nowrap font-medium">Bank</span><span>:</span>
               <div className="uppercase break-words">{bill.seller_bank || '-'}</div>
 
@@ -250,14 +252,14 @@ function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: a
       </div>
 
       {/* Terms & Signatory */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 p-3 gap-4 sm:gap-0 min-h-[120px]">
-        <div className="flex flex-col sm:pr-4">
-          <div className="font-bold text-sm sm:text-base mb-1">Terms &amp; Condition</div>
-          <div className="w-full bg-transparent text-xs sm:text-sm p-1 whitespace-pre-wrap break-words">{bill.terms}</div>
+      <div className="grid grid-cols-2 p-3 gap-0 min-h-[120px]">
+        <div className="flex flex-col pr-4">
+          <div className="font-bold text-base mb-1">Terms &amp; Condition</div>
+          <div className="w-full bg-transparent text-sm p-1 whitespace-pre-wrap break-words">{bill.terms}</div>
         </div>
-        <div className="flex flex-col justify-between text-left sm:text-right">
-          <div className="font-bold text-sm sm:text-base">For, {bill.seller_name}</div>
-          <div className="mt-8 sm:mt-12 text-gray-900">Authorised Signatory</div>
+        <div className="flex flex-col justify-between text-right">
+          <div className="font-bold text-base">For, {bill.seller_name}</div>
+          <div className="mt-12 text-gray-900">Authorised Signatory</div>
         </div>
       </div>
     </div>
@@ -280,6 +282,29 @@ export default function ViewMillBillFromBook() {
   const bill = location.state?.bill as MillBill | undefined;
 
   const pdfBlobRef = useRef<Blob | null>(null);
+
+  // ── Scoped "desktop mode" zoom: only this component's box scales,
+  //    never the nav bar or bottom buttons, never the page viewport. ──
+  const zoomOuterRef = useRef<HTMLDivElement | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const DESKTOP_WIDTH = 925;
+
+  useEffect(() => {
+    const computeZoom = () => {
+      const el = zoomOuterRef.current;
+      if (!el) return;
+      const availableWidth = el.clientWidth;
+      setZoomLevel(availableWidth < DESKTOP_WIDTH ? availableWidth / DESKTOP_WIDTH : 1);
+    };
+
+    computeZoom();
+    window.addEventListener('resize', computeZoom);
+    window.addEventListener('orientationchange', computeZoom);
+    return () => {
+      window.removeEventListener('resize', computeZoom);
+      window.removeEventListener('orientationchange', computeZoom);
+    };
+  }, []);
 
   if (!bill) {
     return (
@@ -425,22 +450,6 @@ export default function ViewMillBillFromBook() {
     }
   };
 
-  useEffect(() => {
-    const viewportMeta = document.querySelector('meta[name="viewport"]');
-    const originalContent = viewportMeta?.getAttribute('content') ?? 'width=device-width, initial-scale=1.0';
-
-    if (viewportMeta) {
-      viewportMeta.setAttribute('content', 'width=925, user-scalable=yes');
-    }
-
-    // Restore normal mobile viewport when leaving this page
-    return () => {
-      if (viewportMeta) {
-        viewportMeta.setAttribute('content', originalContent);
-      }
-    };
-  }, []);
-
   return (
     <div className="view_mill_bill_from_book min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
 
@@ -464,8 +473,15 @@ export default function ViewMillBillFromBook() {
         </button>
       </div>
 
-      {/* ── Responsive on-screen preview — same design as always, adapts to viewport ── */}
-      <InvoiceDocument bill={bill} displayRows={displayRows} />
+      {/* ── Invoice — desktop-mode zoom-to-fit, scoped only to this box ──
+           Above DESKTOP_WIDTH-equivalent screens: zoom stays 1, nothing changes.
+           Below it: everything inside (text, borders, table, watermark) shrinks
+           together proportionally, exactly like zooming out in the browser. ── */}
+      <div ref={zoomOuterRef} className="invoice-zoom-outer">
+        <div className="invoice-zoom-inner" style={{ width: DESKTOP_WIDTH, zoom: zoomLevel }}>
+          <InvoiceDocument bill={bill} displayRows={displayRows} />
+        </div>
+      </div>
 
       {/* ══════════════════════════════════════════
           BOTTOM ACTION BAR

@@ -23,6 +23,15 @@
     z-index: -1;
   }
 
+  /* ── Scoped desktop-mode zoom: only the invoice box scales, page untouched ──*/
+  .invoice-zoom-outer {
+    width: 100%;
+  }
+
+  .invoice-zoom-inner {
+    margin: 0 auto;
+  }
+
   /* ── Table helpers ──────────────────────────────────────────────────────────*/
   .table-collapse {
     border-collapse: collapse;
