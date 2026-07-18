@@ -1,6 +1,6 @@
 services:
   api:
-    image: prakashnandaniya/karmatrading:v3
+    image: prakashnandaniya/karmatrading:v4
     container_name: local-karmatrading-BE
     ports:
       - "8000:80"
