@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Printer, X, Eye, Pencil, Save as SaveIcon, Send as SendIcon, Loader2, Download } from 'lucide-react';
 import './millbill.css';
 import React from 'react';
@@ -290,6 +290,7 @@ export default function MillBill() {
 
   const zoomOuterRef = useRef<HTMLDivElement | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomReady, setZoomReady] = useState(false);
   const DESKTOP_WIDTH = 925;
 
   // ── Fetch profile config on mount ─────────────────────────────────────────────
@@ -374,12 +375,13 @@ export default function MillBill() {
     }));
   }, [rows]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const computeZoom = () => {
       const el = zoomOuterRef.current;
       if (!el) return;
       const availableWidth = el.clientWidth;
       setZoomLevel(availableWidth < DESKTOP_WIDTH ? availableWidth / DESKTOP_WIDTH : 1);
+      setZoomReady(true);
     };
 
     computeZoom();
@@ -755,7 +757,7 @@ export default function MillBill() {
       <div ref={zoomOuterRef} className="invoice-zoom-outer">
         <div
           className="invoice-zoom-inner"
-          style={{ width: DESKTOP_WIDTH, zoom: zoomLevel }}
+          style={{ width: DESKTOP_WIDTH, zoom: zoomLevel, visibility: zoomReady ? 'visible' : 'hidden' }}
         >
           <div className={`millbill invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? 'preview-mode' : ''}`}>
 
