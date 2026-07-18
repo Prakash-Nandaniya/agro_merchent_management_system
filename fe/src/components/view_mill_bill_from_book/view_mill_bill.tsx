@@ -496,7 +496,7 @@ export default function ViewMillBillFromBook() {
       {showRetryBanner && (
         <div className="send-retry-banner print-hide">
           <div className="send-retry-banner-text">
-            Sending was interrupted. Please tap Send again to complete it.
+            Please tap Send again to complete it.
           </div>
           <div className="send-retry-banner-actions">
             <button onClick={handleSendRetry} className="send-retry-btn">
