@@ -262,6 +262,7 @@ export default function MillBill() {
   const [isSending, setIsSending] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showRetryBanner, setShowRetryBanner] = useState(false);
 
   // ── Per-row crop state — all fields as strings ────────────────────────────────
   const [rows, setRows] = useState<RowState[]>([
@@ -592,14 +593,14 @@ export default function MillBill() {
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName; 
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading PDF:', error);
-      alert(error instanceof Error ? error.message : "Something went wrong while downloading the file.");
+      alert("Something went wrong while downloading the file. Please try other ways");
     } finally {
       setIsDownloading(false);
     }
@@ -629,10 +630,16 @@ export default function MillBill() {
       });
 
       printFrame.contentWindow?.focus();
-      printFrame.contentWindow?.print();
+      try {
+        printFrame.contentWindow?.print();
+      } catch (err) {
+        console.error('Print blocked on this device:', err);
+        window.open(url!, '_blank');
+        alert('The invoice has opened in a new tab — use the print icon there.');
+      }
     } catch (error) {
       console.error('Error preparing invoice for print:', error);
-      alert(error instanceof Error ? error.message : 'Something went wrong while preparing the invoice for printing.');
+      alert('Something went wrong while preparing the invoice for printing. Please try other ways');
     } finally {
       setIsPrinting(false);
       setTimeout(() => {
@@ -668,8 +675,41 @@ export default function MillBill() {
         URL.revokeObjectURL(url2);
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        setShowRetryBanner(true);
+        return;
+      }
       console.error('Error generating PDF:', error);
-      alert(error instanceof Error ? error.message : "Something went wrong while preparing the file.");
+      alert("Something went wrong while preparing the file. please try other ways");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // ── Retry Send: PDF is already cached, so this runs instantly on a fresh tap ──
+  const handleSendRetry = async () => {
+    setShowRetryBanner(false);
+    if (!pdfBlobRef.current) return;
+    setIsSending(true);
+    try {
+      const safePartyName = s.partyPAN.trim().replace(/\s+/g, '_');
+      const file = new File([pdfBlobRef.current], `${safePartyName}_${s.invoiceNo}.pdf`, { type: 'application/pdf' });
+      await navigator.share({
+        files: [file],
+        title: `Invoice ${s.invoiceNo}`,
+        text: `Hello ${s.partyName}, please find your invoice attached.`,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        setShowRetryBanner(true);
+        return;
+      }
+      console.error('Retry send failed:', error);
+      alert("Something went wrong while sending the file. please try other ways");
     } finally {
       setIsSending(false);
     }
@@ -695,6 +735,22 @@ export default function MillBill() {
         <div className="pdf-generating-overlay print-hide">
           <div className="mb-spinner" />
           <div className="pdf-generating-text">Generating PDF...</div>
+        </div>
+      )}
+
+      {showRetryBanner && (
+        <div className="send-retry-banner print-hide">
+          <div className="send-retry-banner-text">
+            Sending was interrupted. Please tap Send again to complete it.
+          </div>
+          <div className="send-retry-banner-actions">
+            <button onClick={handleSendRetry} className="send-retry-btn">
+              <SendIcon size={16} /> Send
+            </button>
+            <button onClick={() => setShowRetryBanner(false)} className="send-retry-cancel-btn">
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
