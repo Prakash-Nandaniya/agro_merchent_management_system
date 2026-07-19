@@ -1,33 +1,36 @@
 .make-bill-button {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 20px 20px;
-  border: none;
-  border-radius: 10px;
-  font-size: 20px;
-  font-weight: 500;
+  justify-content: center;
+  gap: 1vw;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1.5px solid #185FA5;
+  border-radius: 14px;
   cursor: pointer;
-}
+  background: #E6F1FB;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 
-.make-bill-button:hover {
-  opacity: 0.9;
-}
+  .make-bill-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #185FA5;
+  }
 
-.make-bill-button.farmer-bill {
-  background: #1D9E75;
-  color: #E1F5EE;
-}
+  .make-bill-label {
+    font-size: 18px;
+    font-weight: 600;
+    color: #185FA5;
+  }
 
-.make-bill-button.farmer-bill svg {
-  color: #9FE1CB;
-}
+  &:hover {
+    background: #d5e8f9;
+    box-shadow: 0 0 0 6px rgba(24, 95, 165, 0.18);
+  }
 
-.make-bill-button.mill-bill {
-  background: #185FA5;
-  color: #E6F1FB;
-}
-
-.make-bill-button.mill-bill svg {
-  color: #85B7EB;
+  &:active {
+    background: #c2ddf5;
+    transform: scale(0.98);
+  }
 }

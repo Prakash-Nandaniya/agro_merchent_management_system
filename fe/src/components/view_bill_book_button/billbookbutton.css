@@ -1,77 +1,36 @@
 .bill-book-button {
   display: flex;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 0.5px solid #d1d5db;
-  background: #ffffff;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  text-align: left;
-}
-
-.bill-book-button:hover {
-  border-color: #9ca3af;
-  background: #f9fafb;
-}
-
-.bill-book-icon {
-  display: flex;
-  align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
+  gap: 1vw;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1.5px solid #185FA5;
+  border-radius: 14px;
+  cursor: pointer;
+  background: #ffffff;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 
-.bill-book-label {
-  flex: 1;
-  font-size: 17px;
-  font-weight: 500;
-}
+  .bill-book-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #185FA5;
+  }
 
-.bill-book-arrow {
-  flex-shrink: 0;
-  opacity: 0.4;
-}
+  .bill-book-label {
+    font-size: 18px;
+    font-weight: 600;
+    color: #185FA5;
+  }
 
-/* Farmer bill book — teal */
-.bill-book-button.farmer-bill-book .bill-book-icon {
-  background: #E1F5EE;
-  color: #0F6E56;
-}
+  &:hover {
+    background: #f0f7ff;
+    box-shadow: 0 0 0 6px rgba(24, 95, 165, 0.18);
+  }
 
-.bill-book-button.farmer-bill-book .bill-book-label {
-  color: #085041;
-}
-
-.bill-book-button.farmer-bill-book .bill-book-arrow {
-  color: #1D9E75;
-}
-
-.bill-book-button.farmer-bill-book:hover {
-  border-color: #1D9E75;
-  background: #f0fdf8;
-}
-
-/* Mill bill book — blue */
-.bill-book-button.mill-bill-book .bill-book-icon {
-  background: #E6F1FB;
-  color: #185FA5;
-}
-
-.bill-book-button.mill-bill-book .bill-book-label {
-  color: #0C447C;
-}
-
-.bill-book-button.mill-bill-book .bill-book-arrow {
-  color: #378ADD;
-}
-
-.bill-book-button.mill-bill-book:hover {
-  border-color: #185FA5;
-  background: #f0f7ff;
+  &:active {
+    background: #dceafd;
+    transform: scale(0.98);
+  }
 }

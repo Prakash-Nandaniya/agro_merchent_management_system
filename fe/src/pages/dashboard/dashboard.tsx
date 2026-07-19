@@ -1,12 +1,12 @@
 import BillButton from "@/components/bill_button/billbutton";
 import BillBookButton from "@/components/view_bill_book_button/billbookbutton";
 import Navbar from "@/components/navbar/navbar";
-import './home.css';
+import './dashboard.css';
 import { useEffect, useState } from "react";
 import { apiFetch } from '@/utils/apifetch';
 import { settings } from "@/settings"
 
-export default function Home() {
+export default function Dashboard() {
     const [isChecking, setIsChecking] = useState(true);
     const [isAuthorized, setIsAuthorized] = useState(false);
 
@@ -39,17 +39,11 @@ export default function Home() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-300 print:bg-white">
+        <div className="dashboard min-h-screen bg-gray-300 print:bg-white">
             <Navbar />
             <div className="buttons-container">
-                <div className="bill-buttons-container">
-                    <BillButton buttonname="Farmer Bill" buttonpath="/new-bill/farmer" />
-                    <BillButton buttonname="Mill Bill" buttonpath="/new-bill/mill" />
-                </div>
-                <div className="view-bill-book-button-container">
-                    <BillBookButton buttonname="Farmer bill book" buttonpath="/bill-book/farmer" />
-                    <BillBookButton buttonname="Mill bill book" buttonpath="/bill-book/mill" />
-                </div>
+                <BillButton />
+                <BillBookButton />
             </div>
         </div>
     );

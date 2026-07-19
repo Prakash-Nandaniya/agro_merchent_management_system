@@ -35,7 +35,7 @@ export default function Login() {
         throw new Error(body?.detail ? String(body.detail) : 'Login failed.');
       }
 
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not reach the server.');
     } finally {
