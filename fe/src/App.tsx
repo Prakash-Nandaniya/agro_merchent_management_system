@@ -6,19 +6,23 @@ import MillBillBookPage from './pages/millbillBook/millbillbook';
 import ViewMillBillFromBookPage from './pages/view_mill_bill_from_book_page/millbillview';
 import Home from './pages/home/home'
 import Login from './pages/login/login'
+import { AuthProvider } from './components/authcontext';
+import { ProtectedRoute } from './components/protectedcomponent';
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/" element={<Home />} />
-        <Route path="/new-bill/mill" element={<MillBillPage />} />
-        <Route path="/bill-book/mill" element={<MillBillBookPage />} />
-        <Route path="/profile-configuration" element={<ProfileConfigurationPage />} />
-        <Route path="/show-mill-bill-from-bill-book" element={<ViewMillBillFromBookPage />} />
-        <Route path="/login" element={<Login />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/new-bill/mill" element={<ProtectedRoute><MillBillPage /></ProtectedRoute>} />
+          <Route path="/bill-book/mill" element={<ProtectedRoute><MillBillBookPage /></ProtectedRoute>} />
+          <Route path="/profile-configuration" element={<ProtectedRoute><ProfileConfigurationPage /></ProtectedRoute>} />
+          <Route path="/show-mill-bill-from-bill-book" element={<ProtectedRoute><ViewMillBillFromBookPage /></ProtectedRoute>} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

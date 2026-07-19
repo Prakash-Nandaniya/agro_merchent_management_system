@@ -176,7 +176,7 @@ export default function ProfileConfig() {
         } catch (err) {
             console.error(err) // harmless — session may already be invalid
         } finally {
-            window.location.href = '/login'
+            window.location.href = '/'
         }
     }
 

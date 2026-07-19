@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from "react";
 import { settings } from "@/settings";
+import { useAuth } from '@/components/authcontext';
 import './home.css';
 
 export default function Home() {
-    const [isChecking, setIsChecking] = useState(true);
-    const [isAuthorized, setIsAuthorized] = useState(false);
+    const { isChecking, isAuthorized, refreshAuth } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -30,7 +30,7 @@ export default function Home() {
                 const body = await res.json().catch(() => ({}));
                 throw new Error(body?.detail ? String(body.detail) : 'Login failed.');
             }
-
+            await refreshAuth();
             navigate('/dashboard');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Could not reach the server.');
@@ -38,26 +38,6 @@ export default function Home() {
             setLoading(false);
         }
     }
-
-    useEffect(() => {
-        const checkHealth = async () => {
-            try {
-                const res = await fetch(`${settings.BE_URL}/health`, {
-                    credentials: 'include',
-                });
-                if (res.ok) {
-                    console.log('Health check passed');
-                    setIsAuthorized(true);
-                }
-            } catch (error) {
-                console.error('Health check failed:', error);
-            } finally {
-                setIsChecking(false);
-            }
-        };
-
-        checkHealth();
-    }, []);
 
     useEffect(() => {
         if (!isChecking && isAuthorized) {
