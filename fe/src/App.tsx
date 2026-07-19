@@ -4,6 +4,7 @@ import Dashboard from './pages/dashboard/dashboard';
 import ProfileConfigurationPage from './pages/profileconfig_page/profileconfig_page';
 import MillBillBookPage from './pages/millbillBook/millbillbook';
 import ViewMillBillFromBookPage from './pages/view_mill_bill_from_book_page/millbillview';
+import Home from './pages/home/home'
 import Login from './pages/login/login'
 
 export default function App() {
@@ -11,6 +12,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/" element={<Home />} />
         <Route path="/new-bill/mill" element={<MillBillPage />} />
         <Route path="/bill-book/mill" element={<MillBillBookPage />} />
         <Route path="/profile-configuration" element={<ProfileConfigurationPage />} />

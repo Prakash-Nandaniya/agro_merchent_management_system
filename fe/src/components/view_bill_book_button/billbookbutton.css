@@ -8,7 +8,7 @@
   border: 1.5px solid #185FA5;
   border-radius: 14px;
   cursor: pointer;
-  background: #ffffff;
+  background: transparent;
   transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 
   .bill-book-icon {
@@ -25,12 +25,12 @@
   }
 
   &:hover {
-    background: #f0f7ff;
+    background: transparent;
     box-shadow: 0 0 0 6px rgba(24, 95, 165, 0.18);
   }
 
   &:active {
-    background: #dceafd;
+    background: transparent;
     transform: scale(0.98);
   }
 }

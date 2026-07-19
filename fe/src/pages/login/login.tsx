@@ -43,35 +43,6 @@ export default function Login() {
     }
   }
 
-  async function handleRecruiterLogin() {
-    setError('');
-    setLoading(true);
-
-    try {
-      const res = await fetch(`${settings.BE_URL}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          current_session_user_name: 'abcd',
-          user_name: 'abcd',
-          password: 'abcd',
-        }),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.detail ? String(body.detail) : 'Login failed.');
-      }
-
-      navigate('/');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reach the server.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
@@ -126,9 +97,6 @@ export default function Login() {
 
         <button className="login-button" type="submit" disabled={loading}>
           {loading ? 'Signing in...' : 'Sign in'}
-        </button>
-        <button className="login-button" type="button" onClick={handleRecruiterLogin} disabled={loading}>
-          {loading ? 'Signing in...' : 'I am Recruiter'}
         </button>
       </form>
     </div>

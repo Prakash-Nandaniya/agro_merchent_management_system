@@ -7,9 +7,9 @@ export function registerNavigate(fn: (path: string) => void) {
 function goToLogin() {
   console.log("redirect to login")
   if (navigateRef) {
-    navigateRef('/login');
+    navigateRef('/');
   } else {
-    window.location.href = '/login';
+    window.location.href = '/';
   }
 }
 
