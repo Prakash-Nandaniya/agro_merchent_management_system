@@ -6,6 +6,8 @@ import MillBillBookPage from './pages/millbillBook/millbillbook';
 import ViewMillBillFromBookPage from './pages/view_mill_bill_from_book_page/millbillview';
 import Home from './pages/home/home'
 import Login from './pages/login/login'
+import AddTradePage from './pages/addtradePage/addtrade';
+import TradeBookPage from './pages/tradebookPage/tradebook';
 import { AuthProvider } from './components/authcontext';
 import { ProtectedRoute } from './components/protectedcomponent';
 
@@ -21,6 +23,8 @@ export default function App() {
           <Route path="/bill-book/mill" element={<ProtectedRoute><MillBillBookPage /></ProtectedRoute>} />
           <Route path="/profile-configuration" element={<ProtectedRoute><ProfileConfigurationPage /></ProtectedRoute>} />
           <Route path="/show-mill-bill-from-bill-book" element={<ProtectedRoute><ViewMillBillFromBookPage /></ProtectedRoute>} />
+          <Route path="/trade-book" element={<ProtectedRoute><TradeBookPage /></ProtectedRoute>} />
+          <Route path="/add-trade" element={<ProtectedRoute><AddTradePage /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

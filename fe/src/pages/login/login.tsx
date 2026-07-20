@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { settings } from '@/settings';
+import { useAuth } from '@/components/authcontext';
 import './login.css';
 
 export default function Login() {
@@ -12,6 +13,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { refreshAuth } = useAuth();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,7 +36,7 @@ export default function Login() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail ? String(body.detail) : 'Login failed.');
       }
-
+      await refreshAuth();
       navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not reach the server.');

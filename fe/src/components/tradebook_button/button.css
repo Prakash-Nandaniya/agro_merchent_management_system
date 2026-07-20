@@ -1,0 +1,36 @@
+.trade-book-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1vw;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1.5px solid #0F6E5D;
+  border-radius: 14px;
+  cursor: pointer;
+  background: #ffffff;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+
+  .trade-book-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #0F6E5D;
+  }
+
+  .trade-book-label {
+    font-size: 18px;
+    font-weight: 600;
+    color: #0F6E5D;
+  }
+
+  &:hover {
+    background: #E4EEEA;
+    box-shadow: 0 0 0 6px rgba(15, 110, 93, 0.18);
+  }
+
+  &:active {
+    background: #d0e5df;
+    transform: scale(0.98);
+  }
+}
