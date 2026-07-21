@@ -136,6 +136,58 @@ class UQCIsMissing(BadRequestError):
     def __init__(self, detail: str = "UQC is missing"):
         super().__init__(detail=detail)
 
+class BlankFieldError(BadRequestError):
+    """Raise when a required string field is empty or whitespace-only."""
+
+    def __init__(self, field_name: str, detail: str = ""):
+        if not detail:
+            detail = f"'{field_name}' must not be blank."
+        super().__init__(detail=detail)
+
+
+class InvalidDateFormatError(BadRequestError):
+    """Raise when a date string doesn't match the expected format."""
+
+    def __init__(self, field_name: str, expected_format: str = "YYYY-MM-DD", detail: str = ""):
+        if not detail:
+            detail = f"'{field_name}' must be in {expected_format} format."
+        super().__init__(detail=detail)
+
+
+class InvalidNumberError(BadRequestError):
+    """Raise when a value can't be parsed into a valid decimal number."""
+
+    def __init__(self, field_name: str, detail: str = ""):
+        if not detail:
+            detail = f"'{field_name}' must be a valid number."
+        super().__init__(detail=detail)
+
+
+class NonPositiveValueError(BadRequestError):
+    """Raise when a field that must be strictly positive is zero or negative."""
+
+    def __init__(self, field_name: str, detail: str = ""):
+        if not detail:
+            detail = f"'{field_name}' must be greater than 0."
+        super().__init__(detail=detail)
+
+
+class NegativeValueError(BadRequestError):
+    """Raise when a field that must be non-negative is below zero."""
+
+    def __init__(self, field_name: str, detail: str = ""):
+        if not detail:
+            detail = f"'{field_name}' must not be negative."
+        super().__init__(detail=detail)
+
+
+class InvalidFieldTypeError(BadRequestError):
+    """Raise when a field's input type isn't a string, number, or expected type."""
+
+    def __init__(self, field_name: str, expected: str, detail: str = ""):
+        if not detail:
+            detail = f"'{field_name}' must be a {expected}."
+        super().__init__(detail=detail)
 
 # ═══════════════════════════ Helper: translate raw SQLAlchemy errors ═══════════════════════════
 def translate_integrity_error(exc: IntegrityError) -> AppException:

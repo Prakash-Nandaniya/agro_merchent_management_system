@@ -63,7 +63,7 @@
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 34px;
   font-weight: 800;
-  color: var(--at-ink);
+  color: rgb(19, 70, 19);
   margin: 0;
   line-height: 1.1;
 }
@@ -84,14 +84,58 @@
   box-shadow: 0 1px 2px rgba(10,26,20,0.03);
 }
 .at-date-card .at-label { color: var(--at-muted); margin: 0; }
-.at-date-card input {
+
+/* Date input — fully self-contained, does not affect / get affected by any other field */
+.at-date-input {
   height: 34px;
+  width: auto;
   border: none;
+  border-radius: 0;
   background: transparent;
   padding: 0;
+  font-size: 14px;
   font-weight: 600;
   color: var(--at-ink);
-  width: auto;
+  box-sizing: border-box;
+}
+.at-date-input:focus {
+  outline: none;
+}
+
+/* Invoice inline field (no panel container) */
+.at-invoice-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 4px;
+}
+.at-invoice-inline .at-label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* Invoice input — small underline only, no box, narrow width for short numbers */
+.at-invoice-input {
+  width: 96px;
+  height: 30px;
+  border: none;
+  border-bottom: 2px solid var(--at-line);
+  border-radius: 0;
+  background: transparent;
+  padding: 0 2px;
+  font-size: 16px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--at-ink);
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.at-invoice-input:focus {
+  outline: none;
+  border-bottom-color: var(--at-accent);
+}
+.at-invoice-input[readonly] {
+  color: var(--at-ink);
+  border-bottom-style: dashed;
 }
 
 /* Panels */
@@ -121,9 +165,6 @@
   margin: 0;
 }
 
-.at-panel--details {
-  border-left: 4px solid var(--at-accent);
-}
 .at-panel--inflow {
   background: linear-gradient(180deg, var(--at-inflow-bg), #F3FAF5);
   border-color: var(--at-inflow-border);
@@ -148,20 +189,12 @@
 }
 
 /* Fields */
-.at-invoice-row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-  margin-bottom: 14px;
-}
 .at-field {
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
 }
-.at-field--grow { flex: 1; }
-.at-field--full { width: 100%; }
 .at-label {
   font-size: 12px;
   font-weight: 700;
@@ -170,69 +203,266 @@
   text-transform: uppercase;
 }
 
-.at-page input {
-  height: 42px;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 12px;
-  font-size: 15px;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  width: 100%;
+/* Label row — holds the label plus its inline unit dropdown */
+.at-label-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.at-label-paren {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--at-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Small inline unit dropdowns — same size/color as the label text, sit next to it */
+.at-qty-inline-select,
+.at-rate-inline-select {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--at-muted);
+  text-transform: uppercase;
+  border: none;
+  background: transparent;
+  padding: 0;
+  height: auto;
+  line-height: 1.2;
+  cursor: pointer;
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  max-width: 90px;
 }
-.at-page input:focus {
+.at-qty-inline-select:focus,
+.at-rate-inline-select:focus {
   outline: none;
-  border-color: var(--at-accent);
-  box-shadow: 0 0 0 3px rgba(15,110,93,0.15);
-  background: var(--at-surface);
+  color: var(--at-inflow-accent);
 }
-.at-panel--inflow input:focus {
-  border-color: var(--at-inflow-accent);
-  box-shadow: 0 0 0 3px rgba(21,128,61,0.15);
-}
-.at-panel--outflow input:focus {
-  border-color: var(--at-outflow-accent);
-  box-shadow: 0 0 0 3px rgba(179,67,43,0.15);
-}
+
 .at-page input:disabled {
   background: var(--at-grey-bg);
   color: var(--at-grey-text);
   cursor: not-allowed;
 }
-.at-page input[readonly]:not(:disabled) {
-  background: var(--at-accent-soft);
-  color: var(--at-ink);
-  cursor: default;
-  font-weight: 600;
-}
-.at-mono { font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
 
-.at-btn-fetch {
+/* Farmer Payment input */
+.at-farmer-input {
   height: 42px;
-  padding: 0 20px;
+  width: 100%;
+  border: 1px solid var(--at-line);
   border-radius: 8px;
-  border: none;
-  background: var(--at-accent);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, transform 0.05s;
-  box-shadow: 0 2px 6px rgba(15,110,93,0.25);
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.at-btn-fetch:hover:not(:disabled) { background: var(--at-accent-dark); }
-.at-btn-fetch:active:not(:disabled) { transform: translateY(1px); }
-.at-btn-fetch:disabled {
-  background: var(--at-line);
-  color: var(--at-muted);
-  cursor: not-allowed;
-  box-shadow: none;
+.at-farmer-input:focus {
+  outline: none;
+  border-color: var(--at-outflow-accent);
+  box-shadow: 0 0 0 3px rgba(179,67,43,0.15);
+}
+
+/* Labour Cost input */
+.at-labour-input {
+  height: 42px;
+  width: 100%;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.at-labour-input:focus {
+  outline: none;
+  border-color: var(--at-outflow-accent);
+  box-shadow: 0 0 0 3px rgba(179,67,43,0.15);
+}
+
+/* Transport Cost input */
+.at-transport-input {
+  height: 42px;
+  width: 100%;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.at-transport-input:focus {
+  outline: none;
+  border-color: var(--at-outflow-accent);
+  box-shadow: 0 0 0 3px rgba(179,67,43,0.15);
+}
+
+/* Other Cost input */
+.at-other-input {
+  height: 42px;
+  width: 100%;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.at-other-input:focus {
+  outline: none;
+  border-color: var(--at-outflow-accent);
+  box-shadow: 0 0 0 3px rgba(179,67,43,0.15);
+}
+
+/* Mill Qty input */
+.at-millqty-input {
+  height: 42px;
+  width: 100%;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.at-millqty-input:focus {
+  outline: none;
+  border-color: var(--at-inflow-accent);
+  box-shadow: 0 0 0 3px rgba(21,128,61,0.15);
+}
+
+/* Custom unit text input shown when "Other" is picked for Mill Qty */
+.at-qtyunit-custom-input {
+  height: 36px;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 14px;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.at-qtyunit-custom-input:focus {
+  outline: none;
+  border-color: var(--at-inflow-accent);
+  box-shadow: 0 0 0 3px rgba(21,128,61,0.15);
+}
+
+/* Mill Rate input */
+.at-millrate-input {
+  height: 42px;
+  width: 100%;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.at-millrate-input:focus {
+  outline: none;
+  border-color: var(--at-inflow-accent);
+  box-shadow: 0 0 0 3px rgba(21,128,61,0.15);
+}
+
+/* Custom unit text input shown when "Other" is picked for Mill Rate */
+.at-rateunit-custom-input {
+  height: 36px;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 14px;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.at-rateunit-custom-input:focus {
+  outline: none;
+  border-color: var(--at-inflow-accent);
+  box-shadow: 0 0 0 3px rgba(21,128,61,0.15);
+}
+
+/* GST Collected input */
+.at-gst-input {
+  height: 42px;
+  width: 100%;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.at-gst-input:focus {
+  outline: none;
+  border-color: var(--at-inflow-accent);
+  box-shadow: 0 0 0 3px rgba(21,128,61,0.15);
+}
+
+/* TDS Deducted input */
+.at-tds-input {
+  height: 42px;
+  width: 100%;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.at-tds-input:focus {
+  outline: none;
+  border-color: var(--at-inflow-accent);
+  box-shadow: 0 0 0 3px rgba(21,128,61,0.15);
+}
+
+/* Mill Payment input */
+.at-millpayment-input {
+  height: 42px;
+  width: 100%;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.at-millpayment-input:focus {
+  outline: none;
+  border-color: var(--at-inflow-accent);
+  box-shadow: 0 0 0 3px rgba(21,128,61,0.15);
 }
 
 .at-spin { animation: at-spin 0.8s linear infinite; }
@@ -351,8 +581,7 @@
   .at-header { align-items: stretch; }
   .at-date-card { width: 100%; }
   .at-panel { padding: 16px; border-radius: 12px; }
-  .at-invoice-row { flex-direction: column; align-items: stretch; }
-  .at-btn-fetch { width: 100%; justify-content: center; }
+  .at-invoice-inline { flex-wrap: wrap; }
   .at-summary {
     flex-direction: column;
     align-items: stretch;
