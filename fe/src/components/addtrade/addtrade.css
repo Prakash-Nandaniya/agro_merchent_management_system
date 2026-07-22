@@ -34,6 +34,44 @@
   box-sizing: border-box;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Full-page "Saving..." overlay shown while handleSave is in flight.
+   Fully nested under .at-saving-overlay — isolated from every other style.
+   ───────────────────────────────────────────────────────────────────────── */
+.at-saving-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(110, 158, 140, 0.45);
+  backdrop-filter: blur(2px);
+
+  & .at-saving-overlay__box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    background: transparent;
+    border-radius: 14px;
+  }
+
+  & .at-saving-overlay__spinner {
+    color: var(--at-accent);
+    animation: at-spin 0.8s linear infinite;
+  }
+
+  & .at-saving-overlay__text {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--at-ink);
+    min-width: 84px;
+    /* prevents the box from jittering width as dots grow/shrink */
+    text-align: center;
+  }
+}
+
 .at-shell {
   max-width: 1180px;
   margin: 0 auto;

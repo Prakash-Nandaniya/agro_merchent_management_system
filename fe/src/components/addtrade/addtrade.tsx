@@ -131,6 +131,19 @@ export default function AddTrade() {
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const [pdfWidth, setPdfWidth] = useState<number>(520);
 
+  const [dotCount, setDotCount] = useState(0);
+
+  useEffect(() => {
+    if (!saving) {
+      setDotCount(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev + 1) % 4); // 0 → 1 → 2 → 3 → 0 ...
+    }, 400);
+    return () => clearInterval(interval);
+  }, [saving]);
+
   useEffect(() => {
     const el = pdfContainerRef.current;
     if (!el) return;
@@ -450,6 +463,16 @@ export default function AddTrade() {
           </button>
         </div>
       </div>
+      {saving && (
+        <div className="at-saving-overlay">
+          <div className="at-saving-overlay__box">
+            <Loader2 size={50} className="at-saving-overlay__spinner" />
+            <span className="at-saving-overlay__text">
+              Saving{'.'.repeat(dotCount)}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

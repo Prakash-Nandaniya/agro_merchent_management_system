@@ -230,7 +230,8 @@ class InvalidFieldTypeError(BadRequestError):
         super().__init__(detail=detail)
 
 # ═══════════════════════════ Helper: translate raw SQLAlchemy errors ═══════════════════════════
-def translate_integrity_error(exc: IntegrityError) -> AppException:
+
+def translate_integrity_error(exc: IntegrityError):
     """
     Inspect a raw SQLAlchemy IntegrityError (usually wrapping a psycopg2 error)
     and convert it into the right AppException subclass:
@@ -245,13 +246,40 @@ def translate_integrity_error(exc: IntegrityError) -> AppException:
     pgcode = getattr(orig, "pgcode", None)
     message = str(orig or exc)
 
+    # 1. Catch Unique Constraint Violations (Already Exists)
     if pgcode == "23505" or "unique constraint" in message.lower():
-        return DuplicateEntryError(detail="Duplicate Invoice Number")
-    if pgcode == "23503" or "foreign key constraint" in message.lower():
-        return ForeignKeyViolationError(detail=f"Foreign key constraint failed: {message}")
-    if pgcode == "23502" or "not null constraint" in message.lower():
-        return DatabaseOperationError(detail=f"A required field was missing: {message}")
+        # Specifically catch duplicate invoice numbers
+        # (Replace 'trades_invoice_no_key' with your actual unique constraint name if different)
+        if "invoice_no" in message.lower() or "trades_invoice_no_key" in message:
+            return DuplicateEntryError(
+                detail="Trade entry with this invoice number already exists. Please search for it in the tradebook and edit it if needed."
+            )
+        
+        # Generic fallback for other duplicate fields
+        return DuplicateEntryError(
+            detail="Duplicate entry detected: A record with this exact information already exists."
+        )
 
+    # 2. Catch Foreign Key Violations (Missing Parent Record)
+    if pgcode == "23503" or "foreign key constraint" in message.lower():
+        # Specifically catch the missing Mill Bill error
+        if "trades_invoice_no_fkey" in message:
+            return ForeignKeyViolationError(
+                detail="Invalid Invoice Number: This Mill Bill does not exist yet. Please create the Mill Bill first before adding this trade."
+            )
+        
+        # Generic fallback for other missing references
+        return ForeignKeyViolationError(
+            detail="Referenced record missing: You are trying to use an item or ID that does not exist in the system."
+        )
+
+    # 3. Catch Not Null Violations (Missing Required Field)
+    if pgcode == "23502" or "not null constraint" in message.lower():
+        return DatabaseOperationError(
+            detail="Missing required field: Please make sure all mandatory fields are filled out."
+        )
+
+    # 4. Fallback for any other database integrity issues
     return DatabaseOperationError(detail=f"Database integrity error: {message}")
 
 # ═══════════════════════════ Auth Exceptions ═══════════════════════════
