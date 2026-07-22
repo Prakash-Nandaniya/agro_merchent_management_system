@@ -65,20 +65,58 @@ class DatabaseOperationError(AppException):
 
     def __init__(self, detail: str = "A database error occurred while processing your request."):
         super().__init__(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
-        
+
+
 class DatabaseOperationException(AppException):
     def __init__(self, message: str = "Database server error, please try again later"):
-        super().__init__(message, status_code=500)
-        
-        
+        super().__init__(status_code=500, detail=message)
+
 
 # ═══════════════════════════ PDF Generation error ═══════════════════════════
 
 class PdfGenerationFailed(AppException):
     """Raise when the pdf generation fails."""
 
-    def __init__(self, detail: str ):
+    def __init__(self, detail: str):
         super().__init__(status_code=500, detail=detail)
+
+
+class MillReceiptNotFoundError(NotFoundError):
+    """Raised when a trade has no mill_receipt stored, or the key can't be found."""
+    def __init__(self):
+        super().__init__(resource="Mill Receipt")
+
+
+# ═══════════════════════════ R2 storage exceptions ═══════════════════════════
+# These now inherit AppException so they're caught by the app_exception_handler
+# below and return their real `detail` message with a proper status code —
+# previously they were plain Exception, so they fell through to the generic
+# handler and always returned a bare "Internal server error".
+
+class R2UploadException(AppException):
+    """Raised when uploading a file to R2 fails."""
+    def __init__(self, detail: str = "Failed to upload mill receipt to storage."):
+        super().__init__(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
+
+
+class R2DeleteException(AppException):
+    """Raised when deleting a file from R2 fails."""
+    def __init__(self, detail: str = "Failed to delete mill receipt from storage."):
+        super().__init__(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
+
+
+class R2FetchException(AppException):
+    """Raised when fetching a file / generating a presigned URL from R2 fails."""
+    def __init__(self, detail: str = "Failed to fetch mill receipt from storage."):
+        super().__init__(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
+
+
+class UnsupportedFileTypeError(BadRequestError):
+    """Raised when an uploaded mill receipt is not a readable image or PDF.
+    This is a client-input problem, so it inherits BadRequestError (400)
+    rather than a 502 — the file itself is bad, R2 was never involved."""
+    def __init__(self, detail: str = "Unsupported file type. Please upload a PDF, JPG, JPEG, PNG, or HEIC file."):
+        super().__init__(detail=detail)
 
 # ═══════════════════════════ Business / validation exceptions ═══════════════════════════
 class MissingCropRowsError(BadRequestError):
@@ -129,12 +167,14 @@ class DeliveryThroughMissing(BadRequestError):
 
     def __init__(self, detail: str = "Delivery through is required."):
         super().__init__(detail=detail)
-        
+
+
 class UQCIsMissing(BadRequestError):
     """Raise when the 'uqc' field is missing or empty."""
 
     def __init__(self, detail: str = "UQC is missing"):
         super().__init__(detail=detail)
+
 
 class BlankFieldError(BadRequestError):
     """Raise when a required string field is empty or whitespace-only."""
@@ -205,7 +245,6 @@ def translate_integrity_error(exc: IntegrityError) -> AppException:
     pgcode = getattr(orig, "pgcode", None)
     message = str(orig or exc)
 
-    # Postgres error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
     if pgcode == "23505" or "unique constraint" in message.lower():
         return DuplicateEntryError(detail="Duplicate Invoice Number")
     if pgcode == "23503" or "foreign key constraint" in message.lower():
@@ -218,17 +257,17 @@ def translate_integrity_error(exc: IntegrityError) -> AppException:
 # ═══════════════════════════ Auth Exceptions ═══════════════════════════
 class InvalidCredentialsException(AppException):
     def __init__(self, message: str = "Invalid username or password"):
-        super().__init__(message, status_code=401)
+        super().__init__(status_code=401, detail=message)
 
 
 class NotAuthenticatedException(AppException):
     def __init__(self, message: str = "User not authenticated"):
-        super().__init__(message, status_code=401)
+        super().__init__(status_code=401, detail=message)
 
 
 class UserNotFoundException(AppException):
     def __init__(self, message: str = "User not found"):
-        super().__init__(message, status_code=404)
+        super().__init__(status_code=404, detail=message)
 
 # ═══════════════════════════ Exception Handlers ═══════════════════════════
 def add_exception_handlers(app: FastAPI):
@@ -236,10 +275,16 @@ def add_exception_handlers(app: FastAPI):
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
-        """Handle request validation errors (bad/missing fields from Pydantic)."""
+        errors = exc.errors()
+        if errors:
+            first = errors[0]
+            field = first["loc"][-1] if first.get("loc") else "field"
+            detail = f"'{field}' is required."
+        else:
+            detail = "Invalid request."
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={"detail": exc.errors()},
+            content={"detail": detail},
         )
 
     @app.exception_handler(AppException)

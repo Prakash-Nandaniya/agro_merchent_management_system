@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, Save as SaveIcon, AlertTriangle, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import { Loader2, Save as SaveIcon, AlertTriangle, TrendingUp, TrendingDown, Calendar, FileText, Plus, X } from 'lucide-react';
 import Decimal from 'decimal.js';
 import './addtrade.css';
 import { settings } from '@/settings';
@@ -54,9 +54,62 @@ export default function AddTrade() {
   const [labourCost, setLabourCost] = useState(existingTrade?.labour_cost || '');
   const [transportCost, setTransportCost] = useState(existingTrade?.transport_cost || '');
   const [otherCost, setOtherCost] = useState(existingTrade?.other_cost || '');
-
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const receiptFileInputRef = useRef<HTMLInputElement>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptEdited, setReceiptEdited] = useState(false);
+  const [existingReceiptKey] = useState<string | null>(existingTrade?.mill_receipt || null);
+  const [millReceiptUrl, setMillReceiptUrl] = useState<string>('');
+  const [millReceiptIsPdf, setMillReceiptIsPdf] = useState(false);
+  const [loadingExistingReceipt, setLoadingExistingReceipt] = useState(false);
+  const [receiptError, setReceiptError] = useState('');
+
+  useEffect(() => {
+    const tradeId = existingTrade?.id;
+    if (!tradeId || !existingTrade?.mill_receipt) return;
+
+    setLoadingExistingReceipt(true);
+    (async () => {
+      try {
+        const res = await apiFetch(`${settings.BE_URL}/get-mill-receipt/${tradeId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setMillReceiptUrl(data.url);
+        setMillReceiptIsPdf(true); // everything stored server-side is normalized to PDF
+      } catch {
+      } finally {
+        setLoadingExistingReceipt(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function openReceiptPicker() {
+    receiptFileInputRef.current?.click();
+  }
+
+  function handleReceiptFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setReceiptError('');
+    setReceiptFile(file);
+    setReceiptEdited(true);
+
+    const localPreviewUrl = URL.createObjectURL(file);
+    setMillReceiptUrl(localPreviewUrl);
+    setMillReceiptIsPdf(file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+
+    e.target.value = '';
+  }
+
+  function handleRemoveReceipt() {
+    setReceiptFile(null);
+    setMillReceiptUrl('');
+    setMillReceiptIsPdf(false);
+    setReceiptEdited(true);
+  }
 
   // ── Actual money received from mill = mill payment + TDS - GST ─────────────
   const inflowDec = parseDecimal(millPayment).plus(parseDecimal(tdsDeducted)).minus(parseDecimal(gstCollected));
@@ -67,11 +120,16 @@ export default function AddTrade() {
   const profitLossDec = inflowDec.minus(outflowDec);
 
   function handleQtyUnitSelect(value: string) {
-      setMillQtyUnit(value);
+    setMillQtyUnit(value);
   }
 
   function handleRateUnitSelect(value: string) {
-      setMillRateUnit(value);
+    setMillRateUnit(value);
+  }
+
+  function toDDMMYYYY(isoDate: string): string {
+    const [year, month, day] = isoDate.split('-');
+    return `${day}-${month}-${year}`;
   }
 
   async function handleSave() {
@@ -82,37 +140,47 @@ export default function AddTrade() {
     setSaving(true);
     setSaveError('');
     try {
-      const payload = {
-        invoice_no: invoiceNo.trim(),
-        trade_creation_date: tradeDate,
-        mill_qty: millQty || '0',
-        mill_qty_unit: millQtyUnit,
-        mill_rate: millRate || '0',
-        mill_rate_unit: millRateUnit,
-        gst_collected: gstCollected || '0',
-        tds_deducted: tdsDeducted || '0',
-        mill_payment: millPayment || '0',
-        farmer_payment: farmerPayment || '0',
-        labour_cost: labourCost || '0',
-        transport_cost: transportCost || '0',
-        other_cost: otherCost || '0',
-      };
+      const fd = new FormData();
+      fd.append('invoice_no', invoiceNo.trim());
+      fd.append('trade_creation_date', toDDMMYYYY(tradeDate));
+      fd.append('mill_qty', millQty || '0');
+      fd.append('mill_qty_unit', millQtyUnit);
+      fd.append('mill_rate', millRate || '0');
+      fd.append('mill_rate_unit', millRateUnit);
+      fd.append('gst_collected', gstCollected || '0');
+      fd.append('tds_deducted', tdsDeducted || '0');
+      fd.append('mill_payment', millPayment || '0');
+      fd.append('farmer_payment', farmerPayment || '0');
+      fd.append('labour_cost', labourCost || '0');
+      fd.append('transport_cost', transportCost || '0');
+      fd.append('other_cost', otherCost || '0');
 
-      const url = isEditMode ? `${settings.BE_URL}/edittrade` : `${settings.BE_URL}/addtrade`;
-      const body = isEditMode ? JSON.stringify({ id: existingTrade!.id, ...payload }) : JSON.stringify(payload);
+      if (isEditMode) {
+        fd.append('id', existingTrade!.id);
+        fd.append('receipt_edited', String(receiptEdited));
+        if (existingReceiptKey) fd.append('existing_mill_receipt', existingReceiptKey);
+      }
 
+      if (receiptFile) fd.append('file', receiptFile);
+
+      const url = isEditMode ? `${settings.BE_URL}/edit-trade` : `${settings.BE_URL}/create-trade`;
       const res = await apiFetch(url, {
         method: isEditMode ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
+        body: fd,
       });
 
       if (!res.ok) {
-        const body2 = await res.json().catch(() => ({}));
-        throw new Error(body2.detail || `Request failed with status ${res.status}`);
+        const body = await res.json().catch(() => ({}));
+        const detail =
+          typeof body.detail === 'string'
+            ? body.detail
+            : Array.isArray(body.detail)
+              ? body.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ')
+              : `Request failed with status ${res.status}`;
+        throw new Error(detail);
       }
 
-      navigate('/trade-book');
+      navigate('/dashboard');
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Could not reach the server.');
     } finally {
@@ -271,6 +339,74 @@ export default function AddTrade() {
             <span className="at-summary-label">{profitLossDec.gte(0) ? 'Net Profit' : 'Net Loss'}</span>
             <span className="at-summary-value">₹ {fmt(profitLossDec.abs())}</span>
           </div>
+        </section>
+
+        {/* Mill Receipt — staged locally, only uploaded when Save is hit */}
+        <section className="at-receipt-section">
+          <div className="at-receipt-section__header">
+            <FileText size={18} />
+            <h2 className="at-receipt-section__title">Mill Receipt</h2>
+          </div>
+
+          <input
+            ref={receiptFileInputRef}
+            type="file"
+            className="at-receipt-section__hidden-input"
+            accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,image/*,application/pdf"
+            onChange={handleReceiptFileChange}
+          />
+
+          {!millReceiptUrl && !loadingExistingReceipt && (
+            <button
+              type="button"
+              className="at-receipt-section__add-btn"
+              onClick={openReceiptPicker}
+            >
+              <Plus size={16} />
+              Add Mill Receipt
+            </button>
+          )}
+
+          {loadingExistingReceipt && (
+            <div className="at-receipt-section__loading">
+              <Loader2 size={16} className="at-spin" />
+              Loading receipt...
+            </div>
+          )}
+
+          {millReceiptUrl && (
+            <div className="at-receipt-section__preview">
+              <button
+                type="button"
+                className="at-receipt-section__remove-btn"
+                onClick={handleRemoveReceipt}
+                title="Remove receipt"
+              >
+                <X size={25} />
+              </button>
+
+              {millReceiptIsPdf ? (
+                <iframe
+                  src={millReceiptUrl}
+                  className="at-receipt-section__pdf-frame"
+                  title="Mill receipt"
+                />
+              ) : (
+                <img
+                  src={millReceiptUrl}
+                  className="at-receipt-section__image"
+                  alt="Mill receipt"
+                />
+              )}
+            </div>
+          )}
+
+          {receiptError && (
+            <div className="at-receipt-section__error">
+              <AlertTriangle size={16} />
+              {receiptError}
+            </div>
+          )}
         </section>
 
         {saveError && (

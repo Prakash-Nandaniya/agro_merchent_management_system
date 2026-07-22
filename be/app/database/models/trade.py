@@ -53,6 +53,8 @@ class Trade(Base):
     labour_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2),nullable=False, default=Decimal("0.00"))
     other_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2),nullable=False, default=Decimal("0.00"))
 
+    mill_receipt:Mapped[str] = mapped_column(String, nullable=True)
+    
     __table_args__ = (
         CheckConstraint(
             "trim(invoice_no) <> ''", name="ck_trades_invoice_no_not_blank"
