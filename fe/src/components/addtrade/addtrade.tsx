@@ -6,6 +6,15 @@ import './addtrade.css';
 import { settings } from '@/settings';
 import { apiFetch } from '@/utils/apifetch';
 
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
+
 // ─── Safely convert any string/number/undefined into a Decimal ────────────────
 const parseDecimal = (val: string | number | undefined | null): Decimal => {
   if (val === undefined || val === null || val === '') return new Decimal(0);
@@ -118,6 +127,24 @@ export default function AddTrade() {
     .plus(parseDecimal(transportCost))
     .plus(parseDecimal(otherCost));
   const profitLossDec = inflowDec.minus(outflowDec);
+
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
+  const [pdfWidth, setPdfWidth] = useState<number>(520);
+
+  useEffect(() => {
+    const el = pdfContainerRef.current;
+    if (!el) return;
+
+    const updateWidth = () => {
+      // Cap at 520 on large screens, but shrink to fit on small ones
+      setPdfWidth(Math.min(el.clientWidth, 520));
+    };
+
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [millReceiptUrl]); // re-measure when a receipt loads in
 
   function handleQtyUnitSelect(value: string) {
     setMillQtyUnit(value);
@@ -382,21 +409,21 @@ export default function AddTrade() {
                 onClick={handleRemoveReceipt}
                 title="Remove receipt"
               >
-                <X size={25} />
+                <X size={20} />
               </button>
 
               {millReceiptIsPdf ? (
-                <iframe
-                  src={millReceiptUrl}
-                  className="at-receipt-section__pdf-frame"
-                  title="Mill receipt"
-                />
+                <div className="at-receipt-section__pdf-frame" ref={pdfContainerRef}>
+                  <Document
+                    file={receiptFile || millReceiptUrl}
+                    loading={<div className="at-receipt-section__loading"><Loader2 size={16} className="at-spin" />Loading receipt...</div>}
+                    error={<div className="at-receipt-section__error"><AlertTriangle size={16} />Could not load PDF.</div>}
+                  >
+                    <Page pageNumber={1} width={pdfWidth} renderTextLayer={false} renderAnnotationLayer={false} />
+                  </Document>
+                </div>
               ) : (
-                <img
-                  src={millReceiptUrl}
-                  className="at-receipt-section__image"
-                  alt="Mill receipt"
-                />
+                <img src={millReceiptUrl} className="at-receipt-section__image" alt="Mill receipt" />
               )}
             </div>
           )}
