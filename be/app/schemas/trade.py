@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Optional
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator,model_validator
 from fastapi import Form
 import uuid
 
@@ -141,7 +141,7 @@ class CreateTradeSchema(BaseModel):
 
 
 class EditTradeSchema(CreateTradeSchema):
-    id: uuid.UUID
+    id: int
 
     @classmethod
     def as_form(
@@ -162,7 +162,7 @@ class EditTradeSchema(CreateTradeSchema):
         other_cost: str = Form("0.00"),
     ):
         return cls(
-            id=uuid.UUID(id),
+            id=int(id),
             invoice_no=invoice_no,
             trade_creation_date=trade_creation_date,
             mill_qty=mill_qty,
@@ -178,7 +178,71 @@ class EditTradeSchema(CreateTradeSchema):
             other_cost=other_cost,
         )
 
+from datetime import datetime
+from typing import List
 
+class TradeOut(BaseModel):
+    id: int
+    invoice_no: str
+    trade_creation_date: datetime
+
+    mill_qty: Decimal
+    mill_qty_unit: str
+    mill_rate: Decimal
+    mill_rate_unit: str
+    gst_collected: Decimal
+    tds_deducted: Decimal
+    mill_payment: Decimal
+
+    farmer_payment: Decimal
+    transport_cost: Decimal
+    labour_cost: Decimal
+    other_cost: Decimal
+
+    mill_receipt: Optional[str] = None
+    created_by: str
+
+    # ── Pulled from the linked MillBill via Trade.invoice ───────────────────
+    party_name: Optional[str] = None
+    party_city: Optional[str] = None
+    seller_name: Optional[str] = None
+    crops: List[str] = []
+
+    model_config = {"from_attributes": True}
+
+    # Runs before field validation, on the raw Trade ORM object — flattens
+    # trade.invoice.party_name etc. into this schema's own top-level fields,
+    # since pydantic's from_attributes can't reach through a relationship
+    # to a differently-named nested object on its own.
+    @model_validator(mode="before")
+    @classmethod
+    def flatten_from_orm(cls, obj):
+        if hasattr(obj, "invoice"):  # it's a Trade ORM instance, not a raw dict
+            bill = obj.invoice
+            return {
+                "id": obj.id,
+                "invoice_no": obj.invoice_no,
+                "trade_creation_date": obj.trade_creation_date,
+                "mill_qty": obj.mill_qty,
+                "mill_qty_unit": obj.mill_qty_unit,
+                "mill_rate": obj.mill_rate,
+                "mill_rate_unit": obj.mill_rate_unit,
+                "gst_collected": obj.gst_collected,
+                "tds_deducted": obj.tds_deducted,
+                "mill_payment": obj.mill_payment,
+                "farmer_payment": obj.farmer_payment,
+                "transport_cost": obj.transport_cost,
+                "labour_cost": obj.labour_cost,
+                "other_cost": obj.other_cost,
+                "mill_receipt": obj.mill_receipt,
+                "created_by": obj.created_by,
+                "party_name": bill.party_name if bill else None,
+                "party_city": bill.party_city if bill else None,
+                "seller_name": bill.seller_name if bill else None,
+                "crops": [c.crop for c in bill.crops] if bill else [],
+            }
+        return obj
+    
 def _coerce_decimal(v, field_name: str) -> Decimal:
     if isinstance(v, Decimal):
         return v

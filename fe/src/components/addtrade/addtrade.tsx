@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, Save as SaveIcon, AlertTriangle, TrendingUp, TrendingDown, Calendar, FileText, Plus, X } from 'lucide-react';
+import { Loader2, Save as SaveIcon, AlertTriangle, Calendar, FileText, Plus, X } from 'lucide-react';
 import Decimal from 'decimal.js';
 import './addtrade.css';
 import { settings } from '@/settings';
@@ -9,6 +9,7 @@ import type { SVGProps } from "react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { ArrowLeft } from 'lucide-react';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -152,6 +153,45 @@ function todayISO(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+function toISODateOnly(raw: string): string {
+  if (!raw) return todayISO();
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(0, 10); // just take YYYY-MM-DD, drop any time part
+  }
+
+  const parts = raw.split('-');
+  if (parts.length === 3 && parts[2].length === 4) {
+    const [day, month, year] = parts;
+    return `${year}-${month}-${day}`;
+  }
+
+  return todayISO(); 
+}
+
+const TRADEBOOK_STORAGE_KEY = 'trade_book_state';
+
+function upsertTradeInBookStorage(trade: any, isEdit: boolean) {
+  try {
+    const raw = sessionStorage.getItem(TRADEBOOK_STORAGE_KEY);
+    const state = raw ? JSON.parse(raw) : { filters: {}, trades: [], hasSearched: true };
+    let trades: any[] = Array.isArray(state.trades) ? state.trades : [];
+
+    if (isEdit) {
+      trades = trades.map((t) => (t.id === trade.id ? trade : t));
+    } else {
+      trades = [trade, ...trades]; // new trade goes to the front
+    }
+
+    sessionStorage.setItem(
+      TRADEBOOK_STORAGE_KEY,
+      JSON.stringify({ ...state, trades, hasSearched: true })
+    );
+  } catch {
+    // if this fails, TradeBook will just show stale data until the next manual search — not fatal
+  }
+}
+
 // ─── Preset units offered in the quantity / rate dropdowns ────────────────────
 const UNIT_OPTIONS = ['Kg', 'Qtl', 'T', 'MT'];
 
@@ -163,7 +203,7 @@ export default function AddTrade() {
   const isEditMode = !!existingTrade;
 
   const [invoiceNo, setInvoiceNo] = useState(existingTrade?.invoice_no || '');
-  const [tradeDate, setTradeDate] = useState(existingTrade?.trade_creation_date || todayISO());
+  const [tradeDate, setTradeDate] = useState(existingTrade?.trade_creation_date ? toISODateOnly(existingTrade.trade_creation_date) : todayISO());
 
   // ── Inflow ────────────────────────────────────────────────────────────────
   const [millQty, setMillQty] = useState(existingTrade?.mill_qty || '');
@@ -181,6 +221,7 @@ export default function AddTrade() {
   const [labourCost, setLabourCost] = useState(existingTrade?.labour_cost || '');
   const [transportCost, setTransportCost] = useState(existingTrade?.transport_cost || '');
   const [otherCost, setOtherCost] = useState(existingTrade?.other_cost || '');
+
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const receiptFileInputRef = useRef<HTMLInputElement>(null);
@@ -203,13 +244,14 @@ export default function AddTrade() {
         if (!res.ok) return;
         const data = await res.json();
         setMillReceiptUrl(data.url);
-        setMillReceiptIsPdf(true); // everything stored server-side is normalized to PDF
+        const isPdf = data.url.split('?')[0].toLowerCase().endsWith('.pdf');
+        setMillReceiptIsPdf(isPdf);
       } catch {
+        setReceiptError('Could not load the mill receipt.');
       } finally {
         setLoadingExistingReceipt(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function openReceiptPicker() {
@@ -257,7 +299,7 @@ export default function AddTrade() {
       return;
     }
     const interval = setInterval(() => {
-      setDotCount((prev) => (prev + 1) % 4); // 0 → 1 → 2 → 3 → 0 ...
+      setDotCount((prev) => (prev + 1) % 4);
     }, 400);
     return () => clearInterval(interval);
   }, [saving]);
@@ -267,7 +309,6 @@ export default function AddTrade() {
     if (!el) return;
 
     const updateWidth = () => {
-      // Cap at 520 on large screens, but shrink to fit on small ones
       setPdfWidth(Math.min(el.clientWidth, 520));
     };
 
@@ -337,8 +378,9 @@ export default function AddTrade() {
               : `Request failed with status ${res.status}`;
         throw new Error(detail);
       }
-
-      navigate('/dashboard');
+      const savedTrade = await res.json();
+      upsertTradeInBookStorage(savedTrade, isEditMode);
+      navigate('/trade-book');
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Could not reach the server.');
     } finally {
@@ -350,6 +392,18 @@ export default function AddTrade() {
     <div className="at-page">
       <div className="at-shell">
         {/* Header */}
+        {isEditMode ?
+          <button
+            type="button"
+            className="at-btn-back"
+            onClick={() => navigate('/trade-book')}
+          >
+            <ArrowLeft size={16} />
+            Back to Trade Book
+          </button>
+          :
+          ''
+        }
         <header className="at-header">
           <div>
             <div className="at-eyebrow">Trade Book</div>
@@ -582,7 +636,7 @@ export default function AddTrade() {
           <div className="at-saving-overlay__box">
             <Loader2 size={50} className="at-saving-overlay__spinner" />
             <span className="at-saving-overlay__text">
-              Saving{'.'.repeat(dotCount)}
+              Saving<span className="at-saving-dots">{'.'.repeat(dotCount)}</span>
             </span>
           </div>
         </div>

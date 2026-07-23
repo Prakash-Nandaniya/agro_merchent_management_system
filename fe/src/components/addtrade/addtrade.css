@@ -34,10 +34,12 @@
   box-sizing: border-box;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Full-page "Saving..." overlay shown while handleSave is in flight.
-   Fully nested under .at-saving-overlay — isolated from every other style.
-   ───────────────────────────────────────────────────────────────────────── */
+.at-saving-dots {
+  display: inline-block;
+  width: 24px;
+  text-align: left;
+}
+
 .at-saving-overlay {
   position: fixed;
   inset: 0;
@@ -78,6 +80,31 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.at-btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  width: 200px;
+  border: 1px solid var(--at-line);
+  color: var(--at-muted);
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+
+
+.at-btn-back:hover {
+  background: var(--at-accent-soft);
+  border-color: var(--at-accent);
+  color: var(--at-accent-dark);
 }
 
 /* Header */
@@ -801,7 +828,7 @@
   & .at-receipt-section__remove-btn:hover {
     color: rgb(223, 47, 47);
     border: solid rgb(130, 36, 36) 1px;
-    cursor: grab;
+    cursor: pointer;
 
   }
 

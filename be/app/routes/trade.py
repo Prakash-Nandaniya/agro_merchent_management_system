@@ -2,11 +2,19 @@ import uuid
 from fastapi import APIRouter, Depends, Request, UploadFile, File
 from sqlalchemy.orm import Session
 from app.database.session import get_db
-from app.schemas.trade import CreateTradeSchema, EditTradeSchema
-from app.database.crud.trade import (save_trade,edit_trade,get_trade,)
+from app.schemas.trade import CreateTradeSchema, EditTradeSchema, TradeOut
+from app.database.crud.trade import (
+    save_trade,
+    edit_trade,
+    get_trade,
+)
 from app.database.crud.session import get_session_user
-from app.services.r2 import (upload_bill_to_r2,delete_bill_from_r2,get_signed_bill_url,)
-from app.core.exceptions import MillReceiptNotFoundError,NotFoundError
+from app.services.r2 import (
+    upload_bill_to_r2,
+    delete_bill_from_r2,
+    get_signed_bill_url,
+)
+from app.core.exceptions import MillReceiptNotFoundError, NotFoundError
 from app.services.mill_receipt_to_pdf import convert_to_pdf
 from typing import Optional
 from fastapi import Form
@@ -18,7 +26,7 @@ router = APIRouter()
 # ── Trade CRUD ──────────────────────────────────────────────────────────────
 
 
-@router.post("/create-trade")
+@router.post("/create-trade", response_model=TradeOut)
 async def create_trade_route(
     request: Request,
     payload: CreateTradeSchema = Depends(CreateTradeSchema.as_form),
@@ -40,13 +48,14 @@ async def create_trade_route(
         )
     except Exception:
         if mill_receipt_key:
-            delete_bill_from_r2(mill_receipt_key)  # rollback R2
+            delete_bill_from_r2(mill_receipt_key)
         raise
 
-    return {"invoice_no": trade.invoice_no}
+    trades = get_trade(db, {"invoice_no": trade.invoice_no})
+    return trades[0]
 
 
-@router.put("/edit-trade")
+@router.put("/edit-trade",response_model=TradeOut)
 async def edit_trade_route(
     payload: EditTradeSchema = Depends(EditTradeSchema.as_form),
     receipt_edited: bool = Form(False),
@@ -76,11 +85,12 @@ async def edit_trade_route(
     if receipt_edited and old_key and old_key != new_key:
         delete_bill_from_r2(old_key)
 
-    return {"invoice_no": trade.invoice_no}
+    trades = get_trade(db, {"id": trade.id})
+    return trades[0]
 
 
 @router.delete("/delete-trade/{trade_id}")
-def delete_trade_route(trade_id: uuid.UUID, db: Session = Depends(get_db)):
+def delete_trade_route(trade_id: int, db: Session = Depends(get_db)):
     trade = db.query(Trade).filter(Trade.id == trade_id).first()
     if not trade:
         raise NotFoundError(resource="Trade")
@@ -97,10 +107,21 @@ def delete_trade_route(trade_id: uuid.UUID, db: Session = Depends(get_db)):
     return {"detail": "Trade deleted successfully"}
 
 
+from typing import List
+from app.schemas.trade import CreateTradeSchema, EditTradeSchema, TradeOut
+
+
+@router.post("/tradebook", response_model=List[TradeOut])
+def tradebook_search(filters: dict, db: Session = Depends(get_db)):
+    trades = get_trade(db, filters)
+    return trades
+
+
 # ── Mill receipt (R2-backed) ────────────────────────────────────────────────
 
+
 @router.get("/get-mill-receipt/{trade_id}")
-def get_mill_receipt(trade_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_mill_receipt(trade_id: int, db: Session = Depends(get_db)):
     trades = get_trade(db, {"id": trade_id})
     trade = trades[0]
 

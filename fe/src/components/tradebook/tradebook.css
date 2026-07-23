@@ -221,6 +221,51 @@
     }
   }
 
+  /* ── Pagination bar (mirrors millbook's .mbr-pagination) ──────────────── */
+  .tb-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .tb-page-btn {
+    min-width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--tb-line);
+    background: var(--tb-surface);
+    color: var(--tb-ink);
+    font-size: 12.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover:not(:disabled) {
+      background: var(--tb-accent-soft);
+    }
+
+    &:disabled {
+      color: var(--tb-line);
+      cursor: not-allowed;
+    }
+  }
+
+  .tb-page-active {
+    background: var(--tb-accent);
+    color: #fff;
+    border-color: var(--tb-accent);
+  }
+
+  .tb-page-gap {
+    color: var(--tb-ink);
+    opacity: 0.5;
+    padding: 0 4px;
+  }
+
   .tb-num {
     text-align: center;
   }
@@ -235,6 +280,15 @@
 
   .tb-loss {
     color: var(--tb-loss);
+  }
+
+  .tb-row-clickable {
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .tb-row-clickable:hover {
+    background: var(--tb-accent-soft);
   }
 
   .tb-row-actions {
@@ -254,6 +308,7 @@
     background: var(--tb-surface);
     cursor: pointer;
     color: var(--tb-ink);
+    margin:0px 10px;
 
     &--edit:hover {
       background: var(--tb-accent-soft);
@@ -440,7 +495,12 @@
 
       .tb-row-actions {
         justify-content: flex-start;
+        gap: 8px;
       }
+    }
+
+    .tb-pagination {
+      margin-bottom: 14px;
     }
 
     .tb-totals {

@@ -9,7 +9,8 @@ from app.core.exceptions import (
 )
 from app.database.models.trade import Trade
 from app.schemas.trade import CreateTradeSchema, EditTradeSchema
-
+from sqlalchemy.orm import contains_eager
+from app.database.models.mill import MillBill, BillCrop
 
 def save_trade(
     db: Session,
@@ -60,32 +61,38 @@ def edit_trade(
     return trade
 
 
+def get_trade(db: Session, filters: dict) -> List[Trade]:
+    query = (
+        db.query(Trade)
+        .join(Trade.invoice)  # single join — invoice_no is NOT NULL, always matches
+        .options(contains_eager(Trade.invoice).selectinload(MillBill.crops))
+    )
 
-def get_trade(db: Session, filter: dict) -> List[Trade]:
-    query = db.query(Trade)
-    if filter:
-        for field, value in filter.items():
-            if value in (None, "", []):
+    if filters:
+        if filters.get("crop"):
+            query = query.join(MillBill.crops).filter(
+                BillCrop.crop.ilike(f"%{filters['crop']}%")
+            )
+
+        for field, value in filters.items():
+            if field == "crop" or value in (None, "", []):
                 continue
-            if field.endswith("_from"):
-                real_field = field[: -len("_from")]
-                column = getattr(Trade, real_field, None)
-                if column is not None:
-                    query = query.filter(column >= value)
+            if field == "date_from":
+                query = query.filter(Trade.trade_creation_date >= value)
                 continue
-            if field.endswith("_to"):
-                real_field = field[: -len("_to")]
-                column = getattr(Trade, real_field, None)
-                if column is not None:
-                    query = query.filter(column <= value)
+            if field == "date_to":
+                query = query.filter(Trade.trade_creation_date <= value)
                 continue
-            column = getattr(Trade, field, None)
+
+            column = getattr(Trade, field, None) or getattr(MillBill, field, None)
             if column is None:
                 continue
-            if field in {"party_name"} and isinstance(value, str):
+
+            if field in {"party_name", "party_city", "seller_name"} and isinstance(value, str):
                 query = query.filter(column.ilike(f"%{value}%"))
             else:
                 query = query.filter(column == value)
+
     trades = query.distinct().all()
     if not trades:
         raise NotFoundError(resource="Trade")
