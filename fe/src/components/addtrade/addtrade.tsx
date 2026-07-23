@@ -5,7 +5,7 @@ import Decimal from 'decimal.js';
 import './addtrade.css';
 import { settings } from '@/settings';
 import { apiFetch } from '@/utils/apifetch';
-
+import type { SVGProps } from "react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -14,6 +14,77 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString();
+
+type IconProps = {
+  size?: number;
+  className?: string;
+} & Omit<SVGProps<SVGSVGElement>, "width" | "height" | "className">;
+
+type AmountInputProps = {
+  className?: string;
+  value: string;
+  onValueChange: (raw: string) => void;
+  placeholder?: string;
+};
+
+const WalletInflow = ({ size = 24, className = "", ...props }: IconProps) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Coin dropping in */}
+    <circle cx="12" cy="3.25" r="2.25" />
+    <circle cx="12" cy="3.25" r="0.55" fill="currentColor" stroke="none" />
+    {/* Wallet body */}
+    <path d="M3 12a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    {/* Top slot / opening */}
+    <path d="M9 10h6" />
+    {/* Card pocket + clasp dot */}
+    <path d="M21 14.5h-3a1.5 1.5 0 0 0 0 3h3" />
+    <circle cx="18" cy="16" r="0.55" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+const WalletOutflow = ({ size = 24, className = "", ...props }: IconProps) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Wallet body, tipped open at the bottom */}
+    <path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    {/* Bottom slot / opening */}
+    <path d="M9 14h6" />
+    {/* Card pocket + clasp dot */}
+    <path d="M21 7.5h-3a1.5 1.5 0 0 0 0 3h3" />
+    <circle cx="18" cy="9" r="0.55" fill="currentColor" stroke="none" />
+    {/* Dropped coin */}
+    <circle cx="12" cy="20.75" r="2.25" />
+    <circle cx="12" cy="20.75" r="0.55" fill="currentColor" stroke="none" />
+    {/* Dropped coin */}
+    <circle cx="12" cy="20.75" r="2.25" />
+    <circle cx="12" cy="20.75" r="0.55" fill="currentColor" stroke="none" />
+  </svg>
+);
 
 // ─── Safely convert any string/number/undefined into a Decimal ────────────────
 const parseDecimal = (val: string | number | undefined | null): Decimal => {
@@ -25,9 +96,56 @@ const parseDecimal = (val: string | number | undefined | null): Decimal => {
   }
 };
 
-// ─── Format a Decimal to 2-decimal Indian-format string, display only ─────────
-function fmt(x: Decimal): string {
-  return x.toNumber().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function toRawNumber(display: string): string {
+  return display.replace(/,/g, '');
+}
+
+function formatIndian(raw: string): string {
+  if (raw === '') return '';
+  const [intPart, decPart] = raw.split('.');
+  const groupedInt = intPart === '' ? '' : Number(intPart).toLocaleString('en-IN');
+  if (decPart === undefined) return groupedInt;
+  return `${groupedInt}.${decPart}`;
+}
+
+function AmountInput({ className, value, onValueChange, placeholder }: AmountInputProps) {
+  const ref = useRef<HTMLInputElement>(null);
+  const displayValue = formatIndian(value);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const el = e.target;
+    const cursorBefore = el.selectionStart ?? el.value.length;
+    const rawDigitsBeforeCursor = toRawNumber(el.value.slice(0, cursorBefore)).replace(/[^0-9.]/g, '').length;
+
+    const cleaned = toRawNumber(el.value).replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    const safeRaw = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+
+    onValueChange(safeRaw);
+
+    requestAnimationFrame(() => {
+      if (!ref.current) return;
+      const newFormatted = formatIndian(safeRaw);
+      let count = 0, pos = 0;
+      for (; pos < newFormatted.length; pos++) {
+        if (newFormatted[pos] !== ',') count++;
+        if (count >= rawDigitsBeforeCursor) { pos++; break; }
+      }
+      ref.current.setSelectionRange(pos, pos);
+    });
+  }
+
+  return (
+    <input
+      ref={ref}
+      type="text"
+      inputMode="decimal"
+      className={className}
+      value={displayValue}
+      onChange={handleChange}
+      placeholder={placeholder}
+    />
+  );
 }
 
 function todayISO(): string {
@@ -266,7 +384,7 @@ export default function AddTrade() {
         <div className="at-two-col">
           <section className="at-panel at-panel--inflow">
             <div className="at-panel-head">
-              <TrendingUp size={18} />
+              <WalletInflow size={30} />
               <h2 className="at-section-title">Inflow</h2>
             </div>
             <div className="at-form-grid">
@@ -287,12 +405,10 @@ export default function AddTrade() {
                   </select>
                   <span className="at-label-paren">)</span>
                 </div>
-                <input
-                  type="number"
-                  inputMode="decimal"
+                <AmountInput
                   className="at-millqty-input"
                   value={millQty}
-                  onChange={(e) => setMillQty(e.target.value)}
+                  onValueChange={setMillQty}
                   placeholder="0.00"
                 />
               </div>
@@ -314,51 +430,49 @@ export default function AddTrade() {
                   </select>
                   <span className="at-label-paren">)</span>
                 </div>
-                <input
-                  type="number"
-                  inputMode="decimal"
+                <AmountInput
                   className="at-millrate-input"
                   value={millRate}
-                  onChange={(e) => setMillRate(e.target.value)}
+                  onValueChange={setMillRate}
                   placeholder="0.00"
                 />
               </div>
 
               <div className="at-field">
                 <label className="at-label">GST Collected</label>
-                <input type="number" inputMode="decimal" className="at-gst-input" value={gstCollected} onChange={(e) => setGstCollected(e.target.value)} placeholder="0.00" />
+                <AmountInput className="at-gst-input" value={gstCollected} onValueChange={setGstCollected} placeholder="0.00" />
               </div>
               <div className="at-field">
                 <label className="at-label">TDS Deducted</label>
-                <input type="number" inputMode="decimal" className="at-tds-input" value={tdsDeducted} onChange={(e) => setTdsDeducted(e.target.value)} placeholder="0.00" />
+                <AmountInput className="at-tds-input" value={tdsDeducted} onValueChange={setTdsDeducted} placeholder="0.00" />
               </div>
               <div className="at-field">
                 <label className="at-label">Mill Payment</label>
-                <input type="number" inputMode="decimal" className="at-millpayment-input" value={millPayment} onChange={(e) => setMillPayment(e.target.value)} placeholder="0.00" />
+                <AmountInput className="at-millpayment-input" value={millPayment} onValueChange={setMillPayment} placeholder="0.00" />
               </div>
             </div>
           </section>
           <section className="at-panel at-panel--outflow">
             <div className="at-panel-head">
-              <TrendingDown size={18} />
+              <WalletOutflow size={30} />
               <h2 className="at-section-title">Outflow</h2>
             </div>
             <div className="at-form-grid">
               <div className="at-field">
                 <label className="at-label">Farmer Payment</label>
-                <input type="number" inputMode="decimal" className="at-farmer-input" value={farmerPayment} onChange={(e) => setFarmerPayment(e.target.value)} placeholder="0.00" />
+                <AmountInput className="at-farmer-input" value={farmerPayment} onValueChange={setFarmerPayment} placeholder="0.00" />
               </div>
               <div className="at-field">
                 <label className="at-label">Labour Cost</label>
-                <input type="number" inputMode="decimal" className="at-labour-input" value={labourCost} onChange={(e) => setLabourCost(e.target.value)} placeholder="0.00" />
+                <AmountInput className="at-labour-input" value={labourCost} onValueChange={setLabourCost} placeholder="0.00" />
               </div>
               <div className="at-field">
                 <label className="at-label">Transport Cost</label>
-                <input type="number" inputMode="decimal" className="at-transport-input" value={transportCost} onChange={(e) => setTransportCost(e.target.value)} placeholder="0.00" />
+                <AmountInput className="at-transport-input" value={transportCost} onValueChange={setTransportCost} placeholder="0.00" />
               </div>
               <div className="at-field">
                 <label className="at-label">Other Cost</label>
-                <input type="number" inputMode="decimal" className="at-other-input" value={otherCost} onChange={(e) => setOtherCost(e.target.value)} placeholder="0.00" />
+                <AmountInput className="at-other-input" value={otherCost} onValueChange={setOtherCost} placeholder="0.00" />
               </div>
             </div>
           </section>
@@ -368,16 +482,16 @@ export default function AddTrade() {
         <section className="at-summary">
           <div className="at-summary-item">
             <span className="at-summary-label">Inflow</span>
-            <span className="at-summary-value">₹ {fmt(inflowDec)}</span>
+            <span className="at-summary-value">₹ {formatIndian(inflowDec.toFixed(2))}</span>
           </div>
           <div className="at-summary-divider" />
           <div className="at-summary-item">
             <span className="at-summary-label">Outflow</span>
-            <span className="at-summary-value">₹ {fmt(outflowDec)}</span>
+            <span className="at-summary-value">₹ {formatIndian(outflowDec.toFixed(2))}</span>
           </div>
           <div className={`at-summary-item at-summary-item--grand ${profitLossDec.gte(0) ? 'at-profit' : 'at-loss'}`}>
             <span className="at-summary-label">{profitLossDec.gte(0) ? 'Net Profit' : 'Net Loss'}</span>
-            <span className="at-summary-value">₹ {fmt(profitLossDec.abs())}</span>
+            <span className="at-summary-value">₹ {formatIndian(profitLossDec.abs().toFixed(2))}</span>
           </div>
         </section>
 
