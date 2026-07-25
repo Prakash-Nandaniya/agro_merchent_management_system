@@ -1,9 +1,9 @@
+import re
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Optional
-from pydantic import BaseModel, field_validator,model_validator
+from pydantic import BaseModel, field_validator, model_validator
 from fastapi import Form
-import uuid
 
 from app.core.exceptions import (
     BlankFieldError,
@@ -12,48 +12,63 @@ from app.core.exceptions import (
     NonPositiveValueError,
     NegativeValueError,
     InvalidFieldTypeError,
+    InvalidGSTINError,
 )
+
+GSTIN_RE = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
 
 
 class CreateTradeSchema(BaseModel):
-    invoice_no: str
-
     trade_creation_date: date
+    crop_name: str
 
-    # ── Inflow ─────────────────────────────────────────────────────────────
-    mill_qty: Decimal
-    mill_qty_unit: str
-    mill_rate: Decimal
-    mill_rate_unit: str
-    gst_collected: Decimal = Decimal("0.00")
-    tds_deducted: Decimal = Decimal("0.00")
-    mill_payment: Decimal
+    invoice_no: Optional[str] = None
+    party_name: Optional[str] = None
+    party_city: Optional[str] = None
+    party_gstin: Optional[str] = None
 
-    # ── Outflow ────────────────────────────────────────────────────────────
-    farmer_payment: Decimal
-    transport_cost: Decimal = Decimal("0.00")
-    labour_cost: Decimal = Decimal("0.00")
-    other_cost: Decimal = Decimal("0.00")
+    invoice_crop_qty: Optional[Decimal] = None
+    invoice_crop_qty_unit: Optional[str] = None
+    invoice_crop_rate: Optional[Decimal] = None
+    invoice_crop_rate_unit: Optional[str] = None
+    vehicle_no: Optional[str] = None
 
-    # ── invoice_no: must not be blank ─────────────────────────────────────
-    @field_validator("invoice_no")
+    # ── Inflow ───────────────────────────────────────────────────────────────
+    mill_qty: Optional[Decimal] = None
+    mill_qty_unit: Optional[str] = None
+    mill_rate: Optional[Decimal] = None
+    mill_rate_unit: Optional[str] = None
+    gst_collected: Optional[Decimal] = None
+    tds_deducted: Optional[Decimal] = None
+    mill_payment: Optional[Decimal] = None
+
+    # ── Outflow ──────────────────────────────────────────────────────────────
+    farmer_payment: Optional[Decimal] = None
+    transport_cost: Optional[Decimal] = None
+    labour_cost: Optional[Decimal] = None
+    other_cost: Optional[Decimal] = None
+
+    note: Optional[str] = None
+    mill_receipt: Optional[str] = None
+
+    @field_validator("crop_name")
     @classmethod
-    def invoice_no_not_blank(cls, v: str) -> str:
+    def crop_name_not_blank(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise BlankFieldError("invoice_no")
+            raise BlankFieldError("crop_name")
         return v
 
-    # ── unit fields: must not be blank ──────────────────────────────────────
-    @field_validator("mill_qty_unit", "mill_rate_unit")
+    @field_validator("party_gstin")
     @classmethod
-    def unit_fields_not_blank(cls, v: str, info) -> str:
-        v = v.strip()
-        if not v:
-            raise BlankFieldError(info.field_name)
+    def validate_party_gstin(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v.strip() == "":
+            return None
+        v = v.strip().upper()
+        if not GSTIN_RE.match(v):
+            raise InvalidGSTINError(f"Invalid GSTIN format: '{v}'.")
         return v
 
-    # ── trade_creation_date: accept "DD-MM-YYYY" strings or date objects ────
     @field_validator("trade_creation_date", mode="before")
     @classmethod
     def parse_trade_date(cls, v):
@@ -67,35 +82,52 @@ class CreateTradeSchema(BaseModel):
                 raise InvalidDateFormatError("trade_creation_date")
         raise InvalidFieldTypeError("trade_creation_date", "string or date")
 
-    # ── mill_qty / mill_rate / mill_payment / farmer_payment:
-    #    required, must be strictly positive ─────────────────────────────────
-    @field_validator(
-        "mill_qty",
-        "mill_rate",
-        "mill_payment",
-        "farmer_payment",
-        mode="before",
-    )
+    @field_validator("mill_qty", "mill_rate", mode="before")
     @classmethod
-    def parse_required_positive_decimal(cls, v, info):
+    def parse_optional_positive_decimal(cls, v, info):
+        if v is None or v == "":
+            return None
         d = _coerce_decimal(v, info.field_name)
         if d <= 0:
             raise NonPositiveValueError(info.field_name)
         return d
 
-    # ── cost/payment fields: optional, default 0, must be >= 0 ──────────────
+    @field_validator("invoice_crop_qty", "invoice_crop_rate", mode="before")
+    @classmethod
+    def parse_optional_decimal(cls, v, info):
+        if v is None or v == "":
+            return None
+        return _coerce_decimal(v, info.field_name)
+
+    @model_validator(mode="after")
+    def qty_rate_require_their_unit(self) -> "CreateTradeSchema":
+        pairs = [
+            ("mill_qty", "mill_qty_unit"),
+            ("mill_rate", "mill_rate_unit"),
+            ("invoice_crop_qty", "invoice_crop_qty_unit"),
+            ("invoice_crop_rate", "invoice_crop_rate_unit"),
+        ]
+        for value_field, unit_field in pairs:
+            value = getattr(self, value_field)
+            unit = getattr(self, unit_field)
+            if value is not None and (unit is None or unit.strip() == ""):
+                raise BlankFieldError(unit_field)
+        return self
+
     @field_validator(
         "gst_collected",
         "tds_deducted",
+        "mill_payment",
+        "farmer_payment",
         "transport_cost",
         "labour_cost",
         "other_cost",
         mode="before",
     )
     @classmethod
-    def parse_non_negative_decimal(cls, v, info):
+    def parse_optional_non_negative_decimal(cls, v, info):
         if v is None or v == "":
-            return Decimal("0.00")
+            return None
         d = _coerce_decimal(v, info.field_name)
         if d < 0:
             raise NegativeValueError(info.field_name)
@@ -104,23 +136,42 @@ class CreateTradeSchema(BaseModel):
     @classmethod
     def as_form(
         cls,
-        invoice_no: str = Form(...),
         trade_creation_date: str = Form(...),
-        mill_qty: str = Form(...),
-        mill_qty_unit: str = Form(...),
-        mill_rate: str = Form(...),
-        mill_rate_unit: str = Form(...),
-        gst_collected: str = Form("0.00"),
-        tds_deducted: str = Form("0.00"),
-        mill_payment: str = Form(...),
-        farmer_payment: str = Form(...),
-        transport_cost: str = Form("0.00"),
-        labour_cost: str = Form("0.00"),
-        other_cost: str = Form("0.00"),
+        crop_name: str = Form(...),
+        invoice_no: Optional[str] = Form(None),
+        party_name: Optional[str] = Form(None),
+        party_city: Optional[str] = Form(None),
+        party_gstin: Optional[str] = Form(None),
+        invoice_crop_qty: Optional[str] = Form(None),
+        invoice_crop_qty_unit: Optional[str] = Form(None),
+        invoice_crop_rate: Optional[str] = Form(None),
+        invoice_crop_rate_unit: Optional[str] = Form(None),
+        vehicle_no: Optional[str] = Form(None),
+        mill_qty: Optional[str] = Form(None),
+        mill_qty_unit: Optional[str] = Form(None),
+        mill_rate: Optional[str] = Form(None),
+        mill_rate_unit: Optional[str] = Form(None),
+        gst_collected: Optional[str] = Form(None),
+        tds_deducted: Optional[str] = Form(None),
+        mill_payment: Optional[str] = Form(None),
+        farmer_payment: Optional[str] = Form(None),
+        transport_cost: Optional[str] = Form(None),
+        labour_cost: Optional[str] = Form(None),
+        other_cost: Optional[str] = Form(None),
+        note: Optional[str] = Form(None),
     ):
         return cls(
-            invoice_no=invoice_no,
             trade_creation_date=trade_creation_date,
+            crop_name=crop_name,
+            invoice_no=invoice_no,
+            party_name=party_name,
+            party_city=party_city,
+            party_gstin=party_gstin,
+            invoice_crop_qty=invoice_crop_qty,
+            invoice_crop_qty_unit=invoice_crop_qty_unit,
+            invoice_crop_rate=invoice_crop_rate,
+            invoice_crop_rate_unit=invoice_crop_rate_unit,
+            vehicle_no=vehicle_no,
             mill_qty=mill_qty,
             mill_qty_unit=mill_qty_unit,
             mill_rate=mill_rate,
@@ -132,6 +183,7 @@ class CreateTradeSchema(BaseModel):
             transport_cost=transport_cost,
             labour_cost=labour_cost,
             other_cost=other_cost,
+            note=note,
         )
 
     def to_orm_kwargs(self) -> dict:
@@ -142,29 +194,60 @@ class CreateTradeSchema(BaseModel):
 
 class EditTradeSchema(CreateTradeSchema):
     id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    # ── Request metadata — NOT trade data, always excluded in to_orm_kwargs ──
+    form_edited: bool = False
+    mill_receipt_edited: bool = False
 
     @classmethod
     def as_form(
         cls,
         id: str = Form(...),
-        invoice_no: str = Form(...),
+        created_by: Optional[str] = Form(None),
         trade_creation_date: str = Form(...),
-        mill_qty: str = Form(...),
-        mill_qty_unit: str = Form(...),
-        mill_rate: str = Form(...),
-        mill_rate_unit: str = Form(...),
-        gst_collected: str = Form("0.00"),
-        tds_deducted: str = Form("0.00"),
-        mill_payment: str = Form(...),
-        farmer_payment: str = Form(...),
-        transport_cost: str = Form("0.00"),
-        labour_cost: str = Form("0.00"),
-        other_cost: str = Form("0.00"),
+        crop_name: str = Form(...),
+        invoice_no: Optional[str] = Form(None),
+        party_name: Optional[str] = Form(None),
+        party_city: Optional[str] = Form(None),
+        party_gstin: Optional[str] = Form(None),
+        invoice_crop_qty: Optional[str] = Form(None),
+        invoice_crop_qty_unit: Optional[str] = Form(None),
+        invoice_crop_rate: Optional[str] = Form(None),
+        invoice_crop_rate_unit: Optional[str] = Form(None),
+        vehicle_no: Optional[str] = Form(None),
+        mill_qty: Optional[str] = Form(None),
+        mill_qty_unit: Optional[str] = Form(None),
+        mill_rate: Optional[str] = Form(None),
+        mill_rate_unit: Optional[str] = Form(None),
+        gst_collected: Optional[str] = Form(None),
+        tds_deducted: Optional[str] = Form(None),
+        mill_payment: Optional[str] = Form(None),
+        farmer_payment: Optional[str] = Form(None),
+        transport_cost: Optional[str] = Form(None),
+        labour_cost: Optional[str] = Form(None),
+        other_cost: Optional[str] = Form(None),
+        note: Optional[str] = Form(None),
+        created_at: Optional[str] = Form(None),
+        updated_at: Optional[str] = Form(None),
+        form_edited: bool = Form(False),
+        mill_receipt_edited: bool = Form(False),
     ):
         return cls(
             id=int(id),
-            invoice_no=invoice_no,
+            created_by=created_by,
             trade_creation_date=trade_creation_date,
+            crop_name=crop_name,
+            invoice_no=invoice_no,
+            party_name=party_name,
+            party_city=party_city,
+            party_gstin=party_gstin,
+            invoice_crop_qty=invoice_crop_qty,
+            invoice_crop_qty_unit=invoice_crop_qty_unit,
+            invoice_crop_rate=invoice_crop_rate,
+            invoice_crop_rate_unit=invoice_crop_rate_unit,
+            vehicle_no=vehicle_no,
             mill_qty=mill_qty,
             mill_qty_unit=mill_qty_unit,
             mill_rate=mill_rate,
@@ -176,73 +259,65 @@ class EditTradeSchema(CreateTradeSchema):
             transport_cost=transport_cost,
             labour_cost=labour_cost,
             other_cost=other_cost,
+            note=note,
+            created_at=created_at,
+            updated_at=updated_at,
+            form_edited=form_edited,
+            mill_receipt_edited=mill_receipt_edited,
         )
 
-from datetime import datetime
-from typing import List
+    def to_orm_kwargs(self) -> dict:
+        data = self.model_dump(
+            exclude={
+                "mill_receipt",
+                "created_at",
+                "updated_at",
+                "form_edited",
+                "mill_receipt_edited",
+            }
+        )
+        data.pop("id", None)
+        return {"bill": data}
+
 
 class TradeOut(BaseModel):
     id: int
-    invoice_no: str
+    created_at: datetime
+    updated_at: datetime
     trade_creation_date: datetime
-
-    mill_qty: Decimal
-    mill_qty_unit: str
-    mill_rate: Decimal
-    mill_rate_unit: str
-    gst_collected: Decimal
-    tds_deducted: Decimal
-    mill_payment: Decimal
-
-    farmer_payment: Decimal
-    transport_cost: Decimal
-    labour_cost: Decimal
-    other_cost: Decimal
-
-    mill_receipt: Optional[str] = None
     created_by: str
 
-    # ── Pulled from the linked MillBill via Trade.invoice ───────────────────
+    invoice_no: Optional[str] = None
     party_name: Optional[str] = None
     party_city: Optional[str] = None
-    seller_name: Optional[str] = None
-    crops: List[str] = []
+    party_gstin: Optional[str] = None
+    crop_name: str
+
+    invoice_crop_qty: Optional[Decimal] = None
+    invoice_crop_qty_unit: Optional[str] = None
+    invoice_crop_rate: Optional[Decimal] = None
+    invoice_crop_rate_unit: Optional[str] = None
+    vehicle_no: Optional[str] = None
+
+    mill_qty: Optional[Decimal] = None
+    mill_qty_unit: Optional[str] = None
+    mill_rate: Optional[Decimal] = None
+    mill_rate_unit: Optional[str] = None
+    gst_collected: Optional[Decimal] = None
+    tds_deducted: Optional[Decimal] = None
+    mill_payment: Optional[Decimal] = None
+
+    farmer_payment: Optional[Decimal] = None
+    transport_cost: Optional[Decimal] = None
+    labour_cost: Optional[Decimal] = None
+    other_cost: Optional[Decimal] = None
+
+    note: Optional[str] = None
+    mill_receipt: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
-    # Runs before field validation, on the raw Trade ORM object — flattens
-    # trade.invoice.party_name etc. into this schema's own top-level fields,
-    # since pydantic's from_attributes can't reach through a relationship
-    # to a differently-named nested object on its own.
-    @model_validator(mode="before")
-    @classmethod
-    def flatten_from_orm(cls, obj):
-        if hasattr(obj, "invoice"):  # it's a Trade ORM instance, not a raw dict
-            bill = obj.invoice
-            return {
-                "id": obj.id,
-                "invoice_no": obj.invoice_no,
-                "trade_creation_date": obj.trade_creation_date,
-                "mill_qty": obj.mill_qty,
-                "mill_qty_unit": obj.mill_qty_unit,
-                "mill_rate": obj.mill_rate,
-                "mill_rate_unit": obj.mill_rate_unit,
-                "gst_collected": obj.gst_collected,
-                "tds_deducted": obj.tds_deducted,
-                "mill_payment": obj.mill_payment,
-                "farmer_payment": obj.farmer_payment,
-                "transport_cost": obj.transport_cost,
-                "labour_cost": obj.labour_cost,
-                "other_cost": obj.other_cost,
-                "mill_receipt": obj.mill_receipt,
-                "created_by": obj.created_by,
-                "party_name": bill.party_name if bill else None,
-                "party_city": bill.party_city if bill else None,
-                "seller_name": bill.seller_name if bill else None,
-                "crops": [c.crop for c in bill.crops] if bill else [],
-            }
-        return obj
-    
+
 def _coerce_decimal(v, field_name: str) -> Decimal:
     if isinstance(v, Decimal):
         return v
@@ -251,7 +326,7 @@ def _coerce_decimal(v, field_name: str) -> Decimal:
     if isinstance(v, str):
         v = v.strip()
         if not v:
-            raise BlankFieldError(field_name)
+            return None
         try:
             return Decimal(v)
         except InvalidOperation:

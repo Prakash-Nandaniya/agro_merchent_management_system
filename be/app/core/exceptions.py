@@ -228,6 +228,10 @@ class InvalidFieldTypeError(BadRequestError):
         if not detail:
             detail = f"'{field_name}' must be a {expected}."
         super().__init__(detail=detail)
+        
+class FileTooLargeError(BadRequestError):
+    def __init__(self, detail: str = "File size must be <1MB"):
+        super().__init__(detail=detail)
 
 # ═══════════════════════════ Helper: translate raw SQLAlchemy errors ═══════════════════════════
 

@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -9,8 +8,10 @@ from app.core.exceptions import (
 )
 from app.database.models.trade import Trade
 from app.schemas.trade import CreateTradeSchema, EditTradeSchema
-from sqlalchemy.orm import contains_eager
-from app.database.models.mill import MillBill, BillCrop
+from math import ceil
+from app.core.config import settings
+
+PAGE_SIZE = settings.BE_PAGE_SIZE
 
 def save_trade(
     db: Session,
@@ -61,21 +62,12 @@ def edit_trade(
     return trade
 
 
-def get_trade(db: Session, filters: dict) -> List[Trade]:
-    query = (
-        db.query(Trade)
-        .join(Trade.invoice)  # single join — invoice_no is NOT NULL, always matches
-        .options(contains_eager(Trade.invoice).selectinload(MillBill.crops))
-    )
+def get_trade(db: Session, filters: dict, page: int = 1) -> List[Trade]:
+    query = db.query(Trade)  
 
     if filters:
-        if filters.get("crop"):
-            query = query.join(MillBill.crops).filter(
-                BillCrop.crop.ilike(f"%{filters['crop']}%")
-            )
-
         for field, value in filters.items():
-            if field == "crop" or value in (None, "", []):
+            if value in (None, "", []):
                 continue
             if field == "date_from":
                 query = query.filter(Trade.trade_creation_date >= value)
@@ -84,16 +76,47 @@ def get_trade(db: Session, filters: dict) -> List[Trade]:
                 query = query.filter(Trade.trade_creation_date <= value)
                 continue
 
-            column = getattr(Trade, field, None) or getattr(MillBill, field, None)
+            column = getattr(Trade, field, None)
             if column is None:
                 continue
 
-            if field in {"party_name", "party_city", "seller_name"} and isinstance(value, str):
+            if field in {"party_name", "party_city", "crop_name"} and isinstance(value, str):
                 query = query.filter(column.ilike(f"%{value}%"))
             else:
                 query = query.filter(column == value)
 
-    trades = query.distinct().all()
+    query = query.order_by(Trade.updated_at.desc())
+
+    page = max(1, page)
+    offset = (page - 1) * PAGE_SIZE
+    trades = query.offset(offset).limit(PAGE_SIZE).all()
+
     if not trades:
         raise NotFoundError(resource="Trade")
     return trades
+
+def delete_trade_committed(db: Session, trade_id: int) -> dict:
+    """
+    Deletes AND commits immediately, returning a snapshot of the row's data
+    (everything except id/created_at/updated_at) so the caller can recreate
+    it if the R2 side of the saga fails. Used only by the parallel delete
+    flow in trade_sync.py — never call this directly from a route.
+    """
+    trade = db.query(Trade).filter(Trade.id == trade_id).first()
+    if not trade:
+        raise NotFoundError(resource="Trade")
+
+    snapshot = {
+        c.name: getattr(trade, c.name)
+        for c in Trade.__table__.columns
+        if c.name not in ("id", "created_at", "updated_at")
+    }
+
+    db.delete(trade)
+    try:
+        db.commit()
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise DatabaseOperationException() from e
+
+    return snapshot

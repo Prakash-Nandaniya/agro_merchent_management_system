@@ -1,0 +1,645 @@
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Loader2, Save as SaveIcon, AlertTriangle, Calendar, FileText, Plus, X } from 'lucide-react';
+import Decimal from 'decimal.js';
+import './addtrade.css';
+import { settings } from '@/settings';
+import { apiFetch } from '@/utils/apifetch';
+import type { SVGProps } from "react";
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+import { ArrowLeft } from 'lucide-react';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
+
+type IconProps = {
+  size?: number;
+  className?: string;
+} & Omit<SVGProps<SVGSVGElement>, "width" | "height" | "className">;
+
+type AmountInputProps = {
+  className?: string;
+  value: string;
+  onValueChange: (raw: string) => void;
+  placeholder?: string;
+};
+
+const WalletInflow = ({ size = 24, className = "", ...props }: IconProps) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Coin dropping in */}
+    <circle cx="12" cy="3.25" r="2.25" />
+    <circle cx="12" cy="3.25" r="0.55" fill="currentColor" stroke="none" />
+    {/* Wallet body */}
+    <path d="M3 12a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    {/* Top slot / opening */}
+    <path d="M9 10h6" />
+    {/* Card pocket + clasp dot */}
+    <path d="M21 14.5h-3a1.5 1.5 0 0 0 0 3h3" />
+    <circle cx="18" cy="16" r="0.55" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+const WalletOutflow = ({ size = 24, className = "", ...props }: IconProps) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Wallet body, tipped open at the bottom */}
+    <path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    {/* Bottom slot / opening */}
+    <path d="M9 14h6" />
+    {/* Card pocket + clasp dot */}
+    <path d="M21 7.5h-3a1.5 1.5 0 0 0 0 3h3" />
+    <circle cx="18" cy="9" r="0.55" fill="currentColor" stroke="none" />
+    {/* Dropped coin */}
+    <circle cx="12" cy="20.75" r="2.25" />
+    <circle cx="12" cy="20.75" r="0.55" fill="currentColor" stroke="none" />
+    {/* Dropped coin */}
+    <circle cx="12" cy="20.75" r="2.25" />
+    <circle cx="12" cy="20.75" r="0.55" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+// ─── Safely convert any string/number/undefined into a Decimal ────────────────
+const parseDecimal = (val: string | number | undefined | null): Decimal => {
+  if (val === undefined || val === null || val === '') return new Decimal(0);
+  try {
+    return new Decimal(val);
+  } catch {
+    return new Decimal(0);
+  }
+};
+
+function toRawNumber(display: string): string {
+  return display.replace(/,/g, '');
+}
+
+function formatIndian(raw: string): string {
+  if (raw === '') return '';
+  const [intPart, decPart] = raw.split('.');
+  const groupedInt = intPart === '' ? '' : Number(intPart).toLocaleString('en-IN');
+  if (decPart === undefined) return groupedInt;
+  return `${groupedInt}.${decPart}`;
+}
+
+function AmountInput({ className, value, onValueChange, placeholder }: AmountInputProps) {
+  const ref = useRef<HTMLInputElement>(null);
+  const displayValue = formatIndian(value);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const el = e.target;
+    const cursorBefore = el.selectionStart ?? el.value.length;
+    const rawDigitsBeforeCursor = toRawNumber(el.value.slice(0, cursorBefore)).replace(/[^0-9.]/g, '').length;
+
+    const cleaned = toRawNumber(el.value).replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    const safeRaw = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+
+    onValueChange(safeRaw);
+
+    requestAnimationFrame(() => {
+      if (!ref.current) return;
+      const newFormatted = formatIndian(safeRaw);
+      let count = 0, pos = 0;
+      for (; pos < newFormatted.length; pos++) {
+        if (newFormatted[pos] !== ',') count++;
+        if (count >= rawDigitsBeforeCursor) { pos++; break; }
+      }
+      ref.current.setSelectionRange(pos, pos);
+    });
+  }
+
+  return (
+    <input
+      ref={ref}
+      type="text"
+      inputMode="decimal"
+      className={className}
+      value={displayValue}
+      onChange={handleChange}
+      placeholder={placeholder}
+    />
+  );
+}
+
+function todayISO(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function toISODateOnly(raw: string): string {
+  if (!raw) return todayISO();
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(0, 10); // just take YYYY-MM-DD, drop any time part
+  }
+
+  const parts = raw.split('-');
+  if (parts.length === 3 && parts[2].length === 4) {
+    const [day, month, year] = parts;
+    return `${year}-${month}-${day}`;
+  }
+
+  return todayISO(); 
+}
+
+const TRADEBOOK_STORAGE_KEY = 'trade_book_state';
+
+function upsertTradeInBookStorage(trade: any, isEdit: boolean) {
+  try {
+    const raw = sessionStorage.getItem(TRADEBOOK_STORAGE_KEY);
+    const state = raw ? JSON.parse(raw) : { filters: {}, trades: [], hasSearched: true };
+    let trades: any[] = Array.isArray(state.trades) ? state.trades : [];
+
+    if (isEdit) {
+      trades = trades.map((t) => (t.id === trade.id ? trade : t));
+    } else {
+      trades = [trade, ...trades]; // new trade goes to the front
+    }
+
+    sessionStorage.setItem(
+      TRADEBOOK_STORAGE_KEY,
+      JSON.stringify({ ...state, trades, hasSearched: true })
+    );
+  } catch {
+  }
+}
+
+// ─── Preset units offered in the quantity / rate dropdowns ────────────────────
+const UNIT_OPTIONS = ['Kg', 'Qtl', 'T', 'MT'];
+
+
+export default function ViewTrade() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const existingTrade = location.state?.trade as any;
+  const isEditMode = !!existingTrade;
+
+  const [invoiceNo, setInvoiceNo] = useState(existingTrade?.invoice_no || '');
+  const [tradeDate, setTradeDate] = useState(existingTrade?.trade_creation_date ? toISODateOnly(existingTrade.trade_creation_date) : todayISO());
+
+  // ── Inflow ────────────────────────────────────────────────────────────────
+  const [millQty, setMillQty] = useState(existingTrade?.mill_qty || '');
+  const [millQtyUnit, setMillQtyUnit] = useState(existingTrade?.mill_qty_unit || '');
+
+  const [millRate, setMillRate] = useState(existingTrade?.mill_rate || '');
+  const [millRateUnit, setMillRateUnit] = useState(existingTrade?.mill_rate_unit || '');
+
+  const [gstCollected, setGstCollected] = useState(existingTrade?.gst_collected || '');
+  const [tdsDeducted, setTdsDeducted] = useState(existingTrade?.tds_deducted || '');
+  const [millPayment, setMillPayment] = useState(existingTrade?.mill_payment || '');
+
+  // ── Outflow ───────────────────────────────────────────────────────────────
+  const [farmerPayment, setFarmerPayment] = useState(existingTrade?.farmer_payment || '');
+  const [labourCost, setLabourCost] = useState(existingTrade?.labour_cost || '');
+  const [transportCost, setTransportCost] = useState(existingTrade?.transport_cost || '');
+  const [otherCost, setOtherCost] = useState(existingTrade?.other_cost || '');
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const receiptFileInputRef = useRef<HTMLInputElement>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptEdited, setReceiptEdited] = useState(false);
+  const [existingReceiptKey] = useState<string | null>(existingTrade?.mill_receipt || null);
+  const [millReceiptUrl, setMillReceiptUrl] = useState<string>('');
+  const [millReceiptIsPdf, setMillReceiptIsPdf] = useState(false);
+  const [loadingExistingReceipt, setLoadingExistingReceipt] = useState(false);
+  const [receiptError, setReceiptError] = useState('');
+
+  useEffect(() => {
+    const tradeId = existingTrade?.id;
+    if (!tradeId || !existingTrade?.mill_receipt) return;
+
+    setLoadingExistingReceipt(true);
+    (async () => {
+      try {
+        const res = await apiFetch(`${settings.BE_URL}/get-mill-receipt/${tradeId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setMillReceiptUrl(data.url);
+        const isPdf = data.url.split('?')[0].toLowerCase().endsWith('.pdf');
+        setMillReceiptIsPdf(isPdf);
+      } catch {
+        setReceiptError('Could not load the mill receipt.');
+      } finally {
+        setLoadingExistingReceipt(false);
+      }
+    })();
+  }, []);
+
+  function openReceiptPicker() {
+    receiptFileInputRef.current?.click();
+  }
+
+  function handleReceiptFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setReceiptError('');
+    setReceiptFile(file);
+    setReceiptEdited(true);
+
+    const localPreviewUrl = URL.createObjectURL(file);
+    setMillReceiptUrl(localPreviewUrl);
+    setMillReceiptIsPdf(file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+
+    e.target.value = '';
+  }
+
+  function handleRemoveReceipt() {
+    setReceiptFile(null);
+    setMillReceiptUrl('');
+    setMillReceiptIsPdf(false);
+    setReceiptEdited(true);
+  }
+
+  // ── Actual money received from mill = mill payment + TDS - GST ─────────────
+  const inflowDec = parseDecimal(millPayment).plus(parseDecimal(tdsDeducted)).minus(parseDecimal(gstCollected));
+  const outflowDec = parseDecimal(farmerPayment)
+    .plus(parseDecimal(labourCost))
+    .plus(parseDecimal(transportCost))
+    .plus(parseDecimal(otherCost));
+  const profitLossDec = inflowDec.minus(outflowDec);
+
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
+  const [pdfWidth, setPdfWidth] = useState<number>(520);
+
+  const [dotCount, setDotCount] = useState(0);
+
+  useEffect(() => {
+    if (!saving) {
+      setDotCount(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev + 1) % 4);
+    }, 400);
+    return () => clearInterval(interval);
+  }, [saving]);
+
+  useEffect(() => {
+    const el = pdfContainerRef.current;
+    if (!el) return;
+
+    const updateWidth = () => {
+      setPdfWidth(Math.min(el.clientWidth, 520));
+    };
+
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [millReceiptUrl]); // re-measure when a receipt loads in
+
+  function handleQtyUnitSelect(value: string) {
+    setMillQtyUnit(value);
+  }
+
+  function handleRateUnitSelect(value: string) {
+    setMillRateUnit(value);
+  }
+
+  function toDDMMYYYY(isoDate: string): string {
+    const [year, month, day] = isoDate.split('-');
+    return `${day}-${month}-${year}`;
+  }
+
+  async function handleSave() {
+    if (!invoiceNo.trim()) {
+      setSaveError('Invoice number is required.');
+      return;
+    }
+    setSaving(true);
+    setSaveError('');
+    try {
+      const fd = new FormData();
+      fd.append('invoice_no', invoiceNo.trim());
+      fd.append('trade_creation_date', toDDMMYYYY(tradeDate));
+      fd.append('mill_qty', millQty || '0');
+      fd.append('mill_qty_unit', millQtyUnit);
+      fd.append('mill_rate', millRate || '0');
+      fd.append('mill_rate_unit', millRateUnit);
+      fd.append('gst_collected', gstCollected || '0');
+      fd.append('tds_deducted', tdsDeducted || '0');
+      fd.append('mill_payment', millPayment || '0');
+      fd.append('farmer_payment', farmerPayment || '0');
+      fd.append('labour_cost', labourCost || '0');
+      fd.append('transport_cost', transportCost || '0');
+      fd.append('other_cost', otherCost || '0');
+
+      if (isEditMode) {
+        fd.append('id', existingTrade!.id);
+        fd.append('receipt_edited', String(receiptEdited));
+        if (existingReceiptKey) fd.append('existing_mill_receipt', existingReceiptKey);
+      }
+
+      if (receiptFile) fd.append('file', receiptFile);
+
+      const url = isEditMode ? `${settings.BE_URL}/edit-trade` : `${settings.BE_URL}/create-trade`;
+      const res = await apiFetch(url, {
+        method: isEditMode ? 'PUT' : 'POST',
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const detail =
+          typeof body.detail === 'string'
+            ? body.detail
+            : Array.isArray(body.detail)
+              ? body.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ')
+              : `Request failed with status ${res.status}`;
+        throw new Error(detail);
+      }
+      const savedTrade = await res.json();
+      upsertTradeInBookStorage(savedTrade, isEditMode);
+      navigate('/trade-book');
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not reach the server.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="at-page">
+      <div className="at-shell">
+        {/* Header */}
+        {isEditMode ?
+          <button
+            type="button"
+            className="at-btn-back"
+            onClick={() => navigate('/trade-book')}
+          >
+            <ArrowLeft size={16} />
+            Back to Trade Book
+          </button>
+          :
+          ''
+        }
+        <header className="at-header">
+          <div>
+            <div className="at-eyebrow">Trade Book</div>
+            <h1 className="at-title">{isEditMode ? 'Edit Trade' : 'Add New Trade'}</h1>
+            <p className="at-subtitle">Record inflow from mill and outflow to farmers, labour &amp; transport.</p>
+          </div>
+          <div className="at-date-card">
+            <Calendar size={16} />
+            <label className="at-label">Trade Date</label>
+            <input
+              type="date"
+              className="at-date-input"
+              value={tradeDate}
+              onChange={(e) => setTradeDate(e.target.value)}
+            />
+          </div>
+        </header>
+
+        {/* Invoice No. - plain inline field, underline only */}
+        <div className="at-invoice-inline">
+          <label className="at-label">Invoice No.</label>
+          <input
+            type="text"
+            className="at-invoice-input"
+            value={invoiceNo}
+            onChange={(e) => setInvoiceNo(e.target.value)}
+            readOnly={isEditMode}
+          />
+        </div>
+
+        {/* Two column: outflow + inflow */}
+        <div className="at-two-col">
+          <section className="at-panel at-panel--inflow">
+            <div className="at-panel-head">
+              <WalletInflow size={30} />
+              <h2 className="at-section-title">Inflow</h2>
+            </div>
+            <div className="at-form-grid">
+              {/* Mill Qty — unit dropdown sits next to the label, not the value */}
+              <div className="at-field">
+                <div className="at-label-row">
+                  <label className="at-label">Mill Qty</label>
+                  <span className="at-label-paren">(</span>
+                  <select
+                    className="at-rate-inline-select"
+                    value={millQtyUnit}
+                    onChange={(e) => handleQtyUnitSelect(e.target.value)}
+                  >
+                    <option value="">unit</option>
+                    {UNIT_OPTIONS.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                  <span className="at-label-paren">)</span>
+                </div>
+                <AmountInput
+                  className="at-millqty-input"
+                  value={millQty}
+                  onValueChange={setMillQty}
+                  placeholder="0.00"
+                />
+              </div>
+
+              {/* Mill Rate — (per unit) dropdown sits next to the label */}
+              <div className="at-field">
+                <div className="at-label-row">
+                  <label className="at-label">Mill Rate</label>
+                  <span className="at-label-paren">(per</span>
+                  <select
+                    className="at-rate-inline-select"
+                    value={millRateUnit}
+                    onChange={(e) => handleRateUnitSelect(e.target.value)}
+                  >
+                    <option value="">unit</option>
+                    {UNIT_OPTIONS.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                  <span className="at-label-paren">)</span>
+                </div>
+                <AmountInput
+                  className="at-millrate-input"
+                  value={millRate}
+                  onValueChange={setMillRate}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="at-field">
+                <label className="at-label">GST Collected</label>
+                <AmountInput className="at-gst-input" value={gstCollected} onValueChange={setGstCollected} placeholder="0.00" />
+              </div>
+              <div className="at-field">
+                <label className="at-label">TDS Deducted</label>
+                <AmountInput className="at-tds-input" value={tdsDeducted} onValueChange={setTdsDeducted} placeholder="0.00" />
+              </div>
+              <div className="at-field">
+                <label className="at-label">Mill Payment</label>
+                <AmountInput className="at-millpayment-input" value={millPayment} onValueChange={setMillPayment} placeholder="0.00" />
+              </div>
+            </div>
+          </section>
+          <section className="at-panel at-panel--outflow">
+            <div className="at-panel-head">
+              <WalletOutflow size={30} />
+              <h2 className="at-section-title">Outflow</h2>
+            </div>
+            <div className="at-form-grid">
+              <div className="at-field">
+                <label className="at-label">Farmer Payment</label>
+                <AmountInput className="at-farmer-input" value={farmerPayment} onValueChange={setFarmerPayment} placeholder="0.00" />
+              </div>
+              <div className="at-field">
+                <label className="at-label">Labour Cost</label>
+                <AmountInput className="at-labour-input" value={labourCost} onValueChange={setLabourCost} placeholder="0.00" />
+              </div>
+              <div className="at-field">
+                <label className="at-label">Transport Cost</label>
+                <AmountInput className="at-transport-input" value={transportCost} onValueChange={setTransportCost} placeholder="0.00" />
+              </div>
+              <div className="at-field">
+                <label className="at-label">Other Cost</label>
+                <AmountInput className="at-other-input" value={otherCost} onValueChange={setOtherCost} placeholder="0.00" />
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Summary */}
+        <section className="at-summary">
+          <div className="at-summary-item">
+            <span className="at-summary-label">Inflow</span>
+            <span className="at-summary-value">₹ {formatIndian(inflowDec.toFixed(2))}</span>
+          </div>
+          <div className="at-summary-divider" />
+          <div className="at-summary-item">
+            <span className="at-summary-label">Outflow</span>
+            <span className="at-summary-value">₹ {formatIndian(outflowDec.toFixed(2))}</span>
+          </div>
+          <div className={`at-summary-item at-summary-item--grand ${profitLossDec.gte(0) ? 'at-profit' : 'at-loss'}`}>
+            <span className="at-summary-label">{profitLossDec.gte(0) ? 'Net Profit' : 'Net Loss'}</span>
+            <span className="at-summary-value">₹ {formatIndian(profitLossDec.abs().toFixed(2))}</span>
+          </div>
+        </section>
+
+        {/* Mill Receipt — staged locally, only uploaded when Save is hit */}
+        <section className="at-receipt-section">
+          <div className="at-receipt-section__header">
+            <FileText size={18} />
+            <h2 className="at-receipt-section__title">Mill Receipt</h2>
+          </div>
+
+          <input
+            ref={receiptFileInputRef}
+            type="file"
+            className="at-receipt-section__hidden-input"
+            accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,image/*,application/pdf"
+            onChange={handleReceiptFileChange}
+          />
+
+          {!millReceiptUrl && !loadingExistingReceipt && (
+            <button
+              type="button"
+              className="at-receipt-section__add-btn"
+              onClick={openReceiptPicker}
+            >
+              <Plus size={16} />
+              Add Mill Receipt
+            </button>
+          )}
+
+          {loadingExistingReceipt && (
+            <div className="at-receipt-section__loading">
+              <Loader2 size={16} className="at-spin" />
+              Loading receipt...
+            </div>
+          )}
+
+          {millReceiptUrl && (
+            <div className="at-receipt-section__preview">
+              <button
+                type="button"
+                className="at-receipt-section__remove-btn"
+                onClick={handleRemoveReceipt}
+                title="Remove receipt"
+              >
+                <X size={20} />
+              </button>
+
+              {millReceiptIsPdf ? (
+                <div className="at-receipt-section__pdf-frame" ref={pdfContainerRef}>
+                  <Document
+                    file={receiptFile || millReceiptUrl}
+                    loading={<div className="at-receipt-section__loading"><Loader2 size={16} className="at-spin" />Loading receipt...</div>}
+                    error={<div className="at-receipt-section__error"><AlertTriangle size={16} />Could not load PDF.</div>}
+                  >
+                    <Page pageNumber={1} width={pdfWidth} renderTextLayer={false} renderAnnotationLayer={false} />
+                  </Document>
+                </div>
+              ) : (
+                <img src={millReceiptUrl} className="at-receipt-section__image" alt="Mill receipt" />
+              )}
+            </div>
+          )}
+
+          {receiptError && (
+            <div className="at-receipt-section__error">
+              <AlertTriangle size={16} />
+              {receiptError}
+            </div>
+          )}
+        </section>
+
+        {saveError && (
+          <div className="at-banner-error">
+            <AlertTriangle size={16} />
+            {saveError}
+          </div>
+        )}
+
+        <div className="at-actions">
+          <button className="at-btn-save" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 size={16} className="at-spin" /> : <SaveIcon size={16} />}
+            {saving ? 'Saving...' : isEditMode ? 'Save Changes' : 'Save Trade'}
+          </button>
+        </div>
+      </div>
+      {saving && (
+        <div className="at-saving-overlay">
+          <div className="at-saving-overlay__box">
+            <Loader2 size={50} className="at-saving-overlay__spinner" />
+            <span className="at-saving-overlay__text">
+              Saving<span className="at-saving-dots">{'.'.repeat(dotCount)}</span>
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

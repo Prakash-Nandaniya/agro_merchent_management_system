@@ -19,30 +19,25 @@ s3_client = boto3.client(
 )
 
 
-def upload_bill_to_r2(file_buffer, invoice_no):
+def upload_bill_to_r2(file_buffer, invoice_no, key: str | None = None):
     """
-    Receives the PDF as a byte buffer and the invoiceNo.
-    Uploads to R2 and returns the unique key to save in PostgreSQL.
+    Uplod new receipt or edit old by key.
     """
     try:
         if hasattr(file_buffer, "seek"):
             file_buffer.seek(0)
 
-        unique_id = str(uuid.uuid4())[:8]
-        # unique_id is now actually used, so re-uploads for the same invoice
-        # never collide with / silently overwrite a previous receipt's key.
-        bill_pdf_key = f"mill_receipt_{invoice_no}_{unique_id}.pdf"
+        if key is None:
+            unique_id = str(uuid.uuid4())[:8]
+            key = f"mill_receipt_{invoice_no}_{unique_id}.pdf"
 
         s3_client.upload_fileobj(
             file_buffer,
             settings.R2_BUCKET_NAME,
-            bill_pdf_key,
-            ExtraArgs={
-                "ContentType": "application/pdf"
-            },
+            key,
+            ExtraArgs={"ContentType": "application/pdf"},
         )
-
-        return bill_pdf_key
+        return key
     except ClientError as e:
         print(f"R2 Upload Error: {e}")
         raise R2UploadException() from e

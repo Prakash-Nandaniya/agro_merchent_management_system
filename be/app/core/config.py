@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     MAX_SESSION_AGE_IN_SECONDS: int
     ALGORITHM: str
     FE_URL: str
+    BE_PAGE_SIZE:int
+    
     R2_ACCESS_KEY_ID: str
     R2_SECRET_ACCESS_KEY: str
     R2_BUCKET_NAME: str
