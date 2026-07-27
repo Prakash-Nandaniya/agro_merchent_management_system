@@ -62,7 +62,7 @@ def edit_trade(
     return trade
 
 
-def get_trade(db: Session, filters: dict, page: int = 1) -> List[Trade]:
+def get_trade(db: Session, filters: dict, page: int) -> List[Trade]:
     query = db.query(Trade)  
 
     if filters:
@@ -85,11 +85,7 @@ def get_trade(db: Session, filters: dict, page: int = 1) -> List[Trade]:
             else:
                 query = query.filter(column == value)
 
-    query = query.order_by(Trade.updated_at.desc())
-
-    page = max(1, page)
-    offset = (page - 1) * PAGE_SIZE
-    trades = query.offset(offset).limit(PAGE_SIZE).all()
+    trades = query.order_by(Trade.updated_at.desc()).offset(settings.BE_PAGE_SIZE*(page-1)).limit(settings.BE_PAGE_SIZE).all()
 
     if not trades:
         raise NotFoundError(resource="Trade")

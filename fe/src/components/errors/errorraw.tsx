@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import './errorraw.css';
 
 type Props = {
@@ -5,7 +6,12 @@ type Props = {
   onExpire: () => void;
 };
 
-function ErrorRaw({ message, onExpire }: Props) {
+export default function ErrorRaw({ message, onExpire }: Props) {
+  useEffect(() => {
+    const timer = setTimeout(onExpire, 5000);
+    return () => clearTimeout(timer);
+  }, [onExpire]);
+
   return (
     <div className="error-raw">
       <span>{message}</span>
@@ -13,5 +19,3 @@ function ErrorRaw({ message, onExpire }: Props) {
     </div>
   );
 }
-
-export default ErrorRaw;

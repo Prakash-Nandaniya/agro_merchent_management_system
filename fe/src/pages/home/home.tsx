@@ -5,6 +5,7 @@ import { useAuth } from '@/components/authcontext';
 import './home.css';
 import { useContext } from 'react';
 import { ErrorContext } from '@/components/errors/errorcontext';
+import OpaqueLoading from '@/components/opaqueloading/loading';
 
 export default function Home() {
     const { isChecking, isAuthorized, refreshAuth } = useAuth();
@@ -52,12 +53,7 @@ export default function Home() {
 
     if (isChecking || isAuthorized) {
         return (
-            <div className="home-loading-screen">
-                <div className="home-loading-glow">
-                    <img src="/apple-touch-icon.png" alt="Karma Trading" className="home-loading-logo" />
-                </div>
-                <div className="home-loading-text">Loading...</div>
-            </div>
+           <OpaqueLoading />
         );
     }
 

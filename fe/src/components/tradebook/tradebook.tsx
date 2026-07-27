@@ -218,7 +218,6 @@ export default function TradeBook() {
       setTrades((prev) => {
         if (!prev) return prev;
         const next = prev.filter((t) => t.id !== deleteTarget.id);
-        // If deleting the last row on the last page, step back a page so we don't land on an empty page
         const nextTotalPages = Math.max(1, Math.ceil(next.length / pageSize));
         setPage((p) => Math.min(p, nextTotalPages));
         return next;
@@ -329,7 +328,7 @@ export default function TradeBook() {
                       <td className="tb-mono" data-label="Date">{formatDateDMY(t.trade_creation_date)}</td>
                       <td className="tb-mono" data-label="Invoice No.">{t.invoice_no}</td>
                       <td data-label="Party">{t.party_name || '—'}</td>
-                      <td data-label="Crop">{t.crops.length ? t.crops.join(', ') : '—'}</td>
+                      <td data-label="Crop">{t.crops || '—'}</td>
                       <td className="tb-num tb-mono" data-label="Mill Qty">{fmtAmount(toNum(t.mill_qty))} {t.mill_qty_unit}</td>
                       <td className="tb-num tb-mono" data-label="Mill Rate">₹ {fmtAmount(toNum(t.mill_rate))} / {t.mill_rate_unit}</td>
                       <td className={`tb-num tb-mono tb-strong ${profit >= 0 ? 'tb-profit' : 'tb-loss'}`} data-label="Profit">

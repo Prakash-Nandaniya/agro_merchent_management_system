@@ -3,13 +3,13 @@ from fastapi import APIRouter, Depends, Request, UploadFile, File
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.schemas.trade import CreateTradeSchema, EditTradeSchema, TradeOut
-from app.database.crud.trade import (get_trade)
+from app.database.crud.trade import get_trade
 from app.database.crud.session import get_session_user
 from app.services.r2 import (
     get_signed_bill_url,
 )
 from app.core.exceptions import MillReceiptNotFoundError
-from typing import Optional,List
+from typing import Optional, List
 
 router = APIRouter()
 from app.services.trade_sync import (
@@ -17,6 +17,7 @@ from app.services.trade_sync import (
     edit_trade_with_receipt,
     delete_trade_and_receipt,
 )
+
 
 @router.post("/create-trade", response_model=TradeOut)
 async def create_trade_route(
@@ -56,8 +57,8 @@ def delete_trade_route(trade_id: int, db: Session = Depends(get_db)):
     return result
 
 
-@router.post("/tradebook/{page}", response_model=List[TradeOut])
-def tradebook_search(page: int, filters: dict, db: Session = Depends(get_db)):
+@router.post("/tradebook", response_model=List[TradeOut])
+def tradebook_search(filters: dict, db: Session = Depends(get_db), page: int = 1):
     return get_trade(db, filters, page=page)
 
 

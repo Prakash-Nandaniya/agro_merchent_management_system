@@ -17,5 +17,5 @@ def create_bill(request:Request,payload: MillBill,db: Session = Depends(get_db))
     return {"id": bill.id, "invoice_no": bill.invoice_no}
 
 @router.post("/get-mill-bill", response_model=List[MillBillOut])
-def get_bill(filter: dict, db: Session = Depends(get_db)):
-    return get_mill_bill(db, filter)
+def get_bill(filter: dict, db: Session = Depends(get_db), page:int = 1):
+    return get_mill_bill(db, filter, page)

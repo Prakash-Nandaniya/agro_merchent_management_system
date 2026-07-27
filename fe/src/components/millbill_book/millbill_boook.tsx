@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { create, all } from 'mathjs';
 import * as XLSX from 'xlsx';
-import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, AlertTriangle, FileSpreadsheet, Download } from 'lucide-react';
+import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, FileSpreadsheet, Download } from 'lucide-react';
 import './millbill_book.css';
 import { settings } from "@/settings";
 import { apiFetch } from '@/utils/apifetch';
@@ -190,11 +190,9 @@ export default function MillBillBook() {
       if (key === 'invoice_date_from' || key === 'invoice_date_to') {
         const from = key === 'invoice_date_from' ? value : filters.invoice_date_from;
         const to = key === 'invoice_date_to' ? value : filters.invoice_date_to;
-
         if (from && to && from > to) {
           const errorMsg = 'Start date must be before end date';
           next.date_range = errorMsg;
-
           errorcontext.addError(errorMsg);
         } else {
           next.date_range = '';
@@ -265,7 +263,6 @@ export default function MillBillBook() {
     }
   }
 
-  // Clicking a bill routes to the detail page, carrying the full bill record along.
   function goToBill(bill: MillBill) {
     navigate('/show-mill-bill-from-bill-book', { state: { bill } });
   }

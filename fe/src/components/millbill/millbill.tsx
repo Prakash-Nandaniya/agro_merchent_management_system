@@ -8,6 +8,7 @@ import karmaLogo from '@/assets/karma_trading_logo.png';
 import { apiFetch } from '@/utils/apifetch';
 import { useContext } from 'react';
 import { ErrorContext } from '@/components/errors/errorcontext';
+import { useQueryClient } from '@tanstack/react-query';
 
 // ─── Profile config shapes (matches backend ProfileConfigSchema) ──────────────
 interface ProfileBank { bank: string; account: string; ifsc: string }
@@ -193,6 +194,21 @@ const INIT = {
 
 type FormState = typeof INIT;
 
+interface Crop { hsn: string; sgst: string; cgst: string }
+interface Bank { bank: string; account: string; ifsc: string }
+interface ProfileConfig {
+    seller: { name: string; address: string; pan: string; gstin: string }
+    bank_accounts: Bank[]
+    crops: Record<string, Crop>
+    terms_and_conditions: string
+}
+
+const EMPTY_CONFIG: ProfileConfig = {
+    seller: { name: '', address: '', pan: '', gstin: '' },
+    bank_accounts: [],
+    crops: {},
+    terms_and_conditions: ''
+}
 // UQC options
 const uqcOptions = ["KGS", "TONS", "MTN", "NOS",];
 
@@ -273,18 +289,13 @@ export default function MillBill() {
     { ...EMPTY_ROW }, { ...EMPTY_ROW }, { ...EMPTY_ROW },
   ]);
 
-  // Validation checklist errors — kept separate from the global toast system,
-  // since this is a multi-item "fix these before saving" list, not a single message.
   const [errors, setErrors] = useState<string[]>([]);
 
-  // ── View mode: 'edit' (default, fully editable) → 'preview' (validated,
-  //    read-only, looks like print) → 'saved' (posted to backend, print/send) ──
   const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'saved'>('edit');
   const [isSaving, setIsSaving] = useState(false);
   const isReadOnly = viewMode !== 'edit';
 
   // ── Profile-driven state ──────────────────────────────────────────────────────
-  const [profileLoading, setProfileLoading] = useState(true);
   const [cropOptions, setCropOptions] = useState<CropOption[]>([]);
   const [bankAccountOptions, setBankAccountOptions] = useState<ProfileBank[]>([]);
   const [selectedBankIndex, setSelectedBankIndex] = useState(0);
@@ -298,47 +309,41 @@ export default function MillBill() {
   const [zoomReady, setZoomReady] = useState(false);
   const DESKTOP_WIDTH = 925;
 
+  const queryClient = useQueryClient();
+  const profile = queryClient.getQueryData<ProfileConfig>(['Profile']) || EMPTY_CONFIG;
+
   // ── Fetch profile config on mount ─────────────────────────────────────────────
   useEffect(() => {
-    apiFetch(`${settings.BE_URL}/profile-configuration`)
-      .then(r => r.json())
-      .then((data: ProfileData & { detail?: string }) => {
-        if (!data || data.detail) return;   // 404 — no profile saved yet, keep defaults
-        setS(prev => ({
-          ...prev,
-          sellerName: data.seller.name,
-          sellerAddress: data.seller.address,
-          sellerPAN: data.seller.pan,
-          sellerGSTIN: data.seller.gstin,
-          terms: data.terms_and_conditions,
-        }));
+    setS(prev => ({
+      ...prev,
+      sellerName: profile.seller.name,
+      sellerAddress: profile.seller.address,
+      sellerPAN: profile.seller.pan,
+      sellerGSTIN: profile.seller.gstin,
+      terms: profile.terms_and_conditions,
+    }));
 
-        // Build crop dropdown from profile.crops — array of dict, "crop" as key
-        const cropsFromProfile: CropOption[] = Object.entries(data.crops || {}).map(([name, c]) => ({
-          crop: name,
-          hsn: c.hsn,
-          cgst: c.cgst,
-          sgst: c.sgst,
-        }));
-        if (cropsFromProfile.length > 0) setCropOptions(cropsFromProfile);
+    // Build crop dropdown from profile.crops — array of dict, "crop" as key
+    const cropsFromProfile: CropOption[] = Object.entries(profile.crops || {}).map(([name, c]) => ({
+      crop: name,
+      hsn: c.hsn,
+      cgst: c.cgst,
+      sgst: c.sgst,
+    }));
+    if (cropsFromProfile.length > 0) setCropOptions(cropsFromProfile);
 
-        // Bank accounts — array of dict
-        const banks = data.bank_accounts || [];
-        setBankAccountOptions(banks);
-        if (banks.length >= 1) {
-          setSelectedBankIndex(0);
-          setS(prev => ({
-            ...prev,
-            sellerBank: banks[0].bank,
-            sellerAccount: banks[0].account,
-            sellerIFSC: banks[0].ifsc,
-          }));
-        }
-      })
-      .catch((error) => {
-        errorcontext.addError(error instanceof Error ? error.message : 'Failed to load profile settings.');
-      })
-      .finally(() => setProfileLoading(false));
+    // Bank accounts — array of dict
+    const banks = profile.bank_accounts || [];
+    setBankAccountOptions(banks);
+    if (banks.length >= 1) {
+      setSelectedBankIndex(0);
+      setS(prev => ({
+        ...prev,
+        sellerBank: banks[0].bank,
+        sellerAccount: banks[0].account,
+        sellerIFSC: banks[0].ifsc,
+      }));
+    }
   }, []);
 
   const rowInputsKey = rows.map(r => `${r.qty}|${r.rate}|${r.cgstRate}|${r.sgstRate}`).join(',');
@@ -398,19 +403,7 @@ export default function MillBill() {
       window.removeEventListener('resize', computeZoom);
       window.removeEventListener('orientationchange', computeZoom);
     };
-  }, [profileLoading]);
-
-  // ── Loading screen — shown while profile fetch is in flight ──────────────────
-  if (profileLoading) {
-    return (
-      <div className="min-h-screen bg-gray-300 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="mb-spinner" />
-          <span className="text-sm text-gray-600 font-medium">Loading bill settings...</span>
-        </div>
-      </div>
-    );
-  }
+  }, []);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const f = (key: keyof FormState) => (v: string) => setS(p => ({ ...p, [key]: v }));
@@ -556,7 +549,7 @@ export default function MillBill() {
         invoiceNo: savedBillResp.invoice_no,
         createdBy: savedBillResp.created_by ?? prev.createdBy,
       }));
-      pdfBlobRef.current = null; // reset cache — invoice_no just changed
+      pdfBlobRef.current = null; 
       setViewMode('saved');
     } catch (err) {
       errorcontext.addError(err instanceof Error ? err.message : 'Failed to save bill. Please try again.');
