@@ -5,6 +5,8 @@ import './view_mill_bill.css';
 import watermarkUrl from '@/assets/karma_trading_logo_color_bg_removed.png';
 import { settings } from '@/settings';
 import { apiFetch } from '@/utils/apifetch';
+import { useContext } from 'react';
+import { ErrorContext } from '@/components/errors/errorcontext';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 export interface BillCrop {
@@ -266,7 +268,7 @@ function InvoiceDocument({ bill, displayRows }: { bill: MillBill; displayRows: a
 
 export default function ViewMillBillFromBook() {
   const location = useLocation();
-
+  const errorcontext = useContext(ErrorContext);
   const navigate = useNavigate();
 
   const [isSending, setIsSending] = useState(false);
@@ -299,7 +301,7 @@ export default function ViewMillBillFromBook() {
 
       if (!res.ok) {
         const detail = await res.text().catch(() => '');
-        throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
+        errorcontext.addError(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
       }
 
       const blob = await res.blob();
@@ -378,8 +380,7 @@ export default function ViewMillBillFromBook() {
         alert('The invoice has opened in a new tab — use the print icon there.');
       }
     } catch (error) {
-      console.error('Error preparing invoice for print:', error);
-      alert('Something went wrong while preparing the invoice for printing. please try other ways');
+      errorcontext.addError('Something went wrong while preparing the invoice for printing. please try other ways');
     } finally {
       setIsPrinting(false);
       setTimeout(() => {
@@ -422,8 +423,7 @@ export default function ViewMillBillFromBook() {
         setShowRetryBanner(true);
         return;
       }
-      console.error('Error generating PDF:', error);
-      alert("Something went wrong while preparing the file. please try other ways");
+      errorcontext.addError("Something went wrong while preparing the file. please try other ways");
     } finally {
       setIsSending(false);
     }
@@ -448,8 +448,7 @@ export default function ViewMillBillFromBook() {
         setShowRetryBanner(true);
         return;
       }
-      console.error('Retry send failed:', error);
-      alert("Something went wrong while sending the file. please try other ways");
+      errorcontext.addError("Something went wrong while sending the file. please try other ways");
     } finally {
       setIsSending(false);
     }
@@ -476,8 +475,7 @@ export default function ViewMillBillFromBook() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading PDF:', error);
-      alert("Something went wrong while downloading the file. please try other ways");
+      errorcontext.addError("Something went wrong while downloading the file. please try other ways");
     } finally {
       setIsDownloading(false);
     }

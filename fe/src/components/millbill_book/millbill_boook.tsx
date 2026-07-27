@@ -6,6 +6,8 @@ import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, AlertTriangle, F
 import './millbill_book.css';
 import { settings } from "@/settings";
 import { apiFetch } from '@/utils/apifetch';
+import { useContext } from 'react';
+import { ErrorContext } from '@/components/errors/errorcontext';
 
 const math = create(all);
 math.config({ number: 'BigNumber', precision: 64 });
@@ -68,6 +70,12 @@ interface Filters {
   created_by: string;
 }
 
+// Added FieldErrors interface
+interface FieldErrors {
+  date_range?: string;
+  [key: string]: string | undefined;
+}
+
 const EMPTY_FILTERS: Filters = {
   invoice_no: '',
   party_name: '',
@@ -78,13 +86,6 @@ const EMPTY_FILTERS: Filters = {
   invoice_date_to: '',
   created_by: '',
 };
-
-type FieldErrorKey =
-  | 'party_pan'
-  | 'party_gstin'
-  | 'date_range';
-
-type FieldErrors = Partial<Record<FieldErrorKey, string>>;
 
 interface Totals {
   taxable: string;
@@ -148,25 +149,16 @@ function getPageNumbers(current: number, total: number): Array<number | string> 
 
 const STORAGE_KEY = 'mill_bill_book_state';
 
-function getSavedState() {
-  const saved = sessionStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (e) {
-      console.error('Failed to parse session storage');
-    }
-  }
-  return null;
-}
-
 export default function MillBillBook() {
-
   const navigate = useNavigate();
   const savedState = getSavedState();
+  const errorcontext = useContext(ErrorContext);
 
   // ── 1. Create dynamic state for page size ──
   const [pageSize, setPageSize] = useState(window.innerWidth < 640 ? 10 : 20);
+
+  // ── Added fieldErrors state ──
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   // ── 2. Listen for screen resizing in real-time ──
   useEffect(() => {
@@ -174,10 +166,7 @@ export default function MillBillBook() {
       setPageSize(window.innerWidth < 640 ? 10 : 20);
     };
 
-    // Attach the event listener
     window.addEventListener('resize', handleResize);
-
-    // Clean it up when the component unmounts
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -185,27 +174,46 @@ export default function MillBillBook() {
   const [bills, setBills] = useState<MillBill[] | null>(savedState?.bills || null);
   const [page, setPage] = useState<number>(savedState?.page || 1);
   const [hasSearched, setHasSearched] = useState<boolean>(savedState?.hasSearched || false);
-
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState<boolean>(false);
-  const [requestError, setRequestError] = useState<string>('');
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isDownloadingBook, setIsDownloadingBook] = useState<boolean>(false);
 
   function updateFilter(key: keyof Filters, rawValue: string) {
     const upperKeys: Array<keyof Filters> = ['party_gstin', 'party_pan', 'created_by'];
     const value = upperKeys.includes(key) ? rawValue.toUpperCase() : rawValue;
+
     setFilters((prev) => ({ ...prev, [key]: value }));
 
     setFieldErrors((prev) => {
       const next: FieldErrors = { ...prev };
+
       if (key === 'invoice_date_from' || key === 'invoice_date_to') {
         const from = key === 'invoice_date_from' ? value : filters.invoice_date_from;
         const to = key === 'invoice_date_to' ? value : filters.invoice_date_to;
-        next.date_range = from && to && from > to ? 'Start date must be before end date' : '';
+
+        if (from && to && from > to) {
+          const errorMsg = 'Start date must be before end date';
+          next.date_range = errorMsg;
+
+          errorcontext.addError(errorMsg);
+        } else {
+          next.date_range = '';
+        }
       }
       return next;
     });
+  }
+
+  function getSavedState() {
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        errorcontext.addError('Failed to parse session storage');
+      }
+    }
+    return null;
   }
 
   function clearFilters() {
@@ -218,7 +226,10 @@ export default function MillBillBook() {
   }
 
   async function runSearch() {
-    if (hasBlockingErrors()) return;
+    if (hasBlockingErrors()) {
+      errorcontext.addError('Please fix the errors in your filters before searching.');
+      return;
+    }
 
     const payload: Record<string, string> = {};
     Object.entries(filters).forEach(([key, value]) => {
@@ -226,7 +237,6 @@ export default function MillBillBook() {
     });
 
     setLoading(true);
-    setRequestError('');
     setHasSearched(true);
 
     try {
@@ -240,7 +250,7 @@ export default function MillBillBook() {
         setBills([]);
       } else if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `Request failed with status ${res.status}`);
+        errorcontext.addError(body.detail || `Request failed with status ${res.status}`);
       } else {
         const data: MillBill[] = await res.json();
         setBills([...data].sort(compareBillsDesc));
@@ -248,7 +258,7 @@ export default function MillBillBook() {
       setPage(1);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not reach the server.';
-      setRequestError(message);
+      errorcontext.addError(message);
       setBills(null);
     } finally {
       setLoading(false);
@@ -267,9 +277,6 @@ export default function MillBillBook() {
     }
   }
 
-  // ── Excel export: one row per bill, every bill field as its own column,
-  //    then Crop 1, Crop 2, ... Crop N trailing columns, where N is the
-  //    highest crop count found across all bills in the current result set ──
   function handleDownloadExcel() {
     if (!bills || bills.length === 0) return;
 
@@ -307,9 +314,6 @@ export default function MillBillBook() {
           'Amount In Words': bill.final_amount_in_words,
         };
 
-        // Full per-crop breakdown, trailing — Crop 1 Name, Crop 1 HSN, Crop 1
-        // Qty, ... Crop 2 Name, Crop 2 HSN, ... up through the highest crop
-        // count found across all bills in the current result set.
         for (let i = 0; i < maxCrops; i++) {
           const crop = bill.crops?.[i];
           const n = i + 1;
@@ -336,23 +340,19 @@ export default function MillBillBook() {
       const fileName = `mill_bills_export_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(workbook, fileName);
     } catch (err) {
-      console.error('Error exporting bills to Excel:', err);
-      alert('Something went wrong while generating the Excel file.');
+      errorcontext.addError('Something went wrong while generating the Excel file.')
     } finally {
       setIsExporting(false);
     }
   }
 
-  // Converts an ISO date string (yyyy-mm-dd) to dd/mm/yyyy for display
   function formatDateDMY(isoDate: string | undefined | null): string {
     if (!isoDate) return '';
     const [y, m, d] = isoDate.split('-');
-    if (!y || !m || !d) return isoDate; // fallback if format is unexpected
+    if (!y || !m || !d) return isoDate;
     return `${d}/${m}/${y}`;
   }
 
-  // ── PDF export of the whole book: sends the currently filtered/sorted
-  //    bills list to the backend and downloads the returned PDF as one file ──
   async function handleDownloadBook() {
     if (!bills || bills.length === 0) return;
 
@@ -366,7 +366,7 @@ export default function MillBillBook() {
 
       if (!res.ok) {
         const detail = await res.text().catch(() => '');
-        throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
+        errorcontext.addError(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
       }
 
       const blob = await res.blob();
@@ -381,8 +381,7 @@ export default function MillBillBook() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Error downloading bill book PDF:', err);
-      alert(err instanceof Error ? err.message : 'Something went wrong while downloading the book PDF.');
+      errorcontext.addError(err instanceof Error ? err.message : 'Something went wrong while downloading the book PDF.')
     } finally {
       setIsDownloadingBook(false);
     }
@@ -464,9 +463,6 @@ export default function MillBillBook() {
                   onChange={(e) => updateFilter(f.key, e.target.value)}
                 />
               )}
-              {fieldErrors[f.key as FieldErrorKey] && (
-                <span className="mbr-error-text">{fieldErrors[f.key as FieldErrorKey]}</span>
-              )}
             </div>
           ))}
 
@@ -487,7 +483,6 @@ export default function MillBillBook() {
               value={filters.invoice_date_to}
               onChange={(e) => updateFilter('invoice_date_to', e.target.value)}
             />
-            {fieldErrors.date_range && <span className="mbr-error-text">{fieldErrors.date_range}</span>}
           </div>
         </div>
 
@@ -507,14 +502,7 @@ export default function MillBillBook() {
         </div>
       </div>
 
-      {requestError && (
-        <div className="mbr-banner-error">
-          <AlertTriangle size={16} />
-          <span>{requestError}</span>
-        </div>
-      )}
-
-      {hasSearched && !loading && bills && bills.length === 0 && !requestError && (
+      {hasSearched && !loading && bills && bills.length === 0 && (
         <div className="mbr-empty">No bills match these filters. Try widening your search.</div>
       )}
 

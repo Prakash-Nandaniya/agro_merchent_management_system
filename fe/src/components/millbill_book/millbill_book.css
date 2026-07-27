@@ -120,11 +120,6 @@
     font-family: ui-monospace, 'SF Mono', Consolas, monospace;
 }
 
-.mbr-error-text {
-    font-size: 11px;
-    color: var(--mbr-error);
-}
-
 .mbr-actions {
     display: flex;
     justify-content: flex-end;
@@ -182,19 +177,6 @@
     to {
         transform: rotate(360deg);
     }
-}
-
-.mbr-banner-error {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--mbr-error-soft);
-    color: var(--mbr-error);
-    border: 1px solid var(--mbr-error);
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 13px;
-    margin-bottom: 16px;
 }
 
 .mbr-empty {

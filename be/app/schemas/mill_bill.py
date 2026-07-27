@@ -95,7 +95,7 @@ class MillBill(BaseModel):
     def _validate_pan(cls, v: str) -> str:
         v = v.strip().upper()
         if not PAN_RE.match(v):
-            raise InvalidPANError("Invalid PAN format, expected e.g. ABCDE1234F")
+            raise InvalidPANError(v)
         return v
 
     @field_validator("seller_gstin", "party_gstin")
@@ -103,7 +103,7 @@ class MillBill(BaseModel):
     def _validate_gstin(cls, v: str) -> str:
         v = v.strip().upper()
         if not GSTIN_RE.match(v):
-            raise InvalidGSTINError("Invalid GSTIN format")
+            raise InvalidGSTINError(v)
         return v
 
     @field_validator("seller_ifsc")
@@ -113,7 +113,7 @@ class MillBill(BaseModel):
             return None
         v = v.strip().upper()
         if not IFSC_RE.match(v):
-            raise InvalidIFSCError("Invalid IFSC format, expected e.g. HDFC0001234")
+            raise InvalidIFSCError(v)
         return v
     
     @field_validator("delivery_through")

@@ -1,9 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, AlertTriangle, Pencil, Trash2, X } from 'lucide-react';
+import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, X } from 'lucide-react';
 import './tradebook.css';
 import { settings } from '@/settings';
 import { apiFetch } from '@/utils/apifetch';
+import { useContext } from 'react';
+import { ErrorContext } from '@/components/errors/errorcontext';
 
 export interface Trade {
   id: number;
@@ -39,18 +41,6 @@ interface Filters {
 }
 
 const STORAGE_KEY = 'trade_book_state';
-
-function getSavedState() {
-  const saved = sessionStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (e) {
-      console.error('Failed to parse session storage');
-    }
-  }
-  return null;
-}
 
 const EMPTY_FILTERS: Filters = {
   party_name: '',
@@ -115,7 +105,7 @@ function getPageNumbers(current: number, total: number): Array<number | string> 
 export default function TradeBook() {
   const navigate = useNavigate();
   const savedState = getSavedState();
-
+  const errorcontext = useContext(ErrorContext);
   // ── Responsive page size: 20 rows on desktop, 10 on mobile ──────────────
   const [pageSize, setPageSize] = useState(window.innerWidth < 640 ? 10 : 20);
 
@@ -132,11 +122,9 @@ export default function TradeBook() {
   const [page, setPage] = useState<number>(savedState?.page || 1);
   const [hasSearched, setHasSearched] = useState<boolean>(savedState?.hasSearched || false);
   const [loading, setLoading] = useState(false);
-  const [requestError, setRequestError] = useState('');
 
   const [deleteTarget, setDeleteTarget] = useState<Trade | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
 
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -154,6 +142,18 @@ export default function TradeBook() {
     return `Request failed with status ${status}`;
   }
 
+  function getSavedState() {
+  const saved = sessionStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      errorcontext.addError('Failed to parse session storage');
+    }
+  }
+  return null;
+}
+
   async function runSearch() {
     const payload: Record<string, string> = {};
     Object.entries(filters).forEach(([key, value]) => {
@@ -161,7 +161,6 @@ export default function TradeBook() {
     });
 
     setLoading(true);
-    setRequestError('');
     setHasSearched(true);
 
     try {
@@ -175,14 +174,14 @@ export default function TradeBook() {
         setTrades([]);
       } else if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(extractErrorDetail(body, res.status));
+        errorcontext.addError(extractErrorDetail(body, res.status));
       } else {
         const data: Trade[] = await res.json();
         setTrades([...data].sort(compareTradesDesc));
       }
       setPage(1);
     } catch (err) {
-      setRequestError(err instanceof Error ? err.message : 'Could not reach the server.');
+      errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.');
       setTrades(null);
     } finally {
       setLoading(false);
@@ -201,13 +200,11 @@ export default function TradeBook() {
   function handleDeleteClick(e: React.MouseEvent, t: Trade) {
     e.stopPropagation();
     setDeleteTarget(t);
-    setDeleteError('');
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
-    setDeleteError('');
     try {
       const res = await apiFetch(`${settings.BE_URL}/delete-trade/${deleteTarget.id}`, {
         method: 'DELETE',
@@ -215,7 +212,7 @@ export default function TradeBook() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(extractErrorDetail(body, res.status));
+        errorcontext.addError(extractErrorDetail(body, res.status));
       }
 
       setTrades((prev) => {
@@ -228,7 +225,7 @@ export default function TradeBook() {
       });
       setDeleteTarget(null);
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Could not reach the server.');
+      errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.');
     } finally {
       setDeleting(false);
     }
@@ -304,14 +301,7 @@ export default function TradeBook() {
         </div>
       </div>
 
-      {requestError && (
-        <div className="tb-banner-error">
-          <AlertTriangle size={16} />
-          <span>{requestError}</span>
-        </div>
-      )}
-
-      {hasSearched && !loading && trades && trades.length === 0 && !requestError && (
+      {hasSearched && !loading && trades && trades.length === 0 && (
         <div className="tb-empty">No trades match these filters.</div>
       )}
 
@@ -428,12 +418,6 @@ export default function TradeBook() {
             <p className="tb-modal-text">
               This will permanently delete this trade.
             </p>
-            {deleteError && (
-              <div className="tb-banner-error">
-                <AlertTriangle size={16} />
-                <span>{deleteError}</span>
-              </div>
-            )}
             <div className="tb-modal-actions">
               <button className="tb-btn-ghost" onClick={() => setDeleteTarget(null)} disabled={deleting} type="button">
                 Cancel

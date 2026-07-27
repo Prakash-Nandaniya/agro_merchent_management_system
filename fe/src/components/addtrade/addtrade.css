@@ -649,25 +649,22 @@
   color: #F0897A;
 }
 
-/* Banner */
-.at-banner-error {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--at-error-soft);
-  color: var(--at-error);
-  border: 1px solid var(--at-error);
-  border-radius: 10px;
-  padding: 12px 16px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
 /* Actions */
 .at-actions {
   display: flex;
   justify-content: flex-end;
   padding-top: 4px;
+}
+
+.at-receipt-section__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 0;
+  color: var(--at-muted);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .at-btn-save {

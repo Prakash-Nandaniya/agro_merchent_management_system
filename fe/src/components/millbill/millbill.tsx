@@ -6,6 +6,8 @@ import { settings } from "@/settings";
 import Decimal from 'decimal.js';
 import karmaLogo from '@/assets/karma_trading_logo.png';
 import { apiFetch } from '@/utils/apifetch';
+import { useContext } from 'react';
+import { ErrorContext } from '@/components/errors/errorcontext';
 
 // ─── Profile config shapes (matches backend ProfileConfigSchema) ──────────────
 interface ProfileBank { bank: string; account: string; ifsc: string }
@@ -219,7 +221,7 @@ function ErrorPopup({ errors, onClose }: { errors: string[]; onClose: () => void
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="bg-white border border-red-300 rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
         <div className="flex items-start justify-between mb-3">
-          <h3 className="font-bold text-red-600 text-base">Please fix before printing</h3>
+          <h3 className="font-bold text-red-600 text-base">Please fix before save</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 ml-2 transition-colors">
             <X size={18} />
           </button>
@@ -257,6 +259,7 @@ function SavingOverlay() {
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function MillBill() {
+  const errorcontext = useContext(ErrorContext);
   // ── Central state — all bill fields as strings ───────────────────────────────
   const [s, setS] = useState<FormState>(INIT);
   const [isSending, setIsSending] = useState(false);
@@ -270,6 +273,8 @@ export default function MillBill() {
     { ...EMPTY_ROW }, { ...EMPTY_ROW }, { ...EMPTY_ROW },
   ]);
 
+  // Validation checklist errors — kept separate from the global toast system,
+  // since this is a multi-item "fix these before saving" list, not a single message.
   const [errors, setErrors] = useState<string[]>([]);
 
   // ── View mode: 'edit' (default, fully editable) → 'preview' (validated,
@@ -330,7 +335,9 @@ export default function MillBill() {
           }));
         }
       })
-      .catch(console.error)
+      .catch((error) => {
+        errorcontext.addError(error instanceof Error ? error.message : 'Failed to load profile settings.');
+      })
       .finally(() => setProfileLoading(false));
   }, []);
 
@@ -541,7 +548,7 @@ export default function MillBill() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.detail ? String(body.detail) : 'Failed to save bill.');
+        errorcontext.addError(body?.detail ? String(body.detail) : 'Failed to save bill.');
       }
       const savedBillResp = await res.json();
       setS(prev => ({
@@ -552,16 +559,12 @@ export default function MillBill() {
       pdfBlobRef.current = null; // reset cache — invoice_no just changed
       setViewMode('saved');
     } catch (err) {
-      console.error(err);
-      setErrors([err instanceof Error ? err.message : 'Failed to save bill. Please try again.']);
+      errorcontext.addError(err instanceof Error ? err.message : 'Failed to save bill. Please try again.');
     } finally {
       setIsSaving(false);
     }
   }
 
-  // Returns the cached blob instantly if present (no overlay shown).
-  // Otherwise shows the full-page "Generating PDF..." overlay for the
-  // duration of the actual network fetch, then hides it once done.
   async function fetchInvoicePdf(): Promise<Blob> {
     if (pdfBlobRef.current) return pdfBlobRef.current;
 
@@ -575,7 +578,7 @@ export default function MillBill() {
 
       if (!res.ok) {
         const detail = await res.text().catch(() => '');
-        throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
+        errorcontext.addError(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
       }
 
       const blob = await res.blob();
@@ -601,8 +604,7 @@ export default function MillBill() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading PDF:', error);
-      alert("Something went wrong while downloading the file. Please try other ways");
+      errorcontext.addError('Something went wrong while downloading the file. Please try other ways.');
     } finally {
       setIsDownloading(false);
     }
@@ -635,13 +637,11 @@ export default function MillBill() {
       try {
         printFrame.contentWindow?.print();
       } catch (err) {
-        console.error('Print blocked on this device:', err);
         window.open(url!, '_blank');
-        alert('The invoice has opened in a new tab — use the print icon there.');
+        errorcontext.addError('The invoice has opened in a new tab — use the print icon there.');
       }
     } catch (error) {
-      console.error('Error preparing invoice for print:', error);
-      alert('Something went wrong while preparing the invoice for printing. Please try other ways');
+      errorcontext.addError('Something went wrong while preparing the invoice for printing. Please try other ways.');
     } finally {
       setIsPrinting(false);
       setTimeout(() => {
@@ -666,7 +666,7 @@ export default function MillBill() {
           text: `Hello ${s.partyName}, please find your invoice attached.`,
         });
       } else {
-        alert("Direct sharing is not supported on this browser. The PDF will download now so you can attach it manually.");
+        errorcontext.addError('Direct sharing is not supported on this browser. The PDF will download now so you can attach it manually.');
         const url2 = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url2;
@@ -684,8 +684,7 @@ export default function MillBill() {
         setShowRetryBanner(true);
         return;
       }
-      console.error('Error generating PDF:', error);
-      alert("Something went wrong while preparing the file. please try other ways");
+      errorcontext.addError('Something went wrong while preparing the file. Please try other ways.');
     } finally {
       setIsSending(false);
     }
@@ -710,8 +709,7 @@ export default function MillBill() {
         setShowRetryBanner(true);
         return;
       }
-      console.error('Retry send failed:', error);
-      alert("Something went wrong while sending the file. please try other ways");
+      errorcontext.addError('Something went wrong while sending the file. Please try other ways.');
     } finally {
       setIsSending(false);
     }

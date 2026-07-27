@@ -3,15 +3,16 @@ import { useEffect, useState } from "react";
 import { settings } from "@/settings";
 import { useAuth } from '@/components/authcontext';
 import './home.css';
+import { useContext } from 'react';
+import { ErrorContext } from '@/components/errors/errorcontext';
 
 export default function Home() {
     const { isChecking, isAuthorized, refreshAuth } = useAuth();
     const navigate = useNavigate();
-    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const errorcontext = useContext(ErrorContext);
 
     async function handleRecruiterLogin() {
-        setError('');
         setLoading(true);
 
         try {
@@ -33,7 +34,7 @@ export default function Home() {
             await refreshAuth();
             navigate('/dashboard');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Could not reach the server.');
+            errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.');
         } finally {
             setLoading(false);
         }
@@ -62,12 +63,6 @@ export default function Home() {
 
     return (
         <div className="landing-container">
-
-            {error && (
-                <div className="landing-error-banner">
-                    {error}
-                </div>
-            )}
 
             {/* --- Dull background watermark logo (desktop/laptop only) --- */}
             <img

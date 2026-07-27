@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import './profileconfig.css'
 import { settings } from "@/settings"
 import { apiFetch } from '@/utils/apifetch';
+import { useContext } from 'react';
+import { ErrorContext } from '@/components/errors/errorcontext';
 
 interface Crop { hsn: string; sgst: string; cgst: string }
 interface Bank { bank: string; account: string; ifsc: string }
@@ -23,6 +25,7 @@ const EMPTY_BANK: Bank = { bank: '', account: '', ifsc: '' }
 const EMPTY_CROP: CropForm = { name: '', hsn: '', cgst: '', sgst: '' }
 
 export default function ProfileConfig() {
+    const errorcontext = useContext(ErrorContext);
     const [config, setConfig] = useState<ProfileConfig>(EMPTY_CONFIG)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -44,7 +47,7 @@ export default function ProfileConfig() {
         apiFetch(`${settings.BE_URL}/profile-configuration`)
             .then(r => { if (!r.ok) return null; return r.json() })
             .then(data => { if (data && Object.keys(data).length > 0) setConfig(data) })
-            .catch(console.error)
+            .catch((error) => errorcontext.addError(error))
             .finally(() => setLoading(false))
     }, [])
 
@@ -134,10 +137,10 @@ export default function ProfileConfig() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(config)
             })
-            if (!res.ok) throw new Error('Server error')
+            if (!res.ok) errorcontext.addError('Server error')
             setSaveMsg({ type: 'success', text: 'Settings saved successfully ✓' })
         } catch {
-            setSaveMsg({ type: 'error', text: 'Failed to save. Please try again.' })
+            errorcontext.addError('Failed to save. Please try again.');
         } finally {
             setSaving(false)
         }
@@ -148,7 +151,8 @@ export default function ProfileConfig() {
         try {
             await apiFetch(`${settings.BE_URL}/logout`, { method: 'POST' })
         } catch (err) {
-            console.error(err)
+            const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred while fetching data.';
+            errorcontext.addError(errorMessage);
         } finally {
             window.location.href = '/'
         }

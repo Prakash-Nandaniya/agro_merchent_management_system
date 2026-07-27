@@ -10,6 +10,8 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ArrowLeft } from 'lucide-react';
+import { useContext } from 'react';
+import { ErrorContext } from '@/components/errors/errorcontext';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -197,6 +199,8 @@ const UNIT_OPTIONS = ['Kg', 'Qtl', 'T', 'MT'];
 
 
 export default function AddTrade() {
+
+  const errorcontext = useContext(ErrorContext);
   const navigate = useNavigate();
   const location = useLocation();
   const existingTrade = location.state?.trade as any;
@@ -223,7 +227,6 @@ export default function AddTrade() {
   const [otherCost, setOtherCost] = useState(existingTrade?.other_cost || '');
 
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
   const receiptFileInputRef = useRef<HTMLInputElement>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptEdited, setReceiptEdited] = useState(false);
@@ -231,7 +234,6 @@ export default function AddTrade() {
   const [millReceiptUrl, setMillReceiptUrl] = useState<string>('');
   const [millReceiptIsPdf, setMillReceiptIsPdf] = useState(false);
   const [loadingExistingReceipt, setLoadingExistingReceipt] = useState(false);
-  const [receiptError, setReceiptError] = useState('');
 
   useEffect(() => {
     const tradeId = existingTrade?.id;
@@ -247,7 +249,7 @@ export default function AddTrade() {
         const isPdf = data.url.split('?')[0].toLowerCase().endsWith('.pdf');
         setMillReceiptIsPdf(isPdf);
       } catch {
-        setReceiptError('Could not load the mill receipt.');
+        errorcontext.addError('Could not load the mill receipt.')
       } finally {
         setLoadingExistingReceipt(false);
       }
@@ -262,7 +264,6 @@ export default function AddTrade() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setReceiptError('');
     setReceiptFile(file);
     setReceiptEdited(true);
 
@@ -333,11 +334,10 @@ export default function AddTrade() {
 
   async function handleSave() {
     if (!invoiceNo.trim()) {
-      setSaveError('Invoice number is required.');
+      errorcontext.addError('Invoice number is required.');
       return;
     }
     setSaving(true);
-    setSaveError('');
     try {
       const fd = new FormData();
       fd.append('invoice_no', invoiceNo.trim());
@@ -376,13 +376,14 @@ export default function AddTrade() {
             : Array.isArray(body.detail)
               ? body.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ')
               : `Request failed with status ${res.status}`;
-        throw new Error(detail);
+        errorcontext.addError(detail);
+        return;
       }
       const savedTrade = await res.json();
       upsertTradeInBookStorage(savedTrade, isEditMode);
       navigate('/trade-book');
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Could not reach the server.');
+      errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.')
     } finally {
       setSaving(false);
     }
@@ -608,21 +609,7 @@ export default function AddTrade() {
               )}
             </div>
           )}
-
-          {receiptError && (
-            <div className="at-receipt-section__error">
-              <AlertTriangle size={16} />
-              {receiptError}
-            </div>
-          )}
         </section>
-
-        {saveError && (
-          <div className="at-banner-error">
-            <AlertTriangle size={16} />
-            {saveError}
-          </div>
-        )}
 
         <div className="at-actions">
           <button className="at-btn-save" onClick={handleSave} disabled={saving}>

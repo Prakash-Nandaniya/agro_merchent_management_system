@@ -36,11 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    checkAuth(2000); // initial app-load check, with the 2s minimum loading screen
+    checkAuth(1500); 
   }, [checkAuth]);
 
   const refreshAuth = useCallback(async () => {
-    await checkAuth(0); // instant re-check after login, no artificial delay
+    await checkAuth(0); 
   }, [checkAuth]);
 
   return (

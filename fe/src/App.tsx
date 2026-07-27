@@ -10,23 +10,31 @@ import AddTradePage from './pages/addtradePage/addtrade';
 import TradeBookPage from './pages/tradebookPage/tradebook';
 import { AuthProvider } from './components/authcontext';
 import { ProtectedRoute } from './components/protectedcomponent';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ErrorContextProvider } from './components/errors/errorcontext.tsx'
+
+const queryClient = new QueryClient();
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/new-bill/mill" element={<ProtectedRoute><MillBillPage /></ProtectedRoute>} />
-          <Route path="/bill-book/mill" element={<ProtectedRoute><MillBillBookPage /></ProtectedRoute>} />
-          <Route path="/profile-configuration" element={<ProtectedRoute><ProfileConfigurationPage /></ProtectedRoute>} />
-          <Route path="/show-mill-bill-from-bill-book" element={<ProtectedRoute><ViewMillBillFromBookPage /></ProtectedRoute>} />
-          <Route path="/trade-book" element={<ProtectedRoute><TradeBookPage /></ProtectedRoute>} />
-          <Route path="/add-trade" element={<ProtectedRoute><AddTradePage /></ProtectedRoute>} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorContextProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/new-bill/mill" element={<ProtectedRoute><MillBillPage /></ProtectedRoute>} />
+              <Route path="/bill-book/mill" element={<ProtectedRoute><MillBillBookPage /></ProtectedRoute>} />
+              <Route path="/profile-configuration" element={<ProtectedRoute><ProfileConfigurationPage /></ProtectedRoute>} />
+              <Route path="/show-mill-bill-from-bill-book" element={<ProtectedRoute><ViewMillBillFromBookPage /></ProtectedRoute>} />
+              <Route path="/trade-book" element={<ProtectedRoute><TradeBookPage /></ProtectedRoute>} />
+              <Route path="/add-trade" element={<ProtectedRoute><AddTradePage /></ProtectedRoute>} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorContextProvider>
   );
 }

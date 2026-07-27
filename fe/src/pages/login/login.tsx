@@ -4,20 +4,21 @@ import { Eye, EyeOff } from 'lucide-react';
 import { settings } from '@/settings';
 import { useAuth } from '@/components/authcontext';
 import './login.css';
+import { useContext } from 'react';
+import { ErrorContext } from '@/components/errors/errorcontext';
 
 export default function Login() {
   const [fullName, setFullName] = useState('');
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { refreshAuth } = useAuth();
+  const errorcontext=useContext(ErrorContext);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
@@ -34,12 +35,13 @@ export default function Login() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        
         throw new Error(body?.detail ? String(body.detail) : 'Login failed.');
       }
       await refreshAuth();
       navigate('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reach the server.');
+      errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.');
     } finally {
       setLoading(false);
     }
@@ -50,9 +52,6 @@ export default function Login() {
       <form className="login-card" onSubmit={handleSubmit}>
         <h1 className="login-title">Sign in</h1>
         <p className="login-subtitle">Enter your credentials to continue</p>
-
-        {error && <div className="login-error">{error}</div>}
-
         <label className="login-label" htmlFor="full_name">Your Name</label>
         <input
           id="full_name"

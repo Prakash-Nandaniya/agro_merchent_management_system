@@ -278,11 +278,6 @@ input[type='number'] { -moz-appearance: textfield; }
   color: #14532d;
   border: 1px solid #86efac;
 }
-.pc-save-msg--error {
-  background: #fee2e2;
-  color: #7f1d1d;
-  border: 1px solid #fca5a5;
-}
 
 /* ── Footer ────────────────────────────────────────────────────────────────── */
 .pc-footer {
