@@ -12,13 +12,6 @@ import { useQueryClient } from '@tanstack/react-query';
 
 // ─── Profile config shapes (matches backend ProfileConfigSchema) ──────────────
 interface ProfileBank { bank: string; account: string; ifsc: string }
-interface ProfileData {
-  seller: { name: string; address: string; pan: string; gstin: string };
-  bank_accounts: ProfileBank[];
-  crops: Record<string, ProfileCrop>;
-  terms_and_conditions: string;
-}
-interface ProfileCrop { hsn: string; cgst: string; sgst: string }
 
 // ─── Crop option shape: array of dict, "crop" as key ───────────────────────────
 interface CropOption { crop: string; hsn: string; cgst: string; sgst: string }
