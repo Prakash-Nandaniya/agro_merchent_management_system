@@ -6,7 +6,7 @@ from typing import List
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from playwright.async_api import async_playwright, Browser
 
-from app.schemas.generatepdf import MillBill
+from app.schemas.invoice import Invoice
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
@@ -80,30 +80,34 @@ def _split_crop_name(name: str) -> tuple[str, str]:
     return name[:idx].strip(), name[idx:].strip()
 
 
-def _build_display_rows(bill: MillBill) -> list:
-    rows = []
-    for c in bill.crops:
-        crop_line1, crop_line2 = _split_crop_name(c.crop)
-        rows.append({
+def _build_display_rows(bill: Invoice) -> list:
+    """One invoice row now holds exactly one crop's worth of data (the
+    merged table), so there's a single populated row plus blank padding
+    rows to keep the table height consistent with the old multi-crop look.
+    """
+    crop_line1, crop_line2 = _split_crop_name(bill.crop)
+    rows = [
+        {
             "crop_line1": crop_line1,
             "crop_line2": crop_line2,
-            "hsn_code": c.hsn_code,
-            "qty": c.qty,
-            "uqc": c.uqc,
-            "rate": c.rate,
-            "taxable_value": _fmt(c.taxable_value),
-            "cgst_rate": c.cgst_rate,
-            "cgst_amount": _fmt(c.cgst_amount) or "0.00",
-            "sgst_rate": c.sgst_rate,
-            "sgst_amount": _fmt(c.sgst_amount) or "0.00",
-            "final_amount": _fmt(c.final_amount),
-        })
+            "hsn_code": bill.hsn_code,
+            "qty": bill.qty,
+            "uqc": bill.uqc,
+            "rate": bill.rate,
+            "taxable_value": _fmt(bill.taxable_amount),
+            "cgst_rate": bill.cgst_rate,
+            "cgst_amount": _fmt(bill.cgst_amount) or "0.00",
+            "sgst_rate": bill.sgst_rate,
+            "sgst_amount": _fmt(bill.sgst_amount) or "0.00",
+            "final_amount": _fmt(bill.final_amount),
+        }
+    ]
     while len(rows) < MIN_ROWS:
         rows.append(None)
     return rows
 
 
-def _build_bill_context(bill: MillBill) -> dict:
+def _build_bill_context(bill: Invoice) -> dict:
     """Everything a single invoice page needs to render — shared by both
     the single-bill template and each iteration of the book template, so
     the two can never drift out of sync with each other.
@@ -112,24 +116,24 @@ def _build_bill_context(bill: MillBill) -> dict:
         "bill": bill,
         "rows": _build_display_rows(bill),
         "invoice_date": _format_date(bill.invoice_date),
-        "final_taxable_amount": _fmt(bill.final_taxable_amount),
-        "final_cgst_amount": _fmt(bill.final_cgst_amount),
-        "final_sgst_amount": _fmt(bill.final_sgst_amount),
+        "final_taxable_amount": _fmt(bill.taxable_amount),
+        "final_cgst_amount": _fmt(bill.cgst_amount),
+        "final_sgst_amount": _fmt(bill.sgst_amount),
         "final_amount": _fmt(bill.final_amount),
         "watermark_data_uri": _watermark_data_uri,
     }
 
 
-def render_invoice_html(bill: MillBill) -> str:
-    template = jinja_env.get_template("millbill.html")
+def render_invoice_html(bill: Invoice) -> str:
+    template = jinja_env.get_template("invoice.html")
     return template.render(**_build_bill_context(bill))
 
 
-def render_bill_book_html(bills: List[MillBill]) -> str:
+def render_bill_book_html(bills: List[Invoice]) -> str:
     """One combined document, one invoice-page per bill, in the exact
     order given — that order carries straight through to page order.
     """
-    template = jinja_env.get_template("millbill_book.html")
+    template = jinja_env.get_template("invoice_book.html")
     return template.render(bills=[_build_bill_context(b) for b in bills])
 
 
@@ -149,7 +153,7 @@ class PdfRenderer:
         if self._playwright:
             await self._playwright.stop()
 
-    async def render_pdf(self, bill: MillBill) -> bytes:
+    async def render_pdf(self, bill: Invoice) -> bytes:
         if not self.browser:
             raise RuntimeError("PdfRenderer not started.")
 
@@ -162,7 +166,7 @@ class PdfRenderer:
             pdf_bytes = await page.pdf(
                 format="A4",
                 print_background=True,
-                scale=1.0,  
+                scale=1.0,
                 margin={
                     "top": "0.5in",
                     "bottom": "0.5in",
@@ -174,7 +178,7 @@ class PdfRenderer:
         finally:
             await page.close()
 
-    async def render_pdf_book(self, bills: List[MillBill]) -> bytes:
+    async def render_pdf_book(self, bills: List[Invoice]) -> bytes:
         if not self.browser:
             raise RuntimeError("PdfRenderer not started.")
         if not bills:

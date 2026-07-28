@@ -269,7 +269,7 @@ def translate_integrity_error(exc: IntegrityError):
         # Specifically catch the missing Mill Bill error
         if "trades_invoice_no_fkey" in message:
             return ForeignKeyViolationError(
-                detail="Invalid Invoice Number: This Mill Bill does not exist yet. Please create the Mill Bill first before adding this trade."
+                detail="Invalid Invoice Number: This Invoice does not exist yet. Please create the Invoice first before adding this trade."
             )
         
         # Generic fallback for other missing references

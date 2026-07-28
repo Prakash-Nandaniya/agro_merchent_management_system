@@ -1,0 +1,12 @@
+.mbr-row-clickable {
+    cursor: pointer;
+}
+
+.mbr-row-clickable:focus {
+    outline: 2px solid var(--mbr-accent);
+    outline-offset: -2px;
+}
+
+.mbr-row-clickable:active {
+    background: var(--mbr-accent-soft);
+}

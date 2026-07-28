@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Printer, Send as SendIcon, ArrowLeft, Loader2, Download } from 'lucide-react';
 import './view_mill_bill.css';
 import watermarkUrl from '@/assets/karma_trading_logo_color_bg_removed.png';
@@ -7,8 +8,8 @@ import { settings } from '@/settings';
 import { apiFetch } from '@/utils/apifetch';
 import { useContext } from 'react';
 import { ErrorContext } from '@/components/errors/errorcontext';
+import type { MillBill as MillBillListItem } from '../millbill_book/millbill_boook';
 
-// ─── Interfaces ──────────────────────────────────────────────────────────────
 export interface BillCrop {
   id: number;
   crop: string;
@@ -53,7 +54,6 @@ export interface MillBill {
   created_by: string;
 }
 
-// ─── Formatters ──────────────────────────────────────────────────────────────
 function fmt(val: string | number | undefined | null): string {
   if (!val) return '';
   const n = Number(val);
@@ -271,6 +271,20 @@ export default function ViewMillBillFromBook() {
   const errorcontext = useContext(ErrorContext);
   const navigate = useNavigate();
 
+  // Only the id travels through navigation now — the actual bill data is
+  // read reactively from the same shared 'Invoices' cache the book page
+  // writes into. If the cache doesn't have it (e.g. direct link, or cache
+  // was cleared), `bill` below is undefined and we show the "not found" state.
+  const id = location.state?.id as number | undefined;
+
+  const { data: invoices } = useQuery<MillBillListItem[]>({
+    queryKey: ['Invoices'],
+    queryFn: () => Promise.resolve([]),
+    enabled: false,
+  });
+
+  const bill = invoices?.find((b) => b.id === id) as unknown as MillBill | undefined;
+
   const [isSending, setIsSending] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -278,12 +292,8 @@ export default function ViewMillBillFromBook() {
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  const bill = location.state?.bill as MillBill | undefined;
-
   const pdfBlobRef = useRef<Blob | null>(null);
 
-  // ── Scoped "desktop mode" zoom: only this component's box scales,
-  //    never the nav bar or bottom buttons, never the page viewport. ──
   const zoomOuterRef = useRef<HTMLDivElement | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const DESKTOP_WIDTH = 925;
@@ -301,7 +311,7 @@ export default function ViewMillBillFromBook() {
 
       if (!res.ok) {
         const detail = await res.text().catch(() => '');
-        errorcontext.addError(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
+        throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
       }
 
       const blob = await res.blob();
@@ -348,7 +358,6 @@ export default function ViewMillBillFromBook() {
     displayRows.push(null as any);
   }
 
-  // ── Print: fetch the backend PDF, hand it to the browser's print dialog ──
   const handlePrint = async () => {
     setIsPrinting(true);
     let printFrame: HTMLIFrameElement | null = null;
@@ -377,10 +386,11 @@ export default function ViewMillBillFromBook() {
       } catch (err) {
         console.error('Print blocked on this device:', err);
         window.open(url!, '_blank');
-        alert('The invoice has opened in a new tab — use the print icon there.');
+        errorcontext.addError('The invoice has opened in a new tab — use the print icon there.');
       }
     } catch (error) {
-      errorcontext.addError('Something went wrong while preparing the invoice for printing. please try other ways');
+      console.error('Error preparing invoice for print:', error);
+      errorcontext.addError('Something went wrong while preparing the invoice for printing. Please try other ways.');
     } finally {
       setIsPrinting(false);
       setTimeout(() => {
@@ -390,7 +400,6 @@ export default function ViewMillBillFromBook() {
     }
   };
 
-  // ── Send: fetch the backend PDF, share it as a file ──
   const handleSend = async () => {
     setIsSending(true);
     try {
@@ -405,7 +414,7 @@ export default function ViewMillBillFromBook() {
           text: `Hello ${bill.party_name}, please find your invoice attached.`,
         });
       } else {
-        alert("Direct sharing is not supported on this browser. The PDF will download now so you can attach it manually.");
+        errorcontext.addError('Direct sharing is not supported on this browser. The PDF will download now so you can attach it manually.');
         const url2 = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url2;
@@ -423,13 +432,13 @@ export default function ViewMillBillFromBook() {
         setShowRetryBanner(true);
         return;
       }
-      errorcontext.addError("Something went wrong while preparing the file. please try other ways");
+      console.error('Error generating PDF:', error);
+      errorcontext.addError('Something went wrong while preparing the file. Please try other ways.');
     } finally {
       setIsSending(false);
     }
   };
 
-  // ── Retry Send: PDF is already cached, so this runs instantly on a fresh tap ──
   const handleSendRetry = async () => {
     setShowRetryBanner(false);
     if (!pdfBlobRef.current) return;
@@ -448,7 +457,8 @@ export default function ViewMillBillFromBook() {
         setShowRetryBanner(true);
         return;
       }
-      errorcontext.addError("Something went wrong while sending the file. please try other ways");
+      console.error('Retry send failed:', error);
+      errorcontext.addError('Something went wrong while sending the file. Please try other ways.');
     } finally {
       setIsSending(false);
     }
@@ -459,7 +469,6 @@ export default function ViewMillBillFromBook() {
     return `${safePartyName}_${bill.invoice_no}.pdf`;
   };
 
-  // ── Download: fetch the backend PDF and trigger a direct download ──
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
@@ -475,7 +484,8 @@ export default function ViewMillBillFromBook() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      errorcontext.addError("Something went wrong while downloading the file. please try other ways");
+      console.error('Error downloading PDF:', error);
+      errorcontext.addError('Something went wrong while downloading the file. Please try other ways.');
     } finally {
       setIsDownloading(false);
     }

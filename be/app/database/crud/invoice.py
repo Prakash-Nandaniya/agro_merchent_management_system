@@ -1,21 +1,21 @@
 from typing import List
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from app.core.exceptions import (
     translate_integrity_error,
     NotFoundError,
     DatabaseOperationException,
 )
-from app.database.models.mill import MillBill, BillCrop
-from app.schemas.mill_bill import (
-    MillBill as MillBillSchema,
-)  # ← alias avoids colliding with the ORM MillBill above
+from app.database.models.invoice import Invoice
+from app.schemas.invoice import (
+    Invoice as InvoiceSchema,
+)  
 from sqlalchemy import select
 from app.database.models.account import Account
 from app.core.config import settings
 
 
-def save_mill_bill(db: Session, payload: MillBillSchema, created_by: str) -> MillBill:
+def save_invoice(db: Session, payload: InvoiceSchema, created_by: str) -> Invoice:
     try:
         account = db.execute(select(Account).with_for_update()).scalar_one_or_none()
     except SQLAlchemyError as e:
@@ -28,16 +28,15 @@ def save_mill_bill(db: Session, payload: MillBillSchema, created_by: str) -> Mil
 
     new_invoice_no = int(account.last_millbill_invoiceNo) + 1
     data = payload.to_orm_kwargs()
-    mill_bill = MillBill(
-        **data["bill"],
+    invoice = Invoice(
+        **data,
         created_by=created_by.upper(),
         invoice_no=new_invoice_no,
     )
-    mill_bill.crops = [BillCrop(**row) for row in data["crops"]]
 
     account.last_millbill_invoiceNo = new_invoice_no
 
-    db.add(mill_bill)
+    db.add(invoice)
     db.add(account)
 
     try:
@@ -49,29 +48,29 @@ def save_mill_bill(db: Session, payload: MillBillSchema, created_by: str) -> Mil
         db.rollback()
         raise DatabaseOperationException() from e
 
-    db.refresh(mill_bill)
-    return mill_bill
+    db.refresh(invoice)
+    return invoice
 
 
-def get_mill_bill(db: Session, filter: dict, page: int) -> List[MillBill]:
-    base_query = db.query(MillBill.id)
+def get_invoice(db: Session, filter: dict, page: int) -> List[Invoice]:
+    base_query = db.query(Invoice.id)
     if filter:
         for field, value in filter.items():
             if value in (None, "", []):
                 continue
             if field.endswith("_from"):
                 real_field = field[: -len("_from")]
-                column = getattr(MillBill, real_field, None)
+                column = getattr(Invoice, real_field, None)
                 if column is not None:
                     base_query = base_query.filter(column >= value)
                 continue
             if field.endswith("_to"):
                 real_field = field[: -len("_to")]
-                column = getattr(MillBill, real_field, None)
+                column = getattr(Invoice, real_field, None)
                 if column is not None:
                     base_query = base_query.filter(column <= value)
                 continue
-            column = getattr(MillBill, field, None)
+            column = getattr(Invoice, field, None)
             if column is None:
                 continue
             if field in {
@@ -85,20 +84,19 @@ def get_mill_bill(db: Session, filter: dict, page: int) -> List[MillBill]:
                 base_query = base_query.filter(column == value)
 
     paged_ids = (
-        base_query.order_by(MillBill.created_at.desc())
+        base_query.order_by(Invoice.created_at.desc())
         .offset(500 * (page - 1))
         .limit(500)
         .subquery()
     )
 
     bills = (
-        db.query(MillBill)
-        .options(joinedload(MillBill.crops))
-        .filter(MillBill.id.in_(db.query(paged_ids)))
-        .order_by(MillBill.created_at.desc())
+        db.query(Invoice)
+        .filter(Invoice.id.in_(db.query(paged_ids)))
+        .order_by(Invoice.created_at.desc())
         .all()
     )
 
     if not bills:
-        raise NotFoundError(resource="MillBill")
+        raise NotFoundError(resource="Invoice")
     return bills

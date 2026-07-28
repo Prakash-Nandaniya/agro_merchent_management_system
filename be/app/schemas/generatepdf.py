@@ -1,23 +1,6 @@
-from typing import List, Optional
-from pydantic import BaseModel, Field
-
-
-class BillCrop(BaseModel):
-    id: int
-    crop: str
-    hsn_code: str
-    qty: str
-    uqc: str
-    rate: str
-    taxable_value: str
-    cgst_rate: str
-    sgst_rate: str
-    cgst_amount: str
-    sgst_amount: str
-    final_amount: str
-
-
-class MillBill(BaseModel):
+from typing import Optional
+from pydantic import BaseModel
+class Invoice(BaseModel):
     seller_name: str
     seller_address: str
     seller_pan: str
@@ -33,14 +16,20 @@ class MillBill(BaseModel):
     party_state: str
     party_gstin: str
     party_pan: str
+    crop: str
+    hsn_code: str
+    qty: str
+    uqc: str
+    rate: str
+    taxable_value: str
+    cgst_rate: str
+    sgst_rate: str
+    cgst_amount: str
+    sgst_amount: str
+    final_amount: str
     seller_bank: Optional[str] = None
     seller_account: Optional[str] = None
     seller_ifsc: Optional[str] = None
-    final_taxable_amount: str
-    final_cgst_amount: str
-    final_sgst_amount: str
-    final_amount: str
     final_amount_in_words: str
     terms: str
-    crops: List[BillCrop] = Field(default_factory=list)
     created_by: str

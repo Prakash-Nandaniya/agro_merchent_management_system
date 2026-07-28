@@ -1,13 +1,13 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useRef, useContext } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { create, all } from 'mathjs';
 import * as XLSX from 'xlsx';
-import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, FileSpreadsheet, Download } from 'lucide-react';
+import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, FileSpreadsheet, Download, Filter } from 'lucide-react';
 import './millbill_book.css';
 import { settings } from "@/settings";
 import { apiFetch } from '@/utils/apifetch';
-import { useContext } from 'react';
 import { ErrorContext } from '@/components/errors/errorcontext';
+import BillRow from '../invoiceRaw/raw';
 
 const math = create(all);
 math.config({ number: 'BigNumber', precision: 64 });
@@ -70,11 +70,12 @@ interface Filters {
   created_by: string;
 }
 
-// Added FieldErrors interface
 interface FieldErrors {
   date_range?: string;
   [key: string]: string | undefined;
 }
+
+const getTodayString = () => new Date().toISOString().split('T')[0];
 
 const EMPTY_FILTERS: Filters = {
   invoice_no: '',
@@ -82,8 +83,8 @@ const EMPTY_FILTERS: Filters = {
   party_gstin: '',
   party_pan: '',
   party_city: '',
-  invoice_date_from: '',
-  invoice_date_to: '',
+  invoice_date_from: '', // Empty means infinite past
+  invoice_date_to: getTodayString(), // Default strictly to today
   created_by: '',
 };
 
@@ -112,7 +113,10 @@ type SelectFilterField = FilterFieldBase & {
 
 type FilterField = TextFilterField | SelectFilterField;
 
-// ── Indian digit grouping, always 2 decimals, input is a plain decimal string ──
+// Query keys kept in one place so persistence + cache lookups always agree.
+const FILTER_STORAGE_KEY = ['InvoiceBookFilter'] as const;
+const SEARCH_QUERY_BASE_KEY = 'Invoices_Search' as const;
+
 function toIndianAmount(decimalString: string): string {
   const bn = math.bignumber(decimalString || '0');
   const fixed = bn.toFixed(2);
@@ -125,7 +129,6 @@ function toIndianAmount(decimalString: string): string {
   return `${negative ? '-' : ''}${grouped}.${decPart}`;
 }
 
-// Latest invoice_date first; if two bills share a date, most recently created wins.
 function compareBillsDesc(a: MillBill, b: MillBill): number {
   if (a.invoice_date !== b.invoice_date) {
     return a.invoice_date < b.invoice_date ? 1 : -1;
@@ -147,36 +150,98 @@ function getPageNumbers(current: number, total: number): Array<number | string> 
   return withGaps;
 }
 
-const STORAGE_KEY = 'mill_bill_book_state';
+async function fetchMillBills(filters: Filters): Promise<MillBill[]> {
+  const payload: Record<string, string> = {};
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) payload[key] = value;
+  });
+
+  const res = await apiFetch(`${settings.BE_URL}/get-mill-bill`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (res.status === 404) {
+    return [];
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Request failed with status ${res.status}`);
+  }
+  const data: MillBill[] = await res.json();
+  return [...data].sort(compareBillsDesc);
+}
 
 export default function MillBillBook() {
-  const navigate = useNavigate();
-  const savedState = getSavedState();
   const errorcontext = useContext(ErrorContext);
+  const queryClient = useQueryClient();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const fromDateRef = useRef<HTMLInputElement>(null);
+  const toDateRef = useRef<HTMLInputElement>(null);
 
-  // ── 1. Create dynamic state for page size ──
-  const [pageSize, setPageSize] = useState(window.innerWidth < 640 ? 10 : 20);
+  // Applied filters persisted across unmount/remount (nav away & back).
+  // null  => no search applied, show the default/base data.
+  // value => the exact filters last searched with.
+  const persistedFilters = queryClient.getQueryData<Filters | null>([...FILTER_STORAGE_KEY]) ?? null;
 
-  // ── Added fieldErrors state ──
+  // Draft state for the inputs themselves (prefilled from whatever was last applied).
+  const [filters, setFilters] = useState<Filters>(persistedFilters ?? EMPTY_FILTERS);
+  // The committed snapshot that actually drives the search query.
+  const [appliedFilters, setAppliedFilters] = useState<Filters | null>(persistedFilters);
+
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [page, setPage] = useState<number>(1);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isDownloadingBook, setIsDownloadingBook] = useState<boolean>(false);
+  const [pageSize, setPageSize] = useState(window.innerWidth < 640 ? 10 : 20);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // ── 2. Listen for screen resizing in real-time ──
+  // Query A: base/default data (fetched elsewhere, e.g. a DataLoader). Never mutated here.
+  const { data: allInvoices } = useQuery<MillBill[]>({ queryKey: ['Invoices'] });
+
+  // Query B: keyed by the applied filters. React Query dedupes identical keys automatically,
+  // so re-applying the same filters (or coming back to this page) reuses cache — no BE call.
+  const {
+    data: searchInvoices,
+    isFetching: isSearching,
+    error: searchError,
+  } = useQuery<MillBill[]>({
+    queryKey: [SEARCH_QUERY_BASE_KEY, appliedFilters],
+    queryFn: () => fetchMillBills(appliedFilters as Filters),
+    enabled: appliedFilters !== null,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  const isSearchActive = appliedFilters !== null;
+  const invoices = isSearchActive ? searchInvoices : allInvoices;
+
+  useEffect(() => {
+    if (searchError) {
+      const message = searchError instanceof Error ? searchError.message : 'Could not reach the server.';
+      errorcontext.addError(message);
+    }
+  }, [searchError]);
+
   useEffect(() => {
     const handleResize = () => {
       setPageSize(window.innerWidth < 640 ? 10 : 20);
     };
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const [filters, setFilters] = useState<Filters>(savedState?.filters || EMPTY_FILTERS);
-  const [bills, setBills] = useState<MillBill[] | null>(savedState?.bills || null);
-  const [page, setPage] = useState<number>(savedState?.page || 1);
-  const [hasSearched, setHasSearched] = useState<boolean>(savedState?.hasSearched || false);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [isExporting, setIsExporting] = useState<boolean>(false);
-  const [isDownloadingBook, setIsDownloadingBook] = useState<boolean>(false);
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowAdvancedFilters(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   function updateFilter(key: keyof Filters, rawValue: string) {
     const upperKeys: Array<keyof Filters> = ['party_gstin', 'party_pan', 'created_by'];
@@ -186,7 +251,6 @@ export default function MillBillBook() {
 
     setFieldErrors((prev) => {
       const next: FieldErrors = { ...prev };
-
       if (key === 'invoice_date_from' || key === 'invoice_date_to') {
         const from = key === 'invoice_date_from' ? value : filters.invoice_date_from;
         const to = key === 'invoice_date_to' ? value : filters.invoice_date_to;
@@ -202,92 +266,61 @@ export default function MillBillBook() {
     });
   }
 
-  function getSavedState() {
-    const saved = sessionStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        errorcontext.addError('Failed to parse session storage');
-      }
+  function hasBlockingErrors(): boolean {
+    return Object.values(fieldErrors).some((msg) => !!msg);
+  }
+
+  // Only fires when the user explicitly hits Apply.
+  function applyFilters() {
+    if (hasBlockingErrors()) {
+      errorcontext.addError('Please fix the errors in your filters before searching.');
+      return;
     }
-    return null;
+    setShowAdvancedFilters(false);
+    const snapshot = { ...filters };
+    setAppliedFilters(snapshot);
+    queryClient.setQueryData([...FILTER_STORAGE_KEY], snapshot);
+    setPage(1);
   }
 
   function clearFilters() {
     setFilters(EMPTY_FILTERS);
     setFieldErrors({});
+    setShowAdvancedFilters(false);
+    setAppliedFilters(null);
+    setPage(1);
+
+    // Reset persisted filter snapshot so a remount doesn't refill stale values.
+    queryClient.setQueryData([...FILTER_STORAGE_KEY], null);
+    // Drop every cached filtered-search result (may contain party GSTIN/PAN etc.)
+    // so nothing lingers in memory once the user clears the search.
+    queryClient.removeQueries({ queryKey: [SEARCH_QUERY_BASE_KEY] });
   }
 
-  function hasBlockingErrors(): boolean {
-    return Object.values(fieldErrors).some((msg) => !!msg);
-  }
-
-  async function runSearch() {
-    if (hasBlockingErrors()) {
-      errorcontext.addError('Please fix the errors in your filters before searching.');
-      return;
-    }
-
-    const payload: Record<string, string> = {};
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) payload[key] = value;
-    });
-
-    setLoading(true);
-    setHasSearched(true);
-
-    try {
-      const res = await apiFetch(`${settings.BE_URL}/get-mill-bill`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.status === 404) {
-        setBills([]);
-      } else if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        errorcontext.addError(body.detail || `Request failed with status ${res.status}`);
-      } else {
-        const data: MillBill[] = await res.json();
-        setBills([...data].sort(compareBillsDesc));
+  function openDatePicker(ref: React.RefObject<HTMLInputElement | null>) {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof (el as any).showPicker === 'function') {
+      try {
+        (el as any).showPicker();
+        return;
+      } catch {
+        // fall through to focus
       }
-      setPage(1);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not reach the server.';
-      errorcontext.addError(message);
-      setBills(null);
-    } finally {
-      setLoading(false);
     }
-  }
-
-  function goToBill(bill: MillBill) {
-    navigate('/show-mill-bill-from-bill-book', { state: { bill } });
-  }
-
-  function handleRowKeyDown(e: React.KeyboardEvent<HTMLTableRowElement>, bill: MillBill) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      goToBill(bill);
-    }
+    el.focus();
   }
 
   function handleDownloadExcel() {
-    if (!bills || bills.length === 0) return;
+    if (!invoices || invoices.length === 0) return;
 
     setIsExporting(true);
     try {
-      const maxCrops = bills.reduce(
-        (max, bill) => Math.max(max, bill.crops?.length || 0),
-        0
-      );
-
-      const rows = bills.map((bill) => {
+      const maxCrops = invoices.reduce((max, bill) => Math.max(max, bill.crops?.length || 0), 0);
+      const rows = invoices.map((bill) => {
         const row: Record<string, string> = {
           'Invoice No.': bill.invoice_no,
-          'Invoice Date': formatDateDMY(bill.invoice_date),
+          'Invoice Date': bill.invoice_date,
           'Seller Name': bill.seller_name,
           'Seller Address': bill.seller_address,
           'Seller PAN': bill.seller_pan,
@@ -337,33 +370,27 @@ export default function MillBillBook() {
       const fileName = `mill_bills_export_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(workbook, fileName);
     } catch (err) {
-      errorcontext.addError('Something went wrong while generating the Excel file.')
+      console.error('Error exporting bills to Excel:', err);
+      errorcontext.addError('Something went wrong while generating the Excel file.');
     } finally {
       setIsExporting(false);
     }
   }
 
-  function formatDateDMY(isoDate: string | undefined | null): string {
-    if (!isoDate) return '';
-    const [y, m, d] = isoDate.split('-');
-    if (!y || !m || !d) return isoDate;
-    return `${d}/${m}/${y}`;
-  }
-
   async function handleDownloadBook() {
-    if (!bills || bills.length === 0) return;
+    if (!invoices || invoices.length === 0) return;
 
     setIsDownloadingBook(true);
     try {
       const res = await apiFetch(`${settings.BE_URL}/generate-mill-bill-book-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bills),
+        body: JSON.stringify(invoices),
       });
 
       if (!res.ok) {
         const detail = await res.text().catch(() => '');
-        errorcontext.addError(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
+        throw new Error(`Server returned ${res.status}${detail ? `: ${detail}` : ''}`);
       }
 
       const blob = await res.blob();
@@ -378,16 +405,17 @@ export default function MillBillBook() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      errorcontext.addError(err instanceof Error ? err.message : 'Something went wrong while downloading the book PDF.')
+      console.error('Error downloading bill book PDF:', err);
+      errorcontext.addError(err instanceof Error ? err.message : 'Something went wrong while downloading the book PDF.');
     } finally {
       setIsDownloadingBook(false);
     }
   }
 
   const totals: Totals | null = useMemo(() => {
-    if (!bills || bills.length === 0) return null;
+    if (!invoices || invoices.length === 0) return null;
     const sumField = (field: keyof MillBill) =>
-      bills.reduce(
+      invoices.reduce(
         (acc, bill) => math.add(acc, math.bignumber(String(bill[field]))),
         math.bignumber(0)
       );
@@ -397,29 +425,21 @@ export default function MillBillBook() {
       sgst: sumField('final_sgst_amount').toString(),
       final: sumField('final_amount').toString(),
     };
-  }, [bills]);
+  }, [invoices]);
 
-  const totalPages = bills ? Math.max(1, Math.ceil(bills.length / pageSize)) : 1;
-  const pageBills = bills ? bills.slice((page - 1) * pageSize, page * pageSize) : [];
+  const totalPages = invoices ? Math.max(1, Math.ceil(invoices.length / pageSize)) : 1;
+  const pageBills = invoices ? invoices.slice((page - 1) * pageSize, page * pageSize) : [];
 
-  const filterFields: FilterField[] = [
+  const advancedFields: FilterField[] = [
     { key: 'invoice_no', label: 'Invoice no.', type: 'text', placeholder: 'INV-2026-0142' },
     { key: 'party_name', label: 'Party name', type: 'text', placeholder: 'Contains...' },
-    { key: 'party_gstin', label: 'Party GSTIN', type: 'text', placeholder: '24ABCDE1234F1Z5', mono: true },
-    { key: 'party_pan', label: 'Party PAN', type: 'text', placeholder: 'ABCDE1234F', mono: true },
+    { key: 'party_gstin', label: 'Party GSTIN', type: 'text', placeholder: '24ABCDE...', mono: true },
+    { key: 'party_pan', label: 'Party PAN', type: 'text', placeholder: 'ABCDE...', mono: true },
     { key: 'party_city', label: 'Party city', type: 'text', placeholder: 'Contains...' },
     { key: 'created_by', label: 'Created By', type: 'text', placeholder: 'Contains...' },
   ];
 
-  useEffect(() => {
-    const stateToSave = {
-      filters,
-      bills,
-      page,
-      hasSearched
-    };
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-  }, [filters, bills, page, hasSearched]);
+  const hasActiveAdvancedFilters = advancedFields.some((f) => filters[f.key] !== '');
 
   return (
     <div className="mbr-page">
@@ -429,81 +449,118 @@ export default function MillBillBook() {
           <p className="mbr-subtitle">Search, filter and reconcile crop trade invoices</p>
         </div>
         <div className="mbr-seal">
-          <span className="mbr-seal-count">{bills ? bills.length : '—'}</span>
+          <span className="mbr-seal-count">{invoices ? invoices.length : '—'}</span>
           <span className="mbr-seal-label">bills</span>
         </div>
       </div>
 
       <div className="mbr-panel">
-        <div className="mbr-filter-grid">
-          {filterFields.map((f) => (
-            <div className="mbr-field" key={f.key}>
-              <label className="mbr-label" htmlFor={f.key}>{f.label}</label>
-              {f.type === 'select' ? (
-                <select
-                  id={f.key}
-                  value={filters[f.key]}
-                  onChange={(e) => updateFilter(f.key, e.target.value)}
-                >
-                  <option value="">Any</option>
-                  {f.options.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  id={f.key}
-                  type="text"
-                  className={f.mono ? 'mbr-mono' : ''}
-                  placeholder={f.placeholder}
-                  value={filters[f.key]}
-                  onChange={(e) => updateFilter(f.key, e.target.value)}
-                />
+        <div className="mbr-filter-bar">
+          <div className="mbr-filter-top-row">
+            <div className="mbr-filter-actions" ref={dropdownRef}>
+              <button
+                className={`mbr-btn-filter ${hasActiveAdvancedFilters ? 'mbr-btn-filter--active' : ''}`}
+                onClick={() => setShowAdvancedFilters((v) => !v)}
+                type="button"
+                title="Filters"
+              >
+                <Filter size={16} />
+                {hasActiveAdvancedFilters && <span className="mbr-filter-dot"></span>}
+              </button>
+
+              {showAdvancedFilters && (
+                <div className="mbr-advanced-dropdown">
+                  <div className="mbr-advanced-header">
+                    <h3>Search Filters</h3>
+                  </div>
+                  <div className="mbr-advanced-grid">
+                    {advancedFields.map((f) => (
+                      <div className="mbr-field" key={f.key}>
+                        <label className="mbr-label" htmlFor={f.key}>{f.label}</label>
+                        {f.type === 'select' ? (
+                          <select
+                            id={f.key}
+                            value={filters[f.key]}
+                            onChange={(e) => updateFilter(f.key, e.target.value)}
+                          >
+                            <option value="">Any</option>
+                            {f.options.map((opt) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            id={f.key}
+                            type="text"
+                            className={f.mono ? 'mbr-mono' : ''}
+                            placeholder={f.placeholder}
+                            value={filters[f.key]}
+                            onChange={(e) => updateFilter(f.key, e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
-          ))}
 
-          <div className="mbr-field">
-            <label className="mbr-label" htmlFor="invoice_date_from">Invoice date from</label>
-            <input
-              id="invoice_date_from"
-              type="date"
-              value={filters.invoice_date_from}
-              onChange={(e) => updateFilter('invoice_date_from', e.target.value)}
-            />
+            <button
+              className="mbr-btn-primary mbr-btn-apply"
+              onClick={applyFilters}
+              disabled={isSearching || hasBlockingErrors()}
+              type="button"
+            >
+              {isSearching ? <Loader2 size={16} className="mbr-spin" /> : <Search size={16} />}
+              <span>Apply</span>
+            </button>
           </div>
-          <div className="mbr-field">
-            <label className="mbr-label" htmlFor="invoice_date_to">Invoice date to</label>
-            <input
-              id="invoice_date_to"
-              type="date"
-              value={filters.invoice_date_to}
-              onChange={(e) => updateFilter('invoice_date_to', e.target.value)}
-            />
-          </div>
-        </div>
 
-        <div className="mbr-actions">
-          <button className="mbr-btn-ghost" onClick={clearFilters} type="button">
-            <RotateCcw size={14} /> Clear filters
-          </button>
-          <button
-            className="mbr-btn-primary"
-            onClick={runSearch}
-            disabled={loading || hasBlockingErrors()}
-            type="button"
-          >
-            {loading ? <Loader2 size={14} className="mbr-spin" /> : <Search size={14} />}
-            {loading ? 'Searching…' : 'Search'}
+          <div className="mbr-date-row">
+            <div
+              className="mbr-date-field"
+              onClick={() => openDatePicker(fromDateRef)}
+            >
+              <span className="mbr-date-label">From</span>
+              <input
+                ref={fromDateRef}
+                id="invoice_date_from"
+                type="date"
+                value={filters.invoice_date_from}
+                onChange={(e) => updateFilter('invoice_date_from', e.target.value)}
+                onClick={() => openDatePicker(fromDateRef)}
+              />
+            </div>
+            <span className="mbr-date-separator">–</span>
+            <div
+              className="mbr-date-field"
+              onClick={() => openDatePicker(toDateRef)}
+            >
+              <span className="mbr-date-label">To</span>
+              <input
+                ref={toDateRef}
+                id="invoice_date_to"
+                type="date"
+                value={filters.invoice_date_to}
+                onChange={(e) => updateFilter('invoice_date_to', e.target.value)}
+                onClick={() => openDatePicker(toDateRef)}
+              />
+            </div>
+          </div>
+
+          <button className="mbr-btn-clear" onClick={clearFilters} type="button">
+            <RotateCcw size={14} />
+            <span>Clear filters</span>
           </button>
         </div>
       </div>
 
-      {hasSearched && !loading && bills && bills.length === 0 && (
+      {!isSearching && invoices && invoices.length === 0 && (
         <div className="mbr-empty">No bills match these filters. Try widening your search.</div>
       )}
 
-      {bills && bills.length > 0 && (
+      {invoices && invoices.length > 0 && (
         <>
           <div className="mbr-table-wrap">
             <table className="mbr-table">
@@ -518,21 +575,7 @@ export default function MillBillBook() {
               </thead>
               <tbody>
                 {pageBills.map((bill) => (
-                  <tr
-                    key={bill.id}
-                    className="mbr-row-clickable"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => goToBill(bill)}
-                    onKeyDown={(e) => handleRowKeyDown(e, bill)}
-                    aria-label={`View bill ${bill.invoice_no}`}
-                  >
-                    <td className="mbr-mono" data-label="Invoice no.">{bill.invoice_no}</td>
-                    <td className="mbr-mono" data-label="Date">{formatDateDMY(bill.invoice_date)}</td>
-                    <td data-label="Party">{bill.party_name}</td>
-                    <td className="mbr-num mbr-mono" data-label="Crops">{bill.crops?.map((crop) => crop.crop).join(', ')}</td>
-                    <td className="mbr-num mbr-mono mbr-strong" data-label="Total">{toIndianAmount(bill.final_amount)}</td>
-                  </tr>
+                  <BillRow key={bill.id} bill={bill} />
                 ))}
               </tbody>
             </table>

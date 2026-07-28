@@ -1,11 +1,10 @@
 import uuid
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.database.base import Base  # Make sure your Base import is correct
+from sqlalchemy.orm import Mapped, mapped_column
+from app.database.base import Base  
 from datetime import datetime
 from sqlalchemy.sql import func
 from sqlalchemy import DateTime, String
-from typing import List
 
 
 class Account(Base):

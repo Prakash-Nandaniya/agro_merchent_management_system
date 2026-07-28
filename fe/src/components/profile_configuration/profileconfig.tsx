@@ -4,7 +4,7 @@ import { settings } from "@/settings"
 import { apiFetch } from '@/utils/apifetch';
 import { useContext } from 'react';
 import { ErrorContext } from '@/components/errors/errorcontext';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import GlobalDataLoader from '@/utils/DataLoader';
 
 interface Crop { hsn: string; sgst: string; cgst: string }
@@ -27,8 +27,6 @@ const EMPTY_BANK: Bank = { bank: '', account: '', ifsc: '' }
 const EMPTY_CROP: CropForm = { name: '', hsn: '', cgst: '', sgst: '' }
 
 export default function ProfileConfig() {
-    const queryClient = useQueryClient();
-    const profile = queryClient.getQueryData<ProfileConfig>(['Profile']) || EMPTY_CONFIG;
     const errorcontext = useContext(ErrorContext);
     const [config, setConfig] = useState<ProfileConfig>(EMPTY_CONFIG)
     const [saving, setSaving] = useState(false)
@@ -46,9 +44,17 @@ export default function ProfileConfig() {
     const [editingCropKey, setEditingCropKey] = useState<string | null>(null)
     const [editCrop, setEditCrop] = useState<CropForm>(EMPTY_CROP)
 
+    const { data: profileData } = useQuery<ProfileConfig>({
+        queryKey: ['Profile'],
+        queryFn: () => Promise.resolve(EMPTY_CONFIG), 
+        enabled: false, 
+    });
+
     useEffect(() => {
-        setConfig(profile);
-    }, [])
+        if (profileData) {
+            setConfig(profileData);
+        }
+    }, [profileData]);
 
     useEffect(() => {
         if (!saveMsg) return
