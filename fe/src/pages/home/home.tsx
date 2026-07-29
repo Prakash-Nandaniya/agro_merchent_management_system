@@ -1,45 +1,42 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from "react";
-import { settings } from "@/settings";
+import { useEffect} from "react";
 import { useAuth } from '@/components/authcontext';
 import './home.css';
-import { useContext } from 'react';
-import { ErrorContext } from '@/components/errors/errorcontext';
+
 import OpaqueLoading from '@/components/opaqueloading/loading';
 
 export default function Home() {
-    const { isChecking, isAuthorized, refreshAuth } = useAuth();
+    const { isChecking, isAuthorized } = useAuth();
     const navigate = useNavigate();
-    const [loading, setLoading] = useState(false);
-    const errorcontext = useContext(ErrorContext);
+    
+    // async function handleRecruiterLogin() {
+    //     window.prompt("Sorry, Website is now in use, you will need credentials for access");
+        // setLoading(true);
 
-    async function handleRecruiterLogin() {
-        setLoading(true);
+        // try {
+        //     const res = await fetch(`${settings.BE_URL}/login`, {
+        //         method: 'POST',
+        //         headers: { 'Content-Type': 'application/json' },
+        //         credentials: 'include',
+        //         body: JSON.stringify({
+        //             current_session_user_name: 'abcd',
+        //             user_name: 'abcd',
+        //             password: 'abcd',
+        //         }),
+        //     });
 
-        try {
-            const res = await fetch(`${settings.BE_URL}/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    current_session_user_name: 'abcd',
-                    user_name: 'abcd',
-                    password: 'abcd',
-                }),
-            });
-
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body?.detail ? String(body.detail) : 'Login failed.');
-            }
-            await refreshAuth();
-            navigate('/dashboard');
-        } catch (err) {
-            errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.');
-        } finally {
-            setLoading(false);
-        }
-    }
+        //     if (!res.ok) {
+        //         const body = await res.json().catch(() => ({}));
+        //         throw new Error(body?.detail ? String(body.detail) : 'Login failed.');
+        //     }
+        //     await refreshAuth();
+        //     navigate('/dashboard');
+        // } catch (err) {
+        //     errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.');
+        // } finally {
+        //     setLoading(false);
+        // }
+    // }
 
     useEffect(() => {
         if (!isChecking && isAuthorized) {
@@ -78,8 +75,10 @@ export default function Home() {
                     <button className="login-btn" onClick={handleLoginClick}>
                         Login
                     </button>
-                    <button className="recruiter-btn" type="button" onClick={handleRecruiterLogin} disabled={loading}>
-                        {loading ? 'Signing in...' : 'Recruiter'}
+                   <button onClick={() => window.alert("Sorry, Website is now in use, you will need credentials for access")}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-black transition-all duration-300 bg-transparent border border-green-500 rounded cursor-pointer hover:border-green-400 hover:shadow-[0_0_10px_rgba(34,197,94,0.5)]"
+                    >
+                        Recruiter
                     </button>
                 </div>
             </nav>
