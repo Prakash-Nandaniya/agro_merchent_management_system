@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.database.crud.profile_configuration import get_configuration, update_configuration
@@ -7,11 +7,9 @@ from app.schemas.profile_configuration import ProfileConfigSchema
 router = APIRouter()
 
 
-@router.get("/profile-configuration", response_model=ProfileConfigSchema)
+@router.get("/profile-configuration", response_model=dict)
 async def get_profile_configuration(db: Session = Depends(get_db)):
     profile = get_configuration(db)
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile configuration not found.")
     return profile
 
 

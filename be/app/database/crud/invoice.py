@@ -5,11 +5,15 @@ from app.core.exceptions import (
     translate_integrity_error,
     NotFoundError,
     DatabaseOperationException,
+    InvoiceNotFoundException,
 )
 from app.database.models.invoice import Invoice
 from app.schemas.invoice import (
     Invoice as InvoiceSchema,
-)  
+) 
+from app.schemas.invoice import (
+    EditInvoice as EditInvoiceSchema,
+) 
 from sqlalchemy import select
 from app.database.models.account import Account
 from app.core.config import settings
@@ -51,6 +55,33 @@ def save_invoice(db: Session, payload: InvoiceSchema, created_by: str) -> Invoic
     db.refresh(invoice)
     return invoice
 
+def edit_invoice(db: Session, payload: EditInvoiceSchema) -> Invoice:
+    invoice = (
+        db.query(Invoice)
+        .filter(Invoice.invoice_no == payload.invoice_no)
+        .first()
+    )
+    if invoice is None:
+        raise InvoiceNotFoundException(payload.invoice_no)
+
+    data = payload.to_orm_kwargs()
+    # invoice_no is the lookup key, not a column to overwrite
+    data.pop("invoice_no", None)
+
+    for field, value in data.items():
+        setattr(invoice, field, value)
+
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise translate_integrity_error(e)
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise DatabaseOperationException() from e
+
+    db.refresh(invoice)
+    return invoice
 
 def get_invoice(db: Session, filter: dict, page: int) -> List[Invoice]:
     base_query = db.query(Invoice.id)
@@ -97,6 +128,4 @@ def get_invoice(db: Session, filter: dict, page: int) -> List[Invoice]:
         .all()
     )
 
-    if not bills:
-        raise NotFoundError(resource="Invoice")
     return bills

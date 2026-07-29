@@ -8,6 +8,7 @@ from app.core.exceptions import (
     InvalidCropRowError,
     DeliveryThroughMissing,
     UQCIsMissing,
+    InvalidEwayBillError,  
 )
 from pydantic import (
     BaseModel,
@@ -17,11 +18,14 @@ from pydantic import (
     field_serializer,
 )
 import re
+from typing import Optional
+from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 PAN_RE = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
 GSTIN_RE = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
 IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
-
+EWAY_BILL_RE = re.compile(r"^[0-9 ]+$")
 
 def _blank_to_none(v):
     return None if isinstance(v, str) and v.strip() == "" else v
@@ -41,6 +45,7 @@ class Invoice(BaseModel):
 
     invoice_date: date = Field(..., alias="invoiceDate")
 
+    eway_bill_no: Optional[str] = Field(None, alias="ewayBillNo")    
     docket_no: Optional[str] = Field(None, max_length=50, alias="docketNo")
     transport_name: Optional[str] = Field(None, max_length=100, alias="transportName")
     delivery_through: str = Field(
@@ -83,6 +88,7 @@ class Invoice(BaseModel):
     terms: str = Field("As per provided in the Quotation and Order Form.")
 
     @field_validator(
+        "eway_bill_no",
         "docket_no",
         "transport_name",
         "party_city",
@@ -135,6 +141,16 @@ class Invoice(BaseModel):
         v = v.strip().upper()
         if not IFSC_RE.match(v):
             raise InvalidIFSCError(v)
+        return v
+
+    @field_validator("eway_bill_no")
+    @classmethod
+    def _validate_eway_bill_no(cls, v):
+        if v is None:
+            return None
+        v = v.strip()
+        if not EWAY_BILL_RE.match(v):
+            raise InvalidEwayBillError(v)
         return v
 
     @field_validator("delivery_through")
@@ -197,6 +213,10 @@ class Invoice(BaseModel):
         return self.model_dump()
 
 
+class EditInvoice(Invoice):
+    invoice_no: str = Field(..., min_length=1, max_length=50, alias="invoiceNo")
+
+
 class InvoiceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -210,6 +230,7 @@ class InvoiceOut(BaseModel):
     seller_gstin: str
     invoice_no: str
     invoice_date: date
+    eway_bill_no: Optional[str] = None
     docket_no: Optional[str] = None
     transport_name: Optional[str] = None
     delivery_through: str
@@ -248,3 +269,40 @@ class InvoiceOut(BaseModel):
     )
     def serialize_decimal(self, value: Decimal) -> str:
         return str(value)
+
+
+class InvoicePdfRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)
+
+    seller_name: str
+    seller_address: str
+    seller_pan: str
+    seller_gstin: str
+    invoice_no: str
+    invoice_date: str
+    eway_bill_no: Optional[str] = None
+    docket_no: Optional[str] = None
+    transport_name: Optional[str] = None
+    delivery_through: str
+    party_name: str
+    party_address: str
+    party_city: Optional[str] = None
+    party_state: str
+    party_gstin: str
+    party_pan: str
+    crop: str
+    hsn_code: str
+    qty: str
+    uqc: str
+    rate: str
+    taxable_amount: str
+    cgst_rate: str
+    sgst_rate: str
+    cgst_amount: str
+    sgst_amount: str
+    final_amount: str
+    seller_bank: Optional[str] = None
+    seller_account: Optional[str] = None
+    seller_ifsc: Optional[str] = None
+    final_amount_in_words: str
+    terms: str

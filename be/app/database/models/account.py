@@ -14,7 +14,7 @@ class Account(Base):
     )
     user_name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String, nullable=False)
-    configuration: Mapped[dict] = mapped_column(JSONB, nullable=False, default={})
+    configuration: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -25,7 +25,7 @@ class Account(Base):
         nullable=False,
     )
 
-    last_millbill_invoiceNo:Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    last_millbill_invoiceNo:Mapped[str] = mapped_column(String(50), unique=True, nullable=True)
 
     
     def __repr__(self) -> str:

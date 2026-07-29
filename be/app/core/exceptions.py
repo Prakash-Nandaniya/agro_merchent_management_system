@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import IntegrityError
-
+import re
 
 # ═══════════════════════════ Base Exception ═══════════════════════════
 class AppException(Exception):
@@ -26,9 +26,13 @@ class BadRequestError(AppException):
 class NotFoundError(AppException):
     """Raise when a requested record does not exist."""
 
-    def __init__(self, resource: str = "Record", identifier: str = "", detail: str = ""):
+    def __init__(
+        self, resource: str = "Record", identifier: str = "", detail: str = ""
+    ):
         if not detail:
-            detail = f"{resource} not found" + (f": '{identifier}'" if identifier else ".")
+            detail = f"{resource} not found" + (
+                f": '{identifier}'" if identifier else "."
+            )
         super().__init__(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
@@ -49,22 +53,32 @@ class DuplicateEntryError(AppException):
 class ForeignKeyViolationError(BadRequestError):
     """Raise when a related record referenced by a FK doesn't exist (e.g. bill_id)."""
 
-    def __init__(self, detail: str = "Referenced record does not exist or is linked to other data."):
+    def __init__(
+        self,
+        detail: str = "Referenced record does not exist or is linked to other data.",
+    ):
         super().__init__(detail=detail)
 
 
 class DatabaseConnectionError(AppException):
     """Raise when the database is unreachable / connection pool exhausted / timeout."""
 
-    def __init__(self, detail: str = "Could not connect to the database. Please try again shortly."):
+    def __init__(
+        self,
+        detail: str = "Could not connect to the database. Please try again shortly.",
+    ):
         super().__init__(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail)
 
 
 class DatabaseOperationError(AppException):
     """Raise for any unexpected DB error not covered by a more specific exception above."""
 
-    def __init__(self, detail: str = "A database error occurred while processing your request."):
-        super().__init__(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
+    def __init__(
+        self, detail: str = "A database error occurred while processing your request."
+    ):
+        super().__init__(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail
+        )
 
 
 class DatabaseOperationException(AppException):
@@ -73,6 +87,7 @@ class DatabaseOperationException(AppException):
 
 
 # ═══════════════════════════ PDF Generation error ═══════════════════════════
+
 
 class PdfGenerationFailed(AppException):
     """Raise when the pdf generation fails."""
@@ -83,6 +98,7 @@ class PdfGenerationFailed(AppException):
 
 class MillReceiptNotFoundError(NotFoundError):
     """Raised when a trade has no mill_receipt stored, or the key can't be found."""
+
     def __init__(self):
         super().__init__(resource="Mill Receipt")
 
@@ -93,20 +109,24 @@ class MillReceiptNotFoundError(NotFoundError):
 # previously they were plain Exception, so they fell through to the generic
 # handler and always returned a bare "Internal server error".
 
+
 class R2UploadException(AppException):
     """Raised when uploading a file to R2 fails."""
+
     def __init__(self, detail: str = "Failed to upload mill receipt to storage."):
         super().__init__(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
 
 
 class R2DeleteException(AppException):
     """Raised when deleting a file from R2 fails."""
+
     def __init__(self, detail: str = "Failed to delete mill receipt from storage."):
         super().__init__(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
 
 
 class R2FetchException(AppException):
     """Raised when fetching a file / generating a presigned URL from R2 fails."""
+
     def __init__(self, detail: str = "Failed to fetch mill receipt from storage."):
         super().__init__(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
 
@@ -115,14 +135,21 @@ class UnsupportedFileTypeError(BadRequestError):
     """Raised when an uploaded mill receipt is not a readable image or PDF.
     This is a client-input problem, so it inherits BadRequestError (400)
     rather than a 502 — the file itself is bad, R2 was never involved."""
-    def __init__(self, detail: str = "Unsupported file type. Please upload a PDF, JPG, JPEG, PNG, or HEIC file."):
+
+    def __init__(
+        self,
+        detail: str = "Unsupported file type. Please upload a PDF, JPG, JPEG, PNG, or HEIC file.",
+    ):
         super().__init__(detail=detail)
+
 
 # ═══════════════════════════ Business / validation exceptions ═══════════════════════════
 class MissingCropRowsError(BadRequestError):
     """Raise when a bill is submitted with no crop rows filled in."""
 
-    def __init__(self, detail: str = "At least one crop row is required to save a bill."):
+    def __init__(
+        self, detail: str = "At least one crop row is required to save a bill."
+    ):
         super().__init__(detail=detail)
 
 
@@ -188,7 +215,9 @@ class BlankFieldError(BadRequestError):
 class InvalidDateFormatError(BadRequestError):
     """Raise when a date string doesn't match the expected format."""
 
-    def __init__(self, field_name: str, expected_format: str = "YYYY-MM-DD", detail: str = ""):
+    def __init__(
+        self, field_name: str, expected_format: str = "YYYY-MM-DD", detail: str = ""
+    ):
         if not detail:
             detail = f"'{field_name}' must be in {expected_format} format."
         super().__init__(detail=detail)
@@ -228,64 +257,60 @@ class InvalidFieldTypeError(BadRequestError):
         if not detail:
             detail = f"'{field_name}' must be a {expected}."
         super().__init__(detail=detail)
-        
+
+
 class FileTooLargeError(BadRequestError):
     def __init__(self, detail: str = "File size must be <1MB"):
         super().__init__(detail=detail)
 
+
 # ═══════════════════════════ Helper: translate raw SQLAlchemy errors ═══════════════════════════
 
 def translate_integrity_error(exc: IntegrityError):
-    """
-    Inspect a raw SQLAlchemy IntegrityError (usually wrapping a psycopg2 error)
-    and convert it into the right AppException subclass:
-
-        try:
-            db.commit()
-        except IntegrityError as e:
-            db.rollback()
-            raise translate_integrity_error(e) from e
-    """
     orig = getattr(exc, "orig", None)
     pgcode = getattr(orig, "pgcode", None)
     message = str(orig or exc)
 
-    # 1. Catch Unique Constraint Violations (Already Exists)
     if pgcode == "23505" or "unique constraint" in message.lower():
-        # Specifically catch duplicate invoice numbers
-        # (Replace 'trades_invoice_no_key' with your actual unique constraint name if different)
         if "invoice_no" in message.lower() or "trades_invoice_no_key" in message:
             return DuplicateEntryError(
                 detail="Trade entry with this invoice number already exists. Please search for it in the tradebook and edit it if needed."
             )
-        
-        # Generic fallback for other duplicate fields
         return DuplicateEntryError(
             detail="Duplicate entry detected: A record with this exact information already exists."
         )
 
-    # 2. Catch Foreign Key Violations (Missing Parent Record)
     if pgcode == "23503" or "foreign key constraint" in message.lower():
-        # Specifically catch the missing Mill Bill error
         if "trades_invoice_no_fkey" in message:
             return ForeignKeyViolationError(
                 detail="Invalid Invoice Number: This Invoice does not exist yet. Please create the Invoice first before adding this trade."
             )
-        
-        # Generic fallback for other missing references
         return ForeignKeyViolationError(
             detail="Referenced record missing: You are trying to use an item or ID that does not exist in the system."
         )
 
-    # 3. Catch Not Null Violations (Missing Required Field)
     if pgcode == "23502" or "not null constraint" in message.lower():
+        # Postgres NOT NULL errors look like:
+        # null value in column "created_by" violates not-null constraint
+        col_match = re.search(r'column "([^"]+)"', message)
+        col_name = col_match.group(1) if col_match else "unknown field"
         return DatabaseOperationError(
-            detail="Missing required field: Please make sure all mandatory fields are filled out."
+            detail=f"Missing required field: '{col_name}' must be provided."
         )
 
-    # 4. Fallback for any other database integrity issues
     return DatabaseOperationError(detail=f"Database integrity error: {message}")
 
+
+class InvoiceNotFoundException(AppException):
+    def __init__(self, invoiceNo: str):
+        super().__init__(
+            status_code=404, detail="Invoice not found for invoiceNo: " + invoiceNo
+        )
+
+class InvalidEwayBillError(AppException):
+    def __init__(self, value: str):
+        super().__init__(detail=f"Invalid e-way bill number: '{value}'. Only digits and spaces are allowed.")
+        
 # ═══════════════════════════ Auth Exceptions ═══════════════════════════
 class InvalidCredentialsException(AppException):
     def __init__(self, message: str = "Invalid username or password"):
@@ -301,12 +326,15 @@ class UserNotFoundException(AppException):
     def __init__(self, message: str = "User not found"):
         super().__init__(status_code=404, detail=message)
 
+
 # ═══════════════════════════ Exception Handlers ═══════════════════════════
 def add_exception_handlers(app: FastAPI):
     """Register exception handlers with FastAPI app."""
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ):
         errors = exc.errors()
         if errors:
             first = errors[0]
@@ -330,7 +358,9 @@ def add_exception_handlers(app: FastAPI):
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception):
         """Handle unexpected errors."""
-        print(f"Unhandled error on {request.url}: {exc}")  # TODO: replace with proper logger
+        print(
+            f"Unhandled error on {request.url}: {exc}"
+        )  # TODO: replace with proper logger
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail": "Internal server error"},

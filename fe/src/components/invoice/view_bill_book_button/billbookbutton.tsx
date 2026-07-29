@@ -16,7 +16,7 @@ export default function BillBookButton() {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate('/bill-book/mill');
+    navigate('/invoice-book');
   };
 
   return (

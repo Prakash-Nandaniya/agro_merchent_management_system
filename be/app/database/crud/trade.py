@@ -87,8 +87,6 @@ def get_trade(db: Session, filters: dict, page: int) -> List[Trade]:
 
     trades = query.order_by(Trade.updated_at.desc()).offset(settings.BE_PAGE_SIZE*(page-1)).limit(settings.BE_PAGE_SIZE).all()
 
-    if not trades:
-        raise NotFoundError(resource="Trade")
     return trades
 
 def delete_trade_committed(db: Session, trade_id: int) -> dict:

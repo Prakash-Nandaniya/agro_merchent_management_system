@@ -13,7 +13,7 @@ COOKIE_NAME = "access_token"
 
 
 @router.post("/login")
-async def login_user(
+def login_user(
     payload: LoginRequest,
     response: Response,
     db: ORMSession = Depends(get_db),
@@ -33,11 +33,14 @@ async def login_user(
         path="/",
     )
 
-    return {"detail": "Login successful", "current_session_user_name": payload.current_session_user_name}
+    return {
+        "detail": "Login successful",
+        "current_session_user_name": payload.current_session_user_name,
+    }
 
 
 @router.post("/logout")
-async def logout_user(
+def logout_user(
     request: Request,
     response: Response,
     db: ORMSession = Depends(get_db),

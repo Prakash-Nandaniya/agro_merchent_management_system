@@ -1,13 +1,13 @@
 import Navbar from '@/components/navbar/navbar';
-import MillBillBook from '@/components/invoice/millbill_book/millbill_boook';
+import InvoiceForm from '@/components/invoice/invoice_form/invoice_form';
 import GlobalDataLoader from '@/utils/DataLoader';
 
-export default function MillBillBookPage() {
+export default function InvoicePage() {
   return (
     <GlobalDataLoader>
       <div className="min-h-screen bg-gray-300 print:bg-white">
         <Navbar />
-        <MillBillBook />
+        <InvoiceForm />
       </div>
     </GlobalDataLoader>
   );

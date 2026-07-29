@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
-from app.schemas.invoice import Invoice
+from app.schemas.invoice import InvoicePdfRequest
 from app.services.generate_pdf import pdf_renderer, lifespan
 from app.core.exceptions import PdfGenerationFailed
 
@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.post("/generate-invoice-pdf")
-async def generate_pdf(bill: Invoice):
+async def generate_pdf(bill: InvoicePdfRequest):
     try:
         pdf_bytes = await pdf_renderer.render_pdf(bill)
     except Exception as exc:
@@ -27,7 +27,7 @@ async def generate_pdf(bill: Invoice):
 
 
 @router.post("/generate-invoice-book-pdf")
-async def generate_pdf_book(bills: List[Invoice]):
+async def generate_pdf_book(bills: List[InvoicePdfRequest]):
     if not bills:
         raise HTTPException(status_code=400, detail="At least one bill is required.")
 

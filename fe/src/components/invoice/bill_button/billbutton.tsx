@@ -16,7 +16,7 @@ export default function BillButton() {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate('/new-bill/mill');
+    navigate('/new-invoice');
   };
 
   return (

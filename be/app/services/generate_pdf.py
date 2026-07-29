@@ -61,12 +61,15 @@ def _fmt(val) -> str:
     return f"-{result}" if negative else result
 
 
-def _format_date(iso: str) -> str:
+def _format_date(iso) -> str:
     if not iso:
         return ""
-    parts = iso.split("-")
+        
+    iso_str = str(iso)
+    
+    parts = iso_str.split("-")
     if len(parts) != 3:
-        return iso
+        return iso_str
     y, m, d = parts
     return f"{d}/{m}/{y}"
 

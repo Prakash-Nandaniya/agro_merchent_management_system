@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.routes.profile_configuration import router as profile_configuration
-from be.app.routes.invoice import router as invoice
+from app.routes.invoice import router as invoice
 from app.routes.user import router as user
 from app.routes.generate_pdf import router as PDFGeneration
 from app.routes.trade import router as Trade

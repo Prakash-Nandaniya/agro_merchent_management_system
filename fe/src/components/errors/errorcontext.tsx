@@ -1,4 +1,4 @@
-import { createContext, useState, type ReactNode } from "react";
+import { createContext, useState, type ReactNode, useCallback } from "react";
 
 type ErrorItem = { id: string; message: string };
 
@@ -17,17 +17,17 @@ export const ErrorContext = createContext<ErrorContextType>({
 export const ErrorContextProvider = (props: { children: ReactNode }) => {
   const [errors, setErrors] = useState<ErrorItem[]>([]);
 
-  function addError(message: string) {
+  const addError = useCallback((errorMsg: string) => {
     const id = crypto.randomUUID(); 
     setErrors((prev) => {
-      const updated = [...prev, { id, message }];
+      const updated = [...prev, { id, message: errorMsg }];
       return updated.length > 5 ? updated.slice(1) : updated;
     });
-  }
+  }, []);
 
-  function removeError(id: string) {
+  const removeError = useCallback((id: string) => {
     setErrors((prev) => prev.filter((e) => e.id !== id));
-  }
+  }, []);
 
   return (
     <ErrorContext.Provider value={{ errors, addError, removeError }}>

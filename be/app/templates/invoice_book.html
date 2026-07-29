@@ -344,6 +344,9 @@
 
             <div class="divider"></div>
 
+            <span class="label">E-Way Bill No.</span><span>:</span>
+            <span class="value">{{ item.bill.eway_bill_no or '' }}</span>
+
             <span class="label">Docket No.</span><span>:</span>
             <span class="value">{{ item.bill.docket_no or '' }}</span>
 
@@ -370,14 +373,14 @@
             <th class="ta-r">CGST<br />Amt.</th>
             <th class="ta-c">SGST<br />%</th>
             <th class="ta-r">SGST<br />Amt.</th>
-            <th class="ta-r">FINAL<br />AMT</th>
+            <th class="ta-r">FINAL<br />Amt.</th>
           </tr>
         </thead>
         <tbody>
           {% for row in item.rows %}
           <tr>
-            <td class="ta-c">{{ loop.index }}</td>
             {% if row %}
+            <td class="ta-c">{{ loop.index }}</td>
             <td class="crop-cell">
               {{ row.crop_line1 }}
               {% if row.crop_line2 %}<span class="crop-common-name">{{ row.crop_line2 }}</span>{% endif %}
@@ -393,6 +396,7 @@
             <td class="ta-r">{{ row.sgst_amount }}</td>
             <td class="ta-r" style="font-weight:600;">{{ row.final_amount }}</td>
             {% else %}
+            <td></td>
             <td></td>
             <td></td>
             <td></td>

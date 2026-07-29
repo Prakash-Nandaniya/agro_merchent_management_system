@@ -39,6 +39,9 @@ class Invoice(Base):
     invoice_no: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     invoice_date: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
 
+    eway_bill_no: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True, default=None
+    )
     docket_no: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     transport_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     delivery_through: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -94,6 +97,10 @@ class Invoice(Base):
         ),
         CheckConstraint(
             "invoice_date IS NOT NULL", name="ck_invoices_invoice_date_not_null"
+        ),
+        CheckConstraint(
+            "eway_bill_no IS NULL OR eway_bill_no ~ '^[0-9 ]+$'",
+            name="ck_invoices_eway_bill_no_numeric_space",
         ),
         CheckConstraint(
             "trim(delivery_through) <> ''",

@@ -1,403 +1,713 @@
-import { useState, useEffect } from 'react'
-import './profileconfig.css'
-import { settings } from "@/settings"
-import { apiFetch } from '@/utils/apifetch';
-import { useContext } from 'react';
-import { ErrorContext } from '@/components/errors/errorcontext';
-import { useQuery } from '@tanstack/react-query';
-import GlobalDataLoader from '@/utils/DataLoader';
+import { useState, useEffect } from "react";
+import "./profileconfig.css";
+import { settings } from "@/settings";
+import { apiFetch } from "@/utils/apifetch";
+import { useContext } from "react";
+import { ErrorContext } from "@/components/errors/errorcontext";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FetchProfile } from "@/utils/cachestorage";
+import GlobalDataLoader from "@/utils/DataLoader";
 
-interface Crop { hsn: string; sgst: string; cgst: string }
-interface Bank { bank: string; account: string; ifsc: string }
-interface CropForm { name: string; hsn: string; cgst: string; sgst: string }
+interface Crop {
+  hsn: string;
+  sgst: string;
+  cgst: string;
+}
+interface Bank {
+  bank: string;
+  account: string;
+  ifsc: string;
+}
+interface CropForm {
+  name: string;
+  hsn: string;
+  cgst: string;
+  sgst: string;
+}
 interface ProfileConfig {
-    seller: { name: string; address: string; pan: string; gstin: string }
-    bank_accounts: Bank[]
-    crops: Record<string, Crop>
-    terms_and_conditions: string
+  seller: { name: string; address: string; pan: string; gstin: string };
+  bank_accounts: Bank[];
+  crops: Record<string, Crop>;
+  terms_and_conditions: string;
+  last_millbill_invoiceNo: string;
 }
 
 const EMPTY_CONFIG: ProfileConfig = {
-    seller: { name: '', address: '', pan: '', gstin: '' },
-    bank_accounts: [],
-    crops: {},
-    terms_and_conditions: ''
-}
-const EMPTY_BANK: Bank = { bank: '', account: '', ifsc: '' }
-const EMPTY_CROP: CropForm = { name: '', hsn: '', cgst: '', sgst: '' }
+  seller: { name: "", address: "", pan: "", gstin: "" },
+  bank_accounts: [],
+  crops: {},
+  terms_and_conditions: "",
+  last_millbill_invoiceNo: "",
+};
+const EMPTY_BANK: Bank = { bank: "", account: "", ifsc: "" };
+const EMPTY_CROP: CropForm = { name: "", hsn: "", cgst: "", sgst: "" };
 
 export default function ProfileConfig() {
-    const errorcontext = useContext(ErrorContext);
-    const [config, setConfig] = useState<ProfileConfig>(EMPTY_CONFIG)
-    const [saving, setSaving] = useState(false)
-    const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-    const [loggingOut, setLoggingOut] = useState(false)
+  const errorcontext = useContext(ErrorContext);
+  const queryClient = useQueryClient();
+  const [config, setConfig] = useState<ProfileConfig>(EMPTY_CONFIG);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-    const [addingBank, setAddingBank] = useState(false)
-    const [newBank, setNewBank] = useState<Bank>(EMPTY_BANK)
-    const [editingBankIndex, setEditingBankIndex] = useState<number | null>(null)
-    const [editBank, setEditBank] = useState<Bank>(EMPTY_BANK)
+  const [addingBank, setAddingBank] = useState(false);
+  const [newBank, setNewBank] = useState<Bank>(EMPTY_BANK);
+  const [editingBankIndex, setEditingBankIndex] = useState<number | null>(null);
+  const [editBank, setEditBank] = useState<Bank>(EMPTY_BANK);
 
-    const [addingCrop, setAddingCrop] = useState(false)
-    const [newCrop, setNewCrop] = useState<CropForm>(EMPTY_CROP)
-    const [editingCropKey, setEditingCropKey] = useState<string | null>(null)
-    const [editCrop, setEditCrop] = useState<CropForm>(EMPTY_CROP)
+  const [addingCrop, setAddingCrop] = useState(false);
+  const [newCrop, setNewCrop] = useState<CropForm>(EMPTY_CROP);
+  const [editingCropKey, setEditingCropKey] = useState<string | null>(null);
+  const [editCrop, setEditCrop] = useState<CropForm>(EMPTY_CROP);
 
-    const { data: profileData } = useQuery<ProfileConfig>({
-        queryKey: ['Profile'],
-        queryFn: () => Promise.resolve(EMPTY_CONFIG), 
-        enabled: false, 
+  const { data: profileData } = useQuery<ProfileConfig>({
+    queryKey: ["Profile"],
+    queryFn: FetchProfile,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
+
+  useEffect(() => {
+    if (profileData) {
+      setConfig(profileData);
+    }
+  }, [profileData]);
+
+  useEffect(() => {
+    if (!saveMsg) return;
+    const t = setTimeout(() => setSaveMsg(null), 2000);
+    return () => clearTimeout(t);
+  }, [saveMsg]);
+
+  const setSeller = (field: keyof ProfileConfig["seller"], value: string) =>
+    setConfig((p) => ({ ...p, seller: { ...p.seller, [field]: value } }));
+
+  const deleteBank = (index: number) =>
+    setConfig((p) => ({
+      ...p,
+      bank_accounts: p.bank_accounts.filter((_, i) => i !== index),
+    }));
+
+  const startEditBank = (index: number) => {
+    setEditingBankIndex(index);
+    setEditBank({ ...config.bank_accounts[index] });
+  };
+
+  const saveEditBank = () => {
+    if (editingBankIndex === null) return;
+    setConfig((p) => ({
+      ...p,
+      bank_accounts: p.bank_accounts.map((b, i) =>
+        i === editingBankIndex ? editBank : b,
+      ),
+    }));
+    setEditingBankIndex(null);
+  };
+
+  const commitAddBank = () => {
+    if (!newBank.bank.trim()) return;
+    setConfig((p) => ({ ...p, bank_accounts: [...p.bank_accounts, newBank] }));
+    setNewBank(EMPTY_BANK);
+    setAddingBank(false);
+  };
+
+  const deleteCrop = (key: string) =>
+    setConfig((p) => {
+      const { [key]: _, ...rest } = p.crops;
+      return { ...p, crops: rest };
     });
 
-    useEffect(() => {
-        if (profileData) {
-            setConfig(profileData);
-        }
-    }, [profileData]);
+  const startEditCrop = (key: string) => {
+    setEditingCropKey(key);
+    setEditCrop({ name: key, ...config.crops[key] });
+  };
 
-    useEffect(() => {
-        if (!saveMsg) return
-        const t = setTimeout(() => setSaveMsg(null), 2000)
-        return () => clearTimeout(t)
-    }, [saveMsg])
+  const saveEditCrop = () => {
+    if (!editingCropKey) return;
+    setConfig((p) => {
+      const { [editingCropKey]: _, ...rest } = p.crops;
+      return {
+        ...p,
+        crops: {
+          ...rest,
+          [editCrop.name || editingCropKey]: {
+            hsn: editCrop.hsn,
+            cgst: editCrop.cgst || "0",
+            sgst: editCrop.sgst || "0",
+          },
+        },
+      };
+    });
+    setEditingCropKey(null);
+  };
 
-    const setSeller = (field: keyof ProfileConfig['seller'], value: string) =>
-        setConfig(p => ({ ...p, seller: { ...p.seller, [field]: value } }))
+  const commitAddCrop = () => {
+    if (!newCrop.name.trim()) return;
+    setConfig((p) => ({
+      ...p,
+      crops: {
+        ...p.crops,
+        [newCrop.name]: {
+          hsn: newCrop.hsn,
+          cgst: newCrop.cgst || "0",
+          sgst: newCrop.sgst || "0",
+        },
+      },
+    }));
+    setNewCrop(EMPTY_CROP);
+    setAddingCrop(false);
+  };
 
-    const deleteBank = (index: number) =>
-        setConfig(p => ({ ...p, bank_accounts: p.bank_accounts.filter((_, i) => i !== index) }))
-
-    const startEditBank = (index: number) => {
-        setEditingBankIndex(index)
-        setEditBank({ ...config.bank_accounts[index] })
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      const res = await apiFetch(`${settings.BE_URL}/profile-configuration`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      if (!res.ok) {
+        errorcontext.addError("Server error");
+        return;
+      }
+      queryClient.setQueryData(["Profile"], config);
+      setSaveMsg({ type: "success", text: "Settings saved successfully ✓" });
+    } catch {
+      errorcontext.addError("Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
     }
+  };
 
-    const saveEditBank = () => {
-        if (editingBankIndex === null) return
-        setConfig(p => ({
-            ...p,
-            bank_accounts: p.bank_accounts.map((b, i) => i === editingBankIndex ? editBank : b)
-        }))
-        setEditingBankIndex(null)
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await apiFetch(`${settings.BE_URL}/logout`, { method: "POST" });
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred while fetching data.";
+      errorcontext.addError(errorMessage);
+    } finally {
+      window.location.href = "/";
     }
+  };
 
-    const commitAddBank = () => {
-        if (!newBank.bank.trim()) return
-        setConfig(p => ({ ...p, bank_accounts: [...p.bank_accounts, newBank] }))
-        setNewBank(EMPTY_BANK)
-        setAddingBank(false)
-    }
+  return (
+    <GlobalDataLoader>
+      <div className="pc-container">
+        <header className="pc-page-header">
+          <h1>Business Settings</h1>
+          <p>
+            Configure your firm details, bank accounts, and crop tax details.
+          </p>
+        </header>
 
-    const deleteCrop = (key: string) =>
-        setConfig(p => { const { [key]: _, ...rest } = p.crops; return { ...p, crops: rest } })
-
-    const startEditCrop = (key: string) => {
-        setEditingCropKey(key)
-        setEditCrop({ name: key, ...config.crops[key] })
-    }
-
-    const saveEditCrop = () => {
-        if (!editingCropKey) return
-        setConfig(p => {
-            const { [editingCropKey]: _, ...rest } = p.crops
-            return {
-                ...p,
-                crops: {
-                    ...rest,
-                    [editCrop.name || editingCropKey]: {
-                        hsn: editCrop.hsn,
-                        cgst: editCrop.cgst || '0',
-                        sgst: editCrop.sgst || '0'
-                    }
-                }
-            }
-        })
-        setEditingCropKey(null)
-    }
-
-    const commitAddCrop = () => {
-        if (!newCrop.name.trim()) return
-        setConfig(p => ({
-            ...p,
-            crops: {
-                ...p.crops,
-                [newCrop.name]: {
-                    hsn: newCrop.hsn,
-                    cgst: newCrop.cgst || '0',
-                    sgst: newCrop.sgst || '0'
-                }
-            }
-        }))
-        setNewCrop(EMPTY_CROP)
-        setAddingCrop(false)
-    }
-
-    const handleSave = async () => {
-        setSaving(true)
-        setSaveMsg(null)
-        try {
-            const res = await apiFetch(`${settings.BE_URL}/profile-configuration`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
-            })
-            if (!res.ok) errorcontext.addError('Server error')
-            setSaveMsg({ type: 'success', text: 'Settings saved successfully ✓' })
-        } catch {
-            errorcontext.addError('Failed to save. Please try again.');
-        } finally {
-            setSaving(false)
-        }
-    }
-
-    const handleLogout = async () => {
-        setLoggingOut(true)
-        try {
-            await apiFetch(`${settings.BE_URL}/logout`, { method: 'POST' })
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred while fetching data.';
-            errorcontext.addError(errorMessage);
-        } finally {
-            window.location.href = '/'
-        }
-    }
-
-    return (
-        <GlobalDataLoader>
-            <div className="pc-container">
-                <header className="pc-page-header">
-                    <h1>Business Settings</h1>
-                    <p>Configure your firm details, bank accounts, and crop tax details.</p>
-                </header>
-
-                <div className="pc-grid">
-                    {/* SELLER */}
-                    <section className="pc-card pc-card--seller pc-col-full">
-                        <div className="pc-card-accent" />
-                        <h2 className="pc-card-title">Seller Details</h2>
-                        <div className="pc-form-grid">
-                            <div className="pc-field pc-field--full">
-                                <label>Business / Firm Name</label>
-                                <input value={config.seller.name} onChange={e => setSeller('name', e.target.value)} placeholder="Bharat Traders" />
-                            </div>
-                            <div className="pc-field">
-                                <label>PAN Number</label>
-                                <input value={config.seller.pan} onChange={e => setSeller('pan', e.target.value.toUpperCase())} placeholder="XXXXX0000X" maxLength={10} />
-                            </div>
-                            <div className="pc-field">
-                                <label>GSTIN Number</label>
-                                <input value={config.seller.gstin} onChange={e => setSeller('gstin', e.target.value.toUpperCase())} placeholder="00XXXXX0000X0XX" maxLength={15} />
-                            </div>
-                            <div className="pc-field pc-field--full">
-                                <label>Address</label>
-                                <textarea value={config.seller.address} onChange={e => setSeller('address', e.target.value)} placeholder="Full business address..." rows={2} />
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* BANKS */}
-                    <section className="pc-card pc-card--banks">
-                        <div className="pc-card-accent" />
-                        <div className="pc-card-header">
-                            <h2 className="pc-card-title" style={{ margin: 0 }}>Bank Accounts</h2>
-                            {!addingBank && (
-                                <button className="pc-btn pc-btn--add" onClick={() => setAddingBank(true)}>+ Add</button>
-                            )}
-                        </div>
-
-                        {config.bank_accounts.length === 0 && !addingBank && (
-                            <p className="pc-empty">No bank accounts added yet.</p>
-                        )}
-
-                        <div className="pc-list">
-                            {config.bank_accounts.map((data, index) =>
-                                editingBankIndex === index
-                                    ? <div key={index} className="pc-list-item pc-list-item--editing">
-                                        <div className="pc-edit-grid">
-                                            <div className="pc-field">
-                                                <label>Bank Name</label>
-                                                <input value={editBank.bank} onChange={e => setEditBank(p => ({ ...p, bank: e.target.value }))} placeholder="ICICI Bank" />
-                                            </div>
-                                            <div className="pc-field">
-                                                <label>Account Number</label>
-                                                <input value={editBank.account} onChange={e => setEditBank(p => ({ ...p, account: e.target.value }))} placeholder="000000000000" />
-                                            </div>
-                                            <div className="pc-field">
-                                                <label>IFSC Code</label>
-                                                <input value={editBank.ifsc} onChange={e => setEditBank(p => ({ ...p, ifsc: e.target.value.toUpperCase() }))} placeholder="XXXX0000000" maxLength={11} />
-                                            </div>
-                                        </div>
-                                        <div className="pc-item-actions">
-                                            <button className="pc-btn pc-btn--confirm" onClick={saveEditBank}>Save</button>
-                                            <button className="pc-btn pc-btn--cancel" onClick={() => setEditingBankIndex(null)}>Cancel</button>
-                                        </div>
-                                    </div>
-                                    : <div key={index} className="pc-list-item">
-                                        <div className="pc-item-info">
-                                            <span className="pc-item-chip">{data.bank}</span>
-                                            <span className="pc-item-detail"><strong>A/C:</strong> {data.account}</span>
-                                            <span className="pc-item-detail"><strong>IFSC:</strong> {data.ifsc}</span>
-                                        </div>
-                                        <div className="pc-item-actions">
-                                            <button className="pc-btn pc-btn--edit" onClick={() => startEditBank(index)}>Edit</button>
-                                            <button className="pc-btn pc-btn--delete" onClick={() => deleteBank(index)}>Delete</button>
-                                        </div>
-                                    </div>
-                            )}
-
-                            {addingBank && (
-                                <div className="pc-list-item pc-list-item--adding">
-                                    <div className="pc-edit-grid">
-                                        <div className="pc-field">
-                                            <label>Bank Name</label>
-                                            <input value={newBank.bank} onChange={e => setNewBank(p => ({ ...p, bank: e.target.value }))} placeholder="ICICI Bank" />
-                                        </div>
-                                        <div className="pc-field">
-                                            <label>Account Number</label>
-                                            <input value={newBank.account} onChange={e => setNewBank(p => ({ ...p, account: e.target.value }))} placeholder="000000000000" />
-                                        </div>
-                                        <div className="pc-field">
-                                            <label>IFSC Code</label>
-                                            <input value={newBank.ifsc} onChange={e => setNewBank(p => ({ ...p, ifsc: e.target.value.toUpperCase() }))} placeholder="XXXX0000000" maxLength={11} />
-                                        </div>
-                                    </div>
-                                    <div className="pc-item-actions">
-                                        <button className="pc-btn pc-btn--confirm" onClick={commitAddBank}>Add</button>
-                                        <button className="pc-btn pc-btn--cancel" onClick={() => { setAddingBank(false); setNewBank(EMPTY_BANK) }}>Cancel</button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </section>
-
-                    {/* CROPS */}
-                    <section className="pc-card pc-card--crops">
-                        <div className="pc-card-accent" />
-                        <div className="pc-card-header">
-                            <h2 className="pc-card-title" style={{ margin: 0 }}>Crops</h2>
-                            {!addingCrop && (
-                                <button className="pc-btn pc-btn--add" onClick={() => setAddingCrop(true)}>+ Add</button>
-                            )}
-                        </div>
-
-                        {Object.keys(config.crops).length === 0 && !addingCrop && (
-                            <p className="pc-empty">No crops configured yet.</p>
-                        )}
-
-                        <div className="pc-list">
-                            {Object.entries(config.crops).map(([key, data]) =>
-                                editingCropKey === key
-                                    ? <div key={key} className="pc-list-item pc-list-item--editing">
-                                        <div className="pc-edit-grid pc-edit-grid--crop">
-                                            <div className="pc-field">
-                                                <label>Crop Name</label>
-                                                <input value={editCrop.name} onChange={e => setEditCrop(p => ({ ...p, name: e.target.value.toUpperCase() }))} />
-                                            </div>
-                                            <div className="pc-field">
-                                                <label>HSN Code</label>
-                                                <input maxLength={6} value={editCrop.hsn} onChange={e => setEditCrop(p => ({ ...p, hsn: e.target.value }))} />
-                                            </div>
-                                            <div className="pc-field">
-                                                <label>CGST %</label>
-                                                <input type="number" value={editCrop.cgst} inputMode="decimal" placeholder="0.0" onChange={e => setEditCrop(p => ({ ...p, cgst: e.target.value }))} />
-                                            </div>
-                                            <div className="pc-field">
-                                                <label>SGST %</label>
-                                                <input type="number" value={editCrop.sgst} inputMode="decimal" placeholder="0.0" onChange={e => setEditCrop(p => ({ ...p, sgst: e.target.value }))} />
-                                            </div>
-                                        </div>
-                                        <div className="pc-item-actions">
-                                            <button className="pc-btn pc-btn--confirm" onClick={saveEditCrop}>Save</button>
-                                            <button className="pc-btn pc-btn--cancel" onClick={() => setEditingCropKey(null)}>Cancel</button>
-                                        </div>
-                                    </div>
-                                    : <div key={key} className="pc-list-item">
-                                        <div className="pc-item-info">
-                                            <span className="pc-item-label">{key}</span>
-                                            <span className="pc-item-chip">HSN: {data.hsn}</span>
-                                            <span className="pc-item-detail">CGST: <strong>{data.cgst}%</strong></span>
-                                            <span className="pc-item-detail">SGST: <strong>{data.sgst}%</strong></span>
-                                        </div>
-                                        <div className="pc-item-actions">
-                                            <button className="pc-btn pc-btn--edit" onClick={() => startEditCrop(key)}>Edit</button>
-                                            <button className="pc-btn pc-btn--delete" onClick={() => deleteCrop(key)}>Delete</button>
-                                        </div>
-                                    </div>
-                            )}
-
-                            {addingCrop && (
-                                <div className="pc-list-item pc-list-item--adding">
-                                    <div className="pc-edit-grid pc-edit-grid--crop">
-                                        <div className="pc-field">
-                                            <label>Crop Name</label>
-                                            <input value={newCrop.name} onChange={e => setNewCrop(p => ({ ...p, name: e.target.value.toUpperCase() }))} placeholder="WHEAT" />
-                                        </div>
-                                        <div className="pc-field">
-                                            <label>HSN Code</label>
-                                            <input maxLength={6} value={newCrop.hsn} onChange={e => setNewCrop(p => ({ ...p, hsn: e.target.value }))} placeholder="100199" />
-                                        </div>
-                                        <div className="pc-field">
-                                            <label>CGST %</label>
-                                            <input type="number" value={newCrop.cgst} inputMode="decimal" placeholder="0.0" onChange={e => setNewCrop(p => ({ ...p, cgst: e.target.value }))} />
-                                        </div>
-                                        <div className="pc-field">
-                                            <label>SGST %</label>
-                                            <input type="number" value={newCrop.sgst} inputMode="decimal" placeholder="0.0" onChange={e => setNewCrop(p => ({ ...p, sgst: e.target.value }))} />
-                                        </div>
-                                    </div>
-                                    <div className="pc-item-actions">
-                                        <button className="pc-btn pc-btn--confirm" onClick={commitAddCrop}>Add</button>
-                                        <button className="pc-btn pc-btn--cancel" onClick={() => { setAddingCrop(false); setNewCrop(EMPTY_CROP) }}>Cancel</button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </section>
-
-                    {/* TERMS */}
-                    <section className="pc-card pc-card--terms pc-col-full">
-                        <div className="pc-card-accent" />
-                        <h2 className="pc-card-title">Terms & Conditions</h2>
-                        <textarea
-                            className="pc-terms-textarea"
-                            value={config.terms_and_conditions}
-                            onChange={e => setConfig(p => ({ ...p, terms_and_conditions: e.target.value }))}
-                            placeholder="Default terms printed on every invoice..."
-                            rows={4}
-                        />
-                    </section>
-                </div>
-
-                {saveMsg && (
-                    <div className={`pc-save-msg pc-save-msg--${saveMsg.type}`}>{saveMsg.text}</div>
-                )}
-
-                <div className="pc-footer">
-                    <button className="pc-btn pc-btn--save-all" onClick={handleSave} disabled={saving}>
-                        {saving ? <><span className="pc-spinner" /> Saving...</> : 'Save Changes'}
-                    </button>
-                </div>
-
-                <div className="pc-logout-footer">
-                    <button className="pc-btn pc-btn--logout" onClick={() => setShowLogoutConfirm(true)}>Logout</button>
-                </div>
-
-                {showLogoutConfirm && (
-                    <div className="pc-modal-overlay">
-                        <div className="pc-modal">
-                            <h3 className="pc-modal-title">Log out?</h3>
-                            <p className="pc-modal-text">Are you sure you want to log out?</p>
-                            <div className="pc-modal-actions">
-                                <button className="pc-btn pc-btn--cancel" onClick={() => setShowLogoutConfirm(false)} disabled={loggingOut}>Cancel</button>
-                                <button className="pc-btn pc-btn--logout-confirm" onClick={handleLogout} disabled={loggingOut}>
-                                    {loggingOut ? <><span className="pc-spinner" /> Logging out...</> : 'Yes, Logout'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+        <div className="pc-grid">
+          <div className="pc-invoiceNo-banner">
+            <span className="pc-invoiceNo-label">Last Invoice No - </span>
+            <span className="pc-invoiceNo-value">
+              {config.last_millbill_invoiceNo || "—"}
+            </span>
+          </div>{" "}
+          {/* SELLER */}
+          <section className="pc-card pc-card--seller pc-col-full">
+            <div className="pc-card-accent" />
+            <h2 className="pc-card-title">Seller Details</h2>
+            <div className="pc-form-grid">
+              <div className="pc-field pc-field--full">
+                <label>Business / Firm Name</label>
+                <input
+                  value={config.seller.name}
+                  onChange={(e) => setSeller("name", e.target.value)}
+                  placeholder="Bharat Traders"
+                />
+              </div>
+              <div className="pc-field">
+                <label>PAN Number</label>
+                <input
+                  value={config.seller.pan}
+                  onChange={(e) =>
+                    setSeller("pan", e.target.value.toUpperCase())
+                  }
+                  placeholder="XXXXX0000X"
+                  maxLength={10}
+                />
+              </div>
+              <div className="pc-field">
+                <label>GSTIN Number</label>
+                <input
+                  value={config.seller.gstin}
+                  onChange={(e) =>
+                    setSeller("gstin", e.target.value.toUpperCase())
+                  }
+                  placeholder="00XXXXX0000X0XX"
+                  maxLength={15}
+                />
+              </div>
+              <div className="pc-field pc-field--full">
+                <label>Address</label>
+                <textarea
+                  value={config.seller.address}
+                  onChange={(e) => setSeller("address", e.target.value)}
+                  placeholder="Full business address..."
+                  rows={2}
+                />
+              </div>
             </div>
-        </GlobalDataLoader>
-    )
+          </section>
+          {/* BANKS */}
+          <section className="pc-card pc-card--banks">
+            <div className="pc-card-accent" />
+            <div className="pc-card-header">
+              <h2 className="pc-card-title" style={{ margin: 0 }}>
+                Bank Accounts
+              </h2>
+              {!addingBank && (
+                <button
+                  className="pc-btn pc-btn--add"
+                  onClick={() => setAddingBank(true)}
+                >
+                  + Add
+                </button>
+              )}
+            </div>
+
+            {config.bank_accounts.length === 0 && !addingBank && (
+              <p className="pc-empty">No bank accounts added yet.</p>
+            )}
+
+            <div className="pc-list">
+              {config.bank_accounts.map((data, index) =>
+                editingBankIndex === index ? (
+                  <div
+                    key={index}
+                    className="pc-list-item pc-list-item--editing"
+                  >
+                    <div className="pc-edit-grid">
+                      <div className="pc-field">
+                        <label>Bank Name</label>
+                        <input
+                          value={editBank.bank}
+                          onChange={(e) =>
+                            setEditBank((p) => ({ ...p, bank: e.target.value }))
+                          }
+                          placeholder="ICICI Bank"
+                        />
+                      </div>
+                      <div className="pc-field">
+                        <label>Account Number</label>
+                        <input
+                          value={editBank.account}
+                          onChange={(e) =>
+                            setEditBank((p) => ({
+                              ...p,
+                              account: e.target.value,
+                            }))
+                          }
+                          placeholder="000000000000"
+                        />
+                      </div>
+                      <div className="pc-field">
+                        <label>IFSC Code</label>
+                        <input
+                          value={editBank.ifsc}
+                          onChange={(e) =>
+                            setEditBank((p) => ({
+                              ...p,
+                              ifsc: e.target.value.toUpperCase(),
+                            }))
+                          }
+                          placeholder="XXXX0000000"
+                          maxLength={11}
+                        />
+                      </div>
+                    </div>
+                    <div className="pc-item-actions">
+                      <button
+                        className="pc-btn pc-btn--confirm"
+                        onClick={saveEditBank}
+                      >
+                        Save
+                      </button>
+                      <button
+                        className="pc-btn pc-btn--cancel"
+                        onClick={() => setEditingBankIndex(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={index} className="pc-list-item">
+                    <div className="pc-item-info">
+                      <span className="pc-item-chip">{data.bank}</span>
+                      <span className="pc-item-detail">
+                        <strong>A/C:</strong> {data.account}
+                      </span>
+                      <span className="pc-item-detail">
+                        <strong>IFSC:</strong> {data.ifsc}
+                      </span>
+                    </div>
+                    <div className="pc-item-actions">
+                      <button
+                        className="pc-btn pc-btn--edit"
+                        onClick={() => startEditBank(index)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="pc-btn pc-btn--delete"
+                        onClick={() => deleteBank(index)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ),
+              )}
+
+              {addingBank && (
+                <div className="pc-list-item pc-list-item--adding">
+                  <div className="pc-edit-grid">
+                    <div className="pc-field">
+                      <label>Bank Name</label>
+                      <input
+                        value={newBank.bank}
+                        onChange={(e) =>
+                          setNewBank((p) => ({ ...p, bank: e.target.value }))
+                        }
+                        placeholder="ICICI Bank"
+                      />
+                    </div>
+                    <div className="pc-field">
+                      <label>Account Number</label>
+                      <input
+                        value={newBank.account}
+                        onChange={(e) =>
+                          setNewBank((p) => ({ ...p, account: e.target.value }))
+                        }
+                        placeholder="000000000000"
+                      />
+                    </div>
+                    <div className="pc-field">
+                      <label>IFSC Code</label>
+                      <input
+                        value={newBank.ifsc}
+                        onChange={(e) =>
+                          setNewBank((p) => ({
+                            ...p,
+                            ifsc: e.target.value.toUpperCase(),
+                          }))
+                        }
+                        placeholder="XXXX0000000"
+                        maxLength={11}
+                      />
+                    </div>
+                  </div>
+                  <div className="pc-item-actions">
+                    <button
+                      className="pc-btn pc-btn--confirm"
+                      onClick={commitAddBank}
+                    >
+                      Add
+                    </button>
+                    <button
+                      className="pc-btn pc-btn--cancel"
+                      onClick={() => {
+                        setAddingBank(false);
+                        setNewBank(EMPTY_BANK);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+          {/* CROPS */}
+          <section className="pc-card pc-card--crops">
+            <div className="pc-card-accent" />
+            <div className="pc-card-header">
+              <h2 className="pc-card-title" style={{ margin: 0 }}>
+                Crops
+              </h2>
+              {!addingCrop && (
+                <button
+                  className="pc-btn pc-btn--add"
+                  onClick={() => setAddingCrop(true)}
+                >
+                  + Add
+                </button>
+              )}
+            </div>
+
+            {Object.keys(config.crops).length === 0 && !addingCrop && (
+              <p className="pc-empty">No crops configured yet.</p>
+            )}
+
+            <div className="pc-list">
+              {Object.entries(config.crops).map(([key, data]) =>
+                editingCropKey === key ? (
+                  <div key={key} className="pc-list-item pc-list-item--editing">
+                    <div className="pc-edit-grid pc-edit-grid--crop">
+                      <div className="pc-field">
+                        <label>Crop Name</label>
+                        <input
+                          value={editCrop.name}
+                          onChange={(e) =>
+                            setEditCrop((p) => ({
+                              ...p,
+                              name: e.target.value.toUpperCase(),
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="pc-field">
+                        <label>HSN Code</label>
+                        <input
+                          maxLength={6}
+                          value={editCrop.hsn}
+                          onChange={(e) =>
+                            setEditCrop((p) => ({ ...p, hsn: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="pc-field">
+                        <label>CGST %</label>
+                        <input
+                          type="number"
+                          value={editCrop.cgst}
+                          inputMode="decimal"
+                          placeholder="0.0"
+                          onChange={(e) =>
+                            setEditCrop((p) => ({ ...p, cgst: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="pc-field">
+                        <label>SGST %</label>
+                        <input
+                          type="number"
+                          value={editCrop.sgst}
+                          inputMode="decimal"
+                          placeholder="0.0"
+                          onChange={(e) =>
+                            setEditCrop((p) => ({ ...p, sgst: e.target.value }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="pc-item-actions">
+                      <button
+                        className="pc-btn pc-btn--confirm"
+                        onClick={saveEditCrop}
+                      >
+                        Save
+                      </button>
+                      <button
+                        className="pc-btn pc-btn--cancel"
+                        onClick={() => setEditingCropKey(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={key} className="pc-list-item">
+                    <div className="pc-item-info">
+                      <span className="pc-item-label">{key}</span>
+                      <span className="pc-item-chip">HSN: {data.hsn}</span>
+                      <span className="pc-item-detail">
+                        CGST: <strong>{data.cgst}%</strong>
+                      </span>
+                      <span className="pc-item-detail">
+                        SGST: <strong>{data.sgst}%</strong>
+                      </span>
+                    </div>
+                    <div className="pc-item-actions">
+                      <button
+                        className="pc-btn pc-btn--edit"
+                        onClick={() => startEditCrop(key)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="pc-btn pc-btn--delete"
+                        onClick={() => deleteCrop(key)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ),
+              )}
+
+              {addingCrop && (
+                <div className="pc-list-item pc-list-item--adding">
+                  <div className="pc-edit-grid pc-edit-grid--crop">
+                    <div className="pc-field">
+                      <label>Crop Name</label>
+                      <input
+                        value={newCrop.name}
+                        onChange={(e) =>
+                          setNewCrop((p) => ({
+                            ...p,
+                            name: e.target.value.toUpperCase(),
+                          }))
+                        }
+                        placeholder="WHEAT"
+                      />
+                    </div>
+                    <div className="pc-field">
+                      <label>HSN Code</label>
+                      <input
+                        maxLength={6}
+                        value={newCrop.hsn}
+                        onChange={(e) =>
+                          setNewCrop((p) => ({ ...p, hsn: e.target.value }))
+                        }
+                        placeholder="100199"
+                      />
+                    </div>
+                    <div className="pc-field">
+                      <label>CGST %</label>
+                      <input
+                        type="number"
+                        value={newCrop.cgst}
+                        inputMode="decimal"
+                        placeholder="0.0"
+                        onChange={(e) =>
+                          setNewCrop((p) => ({ ...p, cgst: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="pc-field">
+                      <label>SGST %</label>
+                      <input
+                        type="number"
+                        value={newCrop.sgst}
+                        inputMode="decimal"
+                        placeholder="0.0"
+                        onChange={(e) =>
+                          setNewCrop((p) => ({ ...p, sgst: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="pc-item-actions">
+                    <button
+                      className="pc-btn pc-btn--confirm"
+                      onClick={commitAddCrop}
+                    >
+                      Add
+                    </button>
+                    <button
+                      className="pc-btn pc-btn--cancel"
+                      onClick={() => {
+                        setAddingCrop(false);
+                        setNewCrop(EMPTY_CROP);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+          {/* TERMS */}
+          <section className="pc-card pc-card--terms pc-col-full">
+            <div className="pc-card-accent" />
+            <h2 className="pc-card-title">Terms & Conditions</h2>
+            <textarea
+              className="pc-terms-textarea"
+              value={config.terms_and_conditions}
+              onChange={(e) =>
+                setConfig((p) => ({
+                  ...p,
+                  terms_and_conditions: e.target.value,
+                }))
+              }
+              placeholder="Default terms printed on every invoice..."
+              rows={4}
+            />
+          </section>
+        </div>
+
+        {saveMsg && (
+          <div className={`pc-save-msg pc-save-msg--${saveMsg.type}`}>
+            {saveMsg.text}
+          </div>
+        )}
+
+        <div className="pc-footer">
+          <button
+            className="pc-btn pc-btn--save-all"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <>
+                <span className="pc-spinner" /> Saving...
+              </>
+            ) : (
+              "Save Changes"
+            )}
+          </button>
+        </div>
+
+        <div className="pc-logout-footer">
+          <button
+            className="pc-btn pc-btn--logout"
+            onClick={() => setShowLogoutConfirm(true)}
+          >
+            Logout
+          </button>
+        </div>
+
+        {showLogoutConfirm && (
+          <div className="pc-modal-overlay">
+            <div className="pc-modal">
+              <h3 className="pc-modal-title">Log out?</h3>
+              <p className="pc-modal-text">Are you sure you want to log out?</p>
+              <div className="pc-modal-actions">
+                <button
+                  className="pc-btn pc-btn--cancel"
+                  onClick={() => setShowLogoutConfirm(false)}
+                  disabled={loggingOut}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="pc-btn pc-btn--logout-confirm"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                >
+                  {loggingOut ? (
+                    <>
+                      <span className="pc-spinner" /> Logging out...
+                    </>
+                  ) : (
+                    "Yes, Logout"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </GlobalDataLoader>
+  );
 }

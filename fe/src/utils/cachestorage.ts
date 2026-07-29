@@ -27,6 +27,6 @@ async function fetchJson(url: string, method: string, body: object | null, notFo
 }
 
 // 4. Pass 'null' for the GET request body
-export const FetchInvoices = () => fetchJson(`${settings.BE_URL}/get-mill-bill`, 'POST', {}, 'No Invoices Found');
+export const FetchInvoices = () => fetchJson(`${settings.BE_URL}/get-invoice`, 'POST', {}, 'No Invoices Found');
 export const FetchTrades = () => fetchJson(`${settings.BE_URL}/tradebook`, 'POST', {}, 'No Trades Found');
 export const FetchProfile = () => fetchJson(`${settings.BE_URL}/profile-configuration`, 'GET', null, 'No Profile Found');

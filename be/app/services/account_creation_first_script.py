@@ -2,16 +2,21 @@
 import uuid
 from app.services.security import hash_password
 from app.database.models.account import Account
-from app.database.session import SessionLocal  # ADJUST to your actual sync sessionmaker
+from app.database.session import SessionLocal
 
 db = SessionLocal()
 
 account = Account(
-    id=uuid.uuid4(),                       # generated here, in Python
+    id=uuid.uuid4(),
     user_name="karmatrading",
     password=hash_password("karmatrading_baloch"),
-    configuration={},
-    last_millbill_invoiceNo="0",        
+    configuration={
+        "seller": {"name": "", "address": "", "pan": "", "gstin": ""},
+        "bank_accounts": [],
+        "crops": {},
+        "terms_and_conditions": "As per provided in the Quotation and Order Form.",
+    },
+    last_millbill_invoiceNo="0",
 )
 
 db.add(account)
