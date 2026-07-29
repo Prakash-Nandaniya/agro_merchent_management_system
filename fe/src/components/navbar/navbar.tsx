@@ -1,17 +1,15 @@
-import { Home, UserCog } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import './navbar.css';
-import logo from '@/assets/karma_trading_logo_color_bg_removed.png';
-import ErrorDisplay from '../errors/errordisplay';
+import { Home, UserCog } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import "./navbar.css";
+import logo from "@/assets/karma_trading_logo_color_bg_removed.png";
+import ErrorDisplay from "../errors/errordisplay";
 interface NavItem {
   label: string;
   path: string;
   icon: React.ComponentType<{ size?: number }>;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Home', path: '/', icon: Home },
-];
+const NAV_ITEMS: NavItem[] = [{ label: "Home", path: "/dashboard", icon: Home }];
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -31,7 +29,7 @@ export default function Navbar() {
                   <button
                     key={path}
                     onClick={() => navigate(path)}
-                    className={`navbar-btn ${isActive ? 'navbar-btn-active' : ''}`}
+                    className={`navbar-btn ${isActive ? "navbar-btn-active" : ""}`}
                   >
                     <Icon size={25} />
                     <span>{label}</span>
@@ -44,8 +42,8 @@ export default function Navbar() {
           {/* ── RIGHT — profile configuration ── */}
           <div className="navbar-right">
             <button
-              onClick={() => navigate('/profile-configuration')}
-              className={`navbar-btn ${location.pathname === '/profile-configuration' ? 'navbar-btn-active' : ''}`}
+              onClick={() => navigate("/profile-configuration")}
+              className={`navbar-btn ${location.pathname === "/profile-configuration" ? "navbar-btn-active" : ""}`}
             >
               <UserCog size={25} />
               <span>Profile Configuration</span>
@@ -53,7 +51,7 @@ export default function Navbar() {
           </div>
         </div>
       </header>
-      <ErrorDisplay></ErrorDisplay>
+      <ErrorDisplay />
     </>
   );
 }

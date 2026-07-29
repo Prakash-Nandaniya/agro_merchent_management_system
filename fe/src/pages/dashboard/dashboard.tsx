@@ -3,21 +3,18 @@ import BillBookButton from "@/components/invoice/view_bill_book_button/billbookb
 import AddTradeButton from "@/components/trade/addtrade_button/button";
 import TradeBookButton from "@/components/trade/tradebook_button/button";
 import Navbar from "@/components/navbar/navbar";
-import './dashboard.css';
-import GlobalDataLoader from "@/utils/DataLoader";
+import "./dashboard.css";
 
 export default function Dashboard() {
-    return (
-        <GlobalDataLoader>
-            <div className="dashboard min-h-screen bg-gray-300 print:bg-white">
-                <Navbar />
-                <div className="buttons-container">
-                    <BillButton />
-                    <BillBookButton />
-                    <AddTradeButton />
-                    <TradeBookButton />
-                </div>
-            </div>
-        </GlobalDataLoader>
-    );
+  return (
+    <div className="dashboard min-h-screen bg-gray-300 print:bg-white">
+      <Navbar />
+      <div className="buttons-container">
+        <BillButton />
+        <BillBookButton />
+        <AddTradeButton />
+        <TradeBookButton />
+      </div>
+    </div>
+  );
 }

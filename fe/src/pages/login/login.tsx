@@ -6,7 +6,7 @@ import { useAuth } from '@/components/authcontext';
 import './login.css';
 import { useContext } from 'react';
 import { ErrorContext } from '@/components/errors/errorcontext';
-
+import ErrorDisplay from '@/components/errors/errordisplay';
 export default function Login() {
   const [fullName, setFullName] = useState('');
   const [userName, setUserName] = useState('');
@@ -49,6 +49,7 @@ export default function Login() {
 
   return (
     <div className="login-page">
+      <ErrorDisplay/>
       <form className="login-card" onSubmit={handleSubmit}>
         <h1 className="login-title">Sign in</h1>
         <p className="login-subtitle">Enter your credentials to continue</p>

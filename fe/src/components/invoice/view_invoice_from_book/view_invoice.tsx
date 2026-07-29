@@ -24,7 +24,7 @@ export interface InvoiceDetail {
   seller_gstin: string;
   invoice_no: string;
   invoice_date: string;
-  eway_bill_no:string | null;
+  eway_bill_no: string | null;
   docket_no?: string | null;
   transport_name?: string | null;
   delivery_through: string;
@@ -709,9 +709,8 @@ export default function ViewInvoiceFromBook() {
         </button>
 
         <button
-          onClick={() => navigate("/edit-invoice", { state: { id: id} })}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white
-               text-sm font-medium px-4 py-2 rounded shadow-sm transition-colors"
+          onClick={() => navigate("/edit-invoice", { state: { id: id } })}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-black bg-transparent border border-black-500 rounded cursor-pointer transition-all duration-300 hover:border-black-400 hover:backdrop-brightness-110 ]"
         >
           <Pencil size={16} />
           Edit

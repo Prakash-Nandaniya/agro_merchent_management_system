@@ -51,7 +51,7 @@ export default function Home() {
         navigate('/login');
     };
 
-    if (isChecking || isAuthorized) {
+    if (isChecking) {
         return (
            <OpaqueLoading />
         );

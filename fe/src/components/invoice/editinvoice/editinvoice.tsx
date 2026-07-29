@@ -943,10 +943,12 @@ export default function EditInvoiceForm() {
           No bill found to edit.
         </div>
         <button
-          onClick={() => navigate(-1)}
-          className="bg-gray-800 text-white px-4 py-2 rounded shadow flex items-center gap-2"
+          onClick={() => navigate('/invoice-book')}
+          className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-400
+               text-sm font-medium px-4 py-2 rounded shadow-sm transition-colors"
         >
-          <ArrowLeft size={16} /> Go Back
+          <ArrowLeft size={16} />
+          Back to Book
         </button>
       </div>
     );
