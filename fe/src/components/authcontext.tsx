@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    checkAuth(1500); 
+    checkAuth(0); 
   }, [checkAuth]);
 
   const refreshAuth = useCallback(async () => {

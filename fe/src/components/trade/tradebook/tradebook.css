@@ -1,19 +1,22 @@
 .tb-page {
-  --tb-paper: #EFF1EE;
-  --tb-surface: #FFFFFF;
+  --tb-paper: #eff1ee;
+  --tb-surface: #ffffff;
   --tb-ink: #000000;
-  --tb-line: #CBD3C8;
-  --tb-accent: #0F6E5D;
-  --tb-accent-soft: #E4EEEA;
-  --tb-error: #B3432B;
-  --tb-error-soft: #F7E9E5;
-  --tb-profit: #16A34A;
-  --tb-loss: #B3432B;
+  --tb-line: #cbd3c8;
+  --tb-accent: #0f6e5d;
+  --tb-accent-soft: #e4eeea;
+  --tb-error: #b3432b;
+  --tb-error-soft: #f7e9e5;
+  --tb-profit: #16a34a;
+  --tb-loss: #b3432b;
 
   background: var(--tb-paper);
   min-height: 100%;
   padding: 24px;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 
   .tb-header {
     display: flex;
@@ -24,7 +27,7 @@
     flex-wrap: wrap;
 
     .tb-title {
-      font-family: Georgia, 'Times New Roman', serif;
+      font-family: Georgia, "Times New Roman", serif;
       font-size: 28px;
       font-weight: 800;
       color: var(--tb-ink);
@@ -39,17 +42,8 @@
   }
 
   .tb-panel {
-    background: var(--tb-surface);
-    border: 1px solid var(--tb-line);
-    border-radius: 10px;
     padding: 20px;
     margin-bottom: 16px;
-  }
-
-  .tb-filter-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 14px 16px;
   }
 
   .tb-field {
@@ -85,15 +79,165 @@
   }
 
   .tb-mono {
-    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
   }
 
-  .tb-actions {
+  .tb-filter-bar {
     display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 18px;
+    align-items: flex-start;
+    width: 100%;
+    position: relative;
+  }
+
+  .tb-filter-actions {
+    position: relative;
+  }
+
+  .tb-btn-filter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    width: 44px;
+    border: 1px solid var(--tb-line);
+    background: var(--tb-surface);
+    border-radius: 6px;
+    color: var(--tb-ink);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .tb-btn-filter:hover {
+    background: var(--tb-paper);
+    border-color: var(--tb-accent);
+  }
+
+  .tb-btn-filter--active {
+    border-color: var(--tb-accent);
+    background: var(--tb-accent-soft);
+  }
+
+  .tb-filter-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    border: 2px solid var(--tb-surface);
+  }
+
+  /* --- Date row styles matching InvoiceBook --- */
+  .tb-date-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+
+  .tb-date-label {
+    display: inline-block;
+    width: 60px;
+    font-size: 15px;
+    text-align: left;
+    color: var(--tb-ink);
+    font-weight: 600;
+    white-space: pre; /* Keeps the spacing intact */
+  }
+
+  .tb-date-field input[type="date"] {
+    padding: 5px;
+    height: auto;
+    font-size: 13.5px;
+    color: var(--tb-ink);
+    width: 100%;
+    min-width: 0;
+    cursor: pointer;
+    border: solid rgb(126, 123, 123) 1px;
+    border-radius: 5px;
+    background-color: var(--tb-paper);
+  }
+
+  .tb-date-field input[type="date"]:focus {
+    outline: none;
+    box-shadow: none;
+  }
+
+  .tb-advanced-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: calc(100vw - 48px);
+    max-width: 350px;
+    background: var(--tb-surface);
+    border: 1px solid var(--tb-line);
+    border-radius: 8px;
+    box-shadow:
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    z-index: 50;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+
+  .tb-advanced-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--tb-paper);
+
+    h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--tb-ink);
+    }
+  }
+
+  .tb-advanced-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .tb-filter-apply-reset-buttons-raw {
+    display: flex;
     flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .tb-btn-apply {
+    flex: 0 0 auto;
+  }
+
+  .tb-btn-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 6px;
+    border: 1px solid var(--tb-line);
+    background: var(--tb-surface);
+    color: var(--tb-ink);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    flex: 0 0 auto;
+    align-self: flex-start;
+  }
+
+  .tb-btn-clear:hover {
+    background: var(--tb-paper);
+    border-color: var(--tb-line);
   }
 
   .tb-btn-ghost,
@@ -295,7 +439,7 @@
     background: var(--tb-surface);
     cursor: pointer;
     color: var(--tb-ink);
-    margin:0px 10px;
+    margin: 0px 10px;
 
     &--edit:hover {
       background: var(--tb-accent-soft);
@@ -328,11 +472,11 @@
         font-size: 11px;
         letter-spacing: 0.05em;
         text-transform: uppercase;
-        color: #B8C4BE;
+        color: #b8c4be;
       }
 
       .tb-total-value {
-        font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+        font-family: ui-monospace, "SF Mono", Consolas, monospace;
         font-size: 16px;
         color: #fff;
       }
@@ -347,11 +491,11 @@
         }
 
         &.tb-profit .tb-total-value {
-          color: #6FE0C4;
+          color: #6fe0c4;
         }
 
         &.tb-loss .tb-total-value {
-          color: #F0897A;
+          color: #f0897a;
         }
       }
     }

@@ -1,11 +1,21 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, X } from 'lucide-react';
-import './tradebook.css';
-import { settings } from '@/settings';
-import { apiFetch } from '@/utils/apifetch';
-import { useContext } from 'react';
-import { ErrorContext } from '@/components/errors/errorcontext';
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Search,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Pencil,
+  Trash2,
+  X,
+  Filter,
+} from "lucide-react";
+import "./tradebook.css";
+import { settings } from "@/settings";
+import { apiFetch } from "@/utils/apifetch";
+import { useContext } from "react";
+import { ErrorContext } from "@/components/errors/errorcontext";
 
 export interface Trade {
   id: number;
@@ -40,32 +50,32 @@ interface Filters {
   date_to: string;
 }
 
-const STORAGE_KEY = 'trade_book_state';
+const STORAGE_KEY = "trade_book_state";
 
 const EMPTY_FILTERS: Filters = {
-  party_name: '',
-  crop: '',
-  party_city: '',
-  invoice_no: '',
-  created_by: '',
-  date_from: '',
-  date_to: '',
+  party_name: "",
+  crop: "",
+  party_city: "",
+  invoice_no: "",
+  created_by: "",
+  date_from: "",
+  date_to: "",
 };
 
 function toNum(v: string | undefined | null): number {
-  const n = parseFloat(v || '0');
+  const n = parseFloat(v || "0");
   return isNaN(n) ? 0 : n;
 }
 
 function fmtAmount(n: number): string {
-  const sign = n < 0 ? '-' : '';
-  return `${sign}${Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const sign = n < 0 ? "-" : "";
+  return `${sign}${Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDateDMY(iso: string | undefined | null): string {
-  if (!iso) return '';
-  const datePart = iso.split('T')[0]; // trade_creation_date is a datetime, strip the time part
-  const [y, m, d] = datePart.split('-');
+  if (!iso) return "";
+  const datePart = iso.split("T")[0]; // trade_creation_date is a datetime, strip the time part
+  const [y, m, d] = datePart.split("-");
   if (!y || !m || !d) return iso;
   return `${d}/${m}/${y}`;
 }
@@ -75,7 +85,12 @@ function tradeInflow(t: Trade): number {
 }
 
 function tradeOutflow(t: Trade): number {
-  return toNum(t.farmer_payment) + toNum(t.labour_cost) + toNum(t.transport_cost) + toNum(t.other_cost);
+  return (
+    toNum(t.farmer_payment) +
+    toNum(t.labour_cost) +
+    toNum(t.transport_cost) +
+    toNum(t.other_cost)
+  );
 }
 
 function tradeProfit(t: Trade): number {
@@ -84,25 +99,34 @@ function tradeProfit(t: Trade): number {
 
 // Latest trade_creation_date first; if two trades share a date, higher id (more recently created) wins.
 function compareTradesDesc(a: Trade, b: Trade): number {
-  const aDate = a.trade_creation_date?.split('T')[0] || '';
-  const bDate = b.trade_creation_date?.split('T')[0] || '';
+  const aDate = a.trade_creation_date?.split("T")[0] || "";
+  const bDate = b.trade_creation_date?.split("T")[0] || "";
   if (aDate !== bDate) return aDate < bDate ? 1 : -1;
   return a.id < b.id ? 1 : -1;
 }
 
-function getPageNumbers(current: number, total: number): Array<number | string> {
+function getPageNumbers(
+  current: number,
+  total: number,
+): Array<number | string> {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
   const pages = new Set([1, total, current, current - 1, current + 1]);
-  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const sorted = [...pages]
+    .filter((p) => p >= 1 && p <= total)
+    .sort((a, b) => a - b);
   const withGaps: Array<number | string> = [];
   sorted.forEach((p, i) => {
-    if (i > 0 && p - sorted[i - 1] > 1) withGaps.push('...');
+    if (i > 0 && p - sorted[i - 1] > 1) withGaps.push("...");
     withGaps.push(p);
   });
   return withGaps;
 }
 
 export default function TradeBook() {
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const fromDateRef = useRef<HTMLInputElement>(null);
+  const toDateRef = useRef<HTMLInputElement>(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const navigate = useNavigate();
   const savedState = getSavedState();
   const errorcontext = useContext(ErrorContext);
@@ -111,16 +135,20 @@ export default function TradeBook() {
 
   useEffect(() => {
     const handleResize = () => setPageSize(window.innerWidth < 640 ? 10 : 20);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const [filters, setFilters] = useState<Filters>(savedState?.filters || EMPTY_FILTERS);
+  const [filters, setFilters] = useState<Filters>(
+    savedState?.filters || EMPTY_FILTERS,
+  );
   const [trades, setTrades] = useState<Trade[] | null>(
-    savedState?.trades ? [...savedState.trades].sort(compareTradesDesc) : null
+    savedState?.trades ? [...savedState.trades].sort(compareTradesDesc) : null,
   );
   const [page, setPage] = useState<number>(savedState?.page || 1);
-  const [hasSearched, setHasSearched] = useState<boolean>(savedState?.hasSearched || false);
+  const [hasSearched, setHasSearched] = useState<boolean>(
+    savedState?.hasSearched || false,
+  );
   const [loading, setLoading] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<Trade | null>(null);
@@ -133,26 +161,38 @@ export default function TradeBook() {
   function clearFilters() {
     setFilters(EMPTY_FILTERS);
   }
-
+  function openDatePicker(ref: React.RefObject<HTMLInputElement | null>) {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof (el as any).showPicker === "function") {
+      try {
+        (el as any).showPicker();
+        return;
+      } catch {
+        // fall through to focus
+      }
+    }
+    el.focus();
+  }
   function extractErrorDetail(body: any, status: number): string {
-    if (typeof body.detail === 'string') return body.detail;
+    if (typeof body.detail === "string") return body.detail;
     if (Array.isArray(body.detail)) {
-      return body.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ');
+      return body.detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ");
     }
     return `Request failed with status ${status}`;
   }
 
   function getSavedState() {
-  const saved = sessionStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (e) {
-      errorcontext.addError('Failed to parse session storage');
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        errorcontext.addError("Failed to parse session storage");
+      }
     }
+    return null;
   }
-  return null;
-}
 
   async function runSearch() {
     const payload: Record<string, string> = {};
@@ -165,8 +205,8 @@ export default function TradeBook() {
 
     try {
       const res = await apiFetch(`${settings.BE_URL}/tradebook`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -181,7 +221,9 @@ export default function TradeBook() {
       }
       setPage(1);
     } catch (err) {
-      errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.');
+      errorcontext.addError(
+        err instanceof Error ? err.message : "Could not reach the server.",
+      );
       setTrades(null);
     } finally {
       setLoading(false);
@@ -189,12 +231,12 @@ export default function TradeBook() {
   }
 
   function handleRowClick(t: Trade) {
-    navigate('/view-trade', { state: { trade: t } });
+    navigate("/view-trade", { state: { trade: t } });
   }
 
   function handleEdit(e: React.MouseEvent, t: Trade) {
     e.stopPropagation(); // don't also trigger the row's own onClick
-    navigate('/add-trade', { state: { trade: t } });
+    navigate("/add-trade", { state: { trade: t } });
   }
 
   function handleDeleteClick(e: React.MouseEvent, t: Trade) {
@@ -206,9 +248,12 @@ export default function TradeBook() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await apiFetch(`${settings.BE_URL}/delete-trade/${deleteTarget.id}`, {
-        method: 'DELETE',
-      });
+      const res = await apiFetch(
+        `${settings.BE_URL}/delete-trade/${deleteTarget.id}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -224,7 +269,9 @@ export default function TradeBook() {
       });
       setDeleteTarget(null);
     } catch (err) {
-      errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.');
+      errorcontext.addError(
+        err instanceof Error ? err.message : "Could not reach the server.",
+      );
     } finally {
       setDeleting(false);
     }
@@ -232,7 +279,8 @@ export default function TradeBook() {
 
   const totals = useMemo(() => {
     if (!trades || trades.length === 0) return null;
-    let inflow = 0, outflow = 0;
+    let inflow = 0,
+      outflow = 0;
     trades.forEach((t) => {
       inflow += tradeInflow(t);
       outflow += tradeOutflow(t);
@@ -240,63 +288,187 @@ export default function TradeBook() {
     return { inflow, outflow, profit: inflow - outflow };
   }, [trades]);
 
-  const totalPages = trades ? Math.max(1, Math.ceil(trades.length / pageSize)) : 1;
-  const pageTrades = trades ? trades.slice((page - 1) * pageSize, page * pageSize) : [];
+  const totalPages = trades
+    ? Math.max(1, Math.ceil(trades.length / pageSize))
+    : 1;
+  const pageTrades = trades
+    ? trades.slice((page - 1) * pageSize, page * pageSize)
+    : [];
 
   useEffect(() => {
     const stateToSave = { filters, trades, hasSearched, page };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
   }, [filters, trades, hasSearched, page]);
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowAdvancedFilters(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const hasActiveFilters = Object.values(filters).some((v) => v !== "");
   return (
     <div className="tb-page">
       <div className="tb-header">
         <div>
           <h1 className="tb-title">Trade Book</h1>
-          <p className="tb-subtitle">Track full trade cycles — mill payments, farmer payouts, labour &amp; transport</p>
+          <p className="tb-subtitle">
+            Track full trade cycles — mill payments, farmer payouts, labour
+            &amp; transport
+          </p>
         </div>
       </div>
 
       <div className="tb-panel">
-        <div className="tb-filter-grid">
-          <div className="tb-field">
-            <label className="tb-label" htmlFor="party_name">Party name</label>
-            <input id="party_name" placeholder="Contains..." value={filters.party_name} onChange={(e) => updateFilter('party_name', e.target.value)} />
-          </div>
-          <div className="tb-field">
-            <label className="tb-label" htmlFor="crop">Crop</label>
-            <input id="crop" placeholder="Contains..." value={filters.crop} onChange={(e) => updateFilter('crop', e.target.value)} />
-          </div>
-          <div className="tb-field">
-            <label className="tb-label" htmlFor="party_city">Party City</label>
-            <input id="party_city" placeholder="Contains..." value={filters.party_city} onChange={(e) => updateFilter('party_city', e.target.value)} />
-          </div>
-          <div className="tb-field">
-            <label className="tb-label" htmlFor="invoice_no">Invoice No.</label>
-            <input id="invoice_no" placeholder="Exact match" value={filters.invoice_no} onChange={(e) => updateFilter('invoice_no', e.target.value)} />
-          </div>
-          <div className="tb-field">
-            <label className="tb-label" htmlFor="created_by">Created by</label>
-            <input id="created_by" placeholder="Exact match" value={filters.created_by} onChange={(e) => updateFilter('created_by', (e.target.value).toUpperCase())} />
-          </div>
-          <div className="tb-field">
-            <label className="tb-label" htmlFor="date_from">Date from</label>
-            <input id="date_from" type="date" value={filters.date_from} onChange={(e) => updateFilter('date_from', e.target.value)} />
-          </div>
-          <div className="tb-field">
-            <label className="tb-label" htmlFor="date_to">Date to</label>
-            <input id="date_to" type="date" value={filters.date_to} onChange={(e) => updateFilter('date_to', e.target.value)} />
-          </div>
-        </div>
+        <div className="tb-filter-bar">
+          <div className="tb-filter-actions" ref={dropdownRef}>
+            <button
+              className={`tb-btn-filter ${hasActiveFilters ? "tb-btn-filter--active" : ""}`}
+              onClick={() => setShowAdvancedFilters((v) => !v)}
+              type="button"
+              title="Filters"
+            >
+              <Filter size={16} />
+              {hasActiveFilters && <span className="tb-filter-dot"></span>}
+            </button>
 
-        <div className="tb-actions">
-          <button className="tb-btn-ghost" onClick={clearFilters} type="button">
-            <RotateCcw size={14} /> Clear filters
-          </button>
-          <button className="tb-btn-primary" onClick={runSearch} disabled={loading} type="button">
-            {loading ? <Loader2 size={14} className="tb-spin" /> : <Search size={14} />}
-            {loading ? 'Searching…' : 'Search'}
-          </button>
+            {showAdvancedFilters && (
+              <div className="tb-advanced-dropdown">
+                <div className="tb-advanced-header">
+                  <h3>Search Filters</h3>
+                </div>
+
+                {/* --- NEW DATE FIELDS MATCHING INVOICE BOOK --- */}
+                <div
+                  className="tb-date-field"
+                  onClick={() => openDatePicker(fromDateRef)}
+                >
+                  <span className="tb-date-label">From :</span>
+                  <input
+                    ref={fromDateRef}
+                    id="date_from"
+                    type="date"
+                    value={filters.date_from}
+                    onChange={(e) => updateFilter("date_from", e.target.value)}
+                    onClick={() => openDatePicker(fromDateRef)}
+                  />
+                </div>
+                <div
+                  className="tb-date-field"
+                  onClick={() => openDatePicker(toDateRef)}
+                >
+                  <span className="tb-date-label">To :</span>
+                  <input
+                    ref={toDateRef}
+                    id="date_to"
+                    type="date"
+                    value={filters.date_to}
+                    onChange={(e) => updateFilter("date_to", e.target.value)}
+                    onClick={() => openDatePicker(toDateRef)}
+                  />
+                </div>
+                {/* --- END NEW DATE FIELDS --- */}
+
+                <div className="tb-advanced-grid">
+                  <div className="tb-field">
+                    <label className="tb-label" htmlFor="party_name">
+                      Party name
+                    </label>
+                    <input
+                      id="party_name"
+                      placeholder="Contains..."
+                      value={filters.party_name}
+                      onChange={(e) =>
+                        updateFilter("party_name", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="tb-field">
+                    <label className="tb-label" htmlFor="crop">
+                      Crop
+                    </label>
+                    <input
+                      id="crop"
+                      placeholder="Contains..."
+                      value={filters.crop}
+                      onChange={(e) => updateFilter("crop", e.target.value)}
+                    />
+                  </div>
+                  <div className="tb-field">
+                    <label className="tb-label" htmlFor="party_city">
+                      Party City
+                    </label>
+                    <input
+                      id="party_city"
+                      placeholder="Contains..."
+                      value={filters.party_city}
+                      onChange={(e) =>
+                        updateFilter("party_city", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="tb-field">
+                    <label className="tb-label" htmlFor="invoice_no">
+                      Invoice No.
+                    </label>
+                    <input
+                      id="invoice_no"
+                      placeholder="Exact match"
+                      value={filters.invoice_no}
+                      onChange={(e) =>
+                        updateFilter("invoice_no", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="tb-field">
+                    <label className="tb-label" htmlFor="created_by">
+                      Created by
+                    </label>
+                    <input
+                      id="created_by"
+                      placeholder="Exact match"
+                      value={filters.created_by}
+                      onChange={(e) =>
+                        updateFilter("created_by", e.target.value.toUpperCase())
+                      }
+                    />
+                  </div>
+
+                  {/* (Removed the old date_from and date_to tb-fields from here) */}
+
+                  <div className="tb-filter-apply-reset-buttons-raw">
+                    <button
+                      className="tb-btn-primary tb-btn-apply"
+                      onClick={runSearch}
+                      disabled={loading}
+                      type="button"
+                    >
+                      {loading ? (
+                        <Loader2 size={16} className="tb-spin" />
+                      ) : (
+                        <Search size={16} />
+                      )}
+                      <span>{loading ? "Searching…" : "Search"}</span>
+                    </button>
+                    <button
+                      className="tb-btn-clear"
+                      onClick={clearFilters}
+                      type="button"
+                    >
+                      <RotateCcw size={14} />
+                      <span>Clear filters</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -324,21 +496,46 @@ export default function TradeBook() {
                 {pageTrades.map((t) => {
                   const profit = tradeProfit(t);
                   return (
-                    <tr key={t.id} className="tb-row-clickable" onClick={() => handleRowClick(t)}>
-                      <td className="tb-mono" data-label="Date">{formatDateDMY(t.trade_creation_date)}</td>
-                      <td className="tb-mono" data-label="Invoice No.">{t.invoice_no}</td>
-                      <td data-label="Party">{t.party_name || '—'}</td>
-                      <td data-label="Crop">{t.crops || '—'}</td>
-                      <td className="tb-num tb-mono" data-label="Mill Qty">{fmtAmount(toNum(t.mill_qty))} {t.mill_qty_unit}</td>
-                      <td className="tb-num tb-mono" data-label="Mill Rate">₹ {fmtAmount(toNum(t.mill_rate))} / {t.mill_rate_unit}</td>
-                      <td className={`tb-num tb-mono tb-strong ${profit >= 0 ? 'tb-profit' : 'tb-loss'}`} data-label="Profit">
+                    <tr
+                      key={t.id}
+                      className="tb-row-clickable"
+                      onClick={() => handleRowClick(t)}
+                    >
+                      <td className="tb-mono" data-label="Date">
+                        {formatDateDMY(t.trade_creation_date)}
+                      </td>
+                      <td className="tb-mono" data-label="Invoice No.">
+                        {t.invoice_no}
+                      </td>
+                      <td data-label="Party">{t.party_name || "—"}</td>
+                      <td data-label="Crop">{t.crops || "—"}</td>
+                      <td className="tb-num tb-mono" data-label="Mill Qty">
+                        {fmtAmount(toNum(t.mill_qty))} {t.mill_qty_unit}
+                      </td>
+                      <td className="tb-num tb-mono" data-label="Mill Rate">
+                        ₹ {fmtAmount(toNum(t.mill_rate))} / {t.mill_rate_unit}
+                      </td>
+                      <td
+                        className={`tb-num tb-mono tb-strong ${profit >= 0 ? "tb-profit" : "tb-loss"}`}
+                        data-label="Profit"
+                      >
                         ₹ {fmtAmount(profit)}
                       </td>
                       <td className="tb-num tb-row-actions">
-                        <button className="tb-icon-btn tb-icon-btn--edit" onClick={(e) => handleEdit(e, t)} type="button" aria-label="Edit trade">
+                        <button
+                          className="tb-icon-btn tb-icon-btn--edit"
+                          onClick={(e) => handleEdit(e, t)}
+                          type="button"
+                          aria-label="Edit trade"
+                        >
                           <Pencil size={15} />
                         </button>
-                        <button className="tb-icon-btn tb-icon-btn--delete" onClick={(e) => handleDeleteClick(e, t)} type="button" aria-label="Delete trade">
+                        <button
+                          className="tb-icon-btn tb-icon-btn--delete"
+                          onClick={(e) => handleDeleteClick(e, t)}
+                          type="button"
+                          aria-label="Delete trade"
+                        >
                           <Trash2 size={15} />
                         </button>
                       </td>
@@ -361,18 +558,20 @@ export default function TradeBook() {
                 <ChevronLeft size={14} />
               </button>
               {getPageNumbers(page, totalPages).map((p, i) =>
-                p === '...' ? (
-                  <span key={`gap-${i}`} className="tb-page-gap">…</span>
+                p === "..." ? (
+                  <span key={`gap-${i}`} className="tb-page-gap">
+                    …
+                  </span>
                 ) : (
                   <button
                     key={p}
-                    className={`tb-page-btn ${p === page ? 'tb-page-active' : ''}`}
+                    className={`tb-page-btn ${p === page ? "tb-page-active" : ""}`}
                     onClick={() => setPage(p as number)}
                     type="button"
                   >
                     {p}
                   </button>
-                )
+                ),
               )}
               <button
                 className="tb-page-btn"
@@ -390,15 +589,25 @@ export default function TradeBook() {
             <div className="tb-totals">
               <div className="tb-total-item">
                 <span className="tb-total-label">Total Inflow</span>
-                <span className="tb-total-value">₹ {fmtAmount(totals.inflow)}</span>
+                <span className="tb-total-value">
+                  ₹ {fmtAmount(totals.inflow)}
+                </span>
               </div>
               <div className="tb-total-item">
                 <span className="tb-total-label">Total Outflow</span>
-                <span className="tb-total-value">₹ {fmtAmount(totals.outflow)}</span>
+                <span className="tb-total-value">
+                  ₹ {fmtAmount(totals.outflow)}
+                </span>
               </div>
-              <div className={`tb-total-item tb-total-grand ${totals.profit >= 0 ? 'tb-profit' : 'tb-loss'}`}>
-                <span className="tb-total-label">{totals.profit >= 0 ? 'Net Profit' : 'Net Loss'}</span>
-                <span className="tb-total-value">₹ {fmtAmount(totals.profit)}</span>
+              <div
+                className={`tb-total-item tb-total-grand ${totals.profit >= 0 ? "tb-profit" : "tb-loss"}`}
+              >
+                <span className="tb-total-label">
+                  {totals.profit >= 0 ? "Net Profit" : "Net Loss"}
+                </span>
+                <span className="tb-total-value">
+                  ₹ {fmtAmount(totals.profit)}
+                </span>
               </div>
             </div>
           )}
@@ -410,7 +619,12 @@ export default function TradeBook() {
           <div className="tb-modal">
             <div className="tb-modal-header">
               <h3 className="tb-modal-title">Delete trade?</h3>
-              <button className="tb-modal-close" onClick={() => setDeleteTarget(null)} type="button" aria-label="Close">
+              <button
+                className="tb-modal-close"
+                onClick={() => setDeleteTarget(null)}
+                type="button"
+                aria-label="Close"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -418,12 +632,26 @@ export default function TradeBook() {
               This will permanently delete this trade.
             </p>
             <div className="tb-modal-actions">
-              <button className="tb-btn-ghost" onClick={() => setDeleteTarget(null)} disabled={deleting} type="button">
+              <button
+                className="tb-btn-ghost"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                type="button"
+              >
                 Cancel
               </button>
-              <button className="tb-btn-danger" onClick={confirmDelete} disabled={deleting} type="button">
-                {deleting ? <Loader2 size={14} className="tb-spin" /> : <Trash2 size={14} />}
-                {deleting ? 'Deleting...' : 'Yes, Delete'}
+              <button
+                className="tb-btn-danger"
+                onClick={confirmDelete}
+                disabled={deleting}
+                type="button"
+              >
+                {deleting ? (
+                  <Loader2 size={14} className="tb-spin" />
+                ) : (
+                  <Trash2 size={14} />
+                )}
+                {deleting ? "Deleting..." : "Yes, Delete"}
               </button>
             </div>
           </div>

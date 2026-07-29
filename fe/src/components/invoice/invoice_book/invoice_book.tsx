@@ -34,7 +34,7 @@ export interface Invoice {
   seller_gstin: string;
   invoice_no: string;
   invoice_date: string;
-  eway_bill_no:string | null;
+  eway_bill_no: string | null;
   docket_no?: string | null;
   transport_name?: string | null;
   delivery_through: string;
@@ -230,9 +230,6 @@ export default function InvoiceBook() {
   const isSearchActive = appliedFilters !== null;
   const invoices = isSearchActive ? searchInvoices : allInvoices;
 
-  // ── The query key currently backing the visible list — rows read their own
-  //    data from this key via `select`, so a row only re-renders when its own
-  //    record changes, not whenever any other row/edit touches the list ──────
   const activeQueryKey = isSearchActive
     ? ([SEARCH_QUERY_BASE_KEY, appliedFilters] as const)
     : (["Invoices"] as const);
@@ -357,7 +354,7 @@ export default function InvoiceBook() {
         "Party State": bill.party_state,
         "Party GSTIN": bill.party_gstin,
         "Party PAN": bill.party_pan,
-        "E-way Bill No.":bill.eway_bill_no || "",
+        "E-way Bill No.": bill.eway_bill_no || "",
         "Docket No.": bill.docket_no || "",
         "Transport Name": bill.transport_name || "",
         "Vehicle No.": bill.delivery_through,
@@ -556,6 +553,38 @@ export default function InvoiceBook() {
                   <div className="mbr-advanced-header">
                     <h3>Search Filters</h3>
                   </div>
+                  <div
+                    className="mbr-date-field"
+                    onClick={() => openDatePicker(fromDateRef)}
+                  >
+                    <span className="mbr-date-label">From :</span>
+                    <input
+                      ref={fromDateRef}
+                      id="invoice_date_from"
+                      type="date"
+                      value={filters.invoice_date_from}
+                      onChange={(e) =>
+                        updateFilter("invoice_date_from", e.target.value)
+                      }
+                      onClick={() => openDatePicker(fromDateRef)}
+                    />
+                  </div>
+                  <div
+                    className="mbr-date-field"
+                    onClick={() => openDatePicker(toDateRef)}
+                  >
+                    <span className="mbr-date-label">To :</span>
+                    <input
+                      ref={toDateRef}
+                      id="invoice_date_to"
+                      type="date"
+                      value={filters.invoice_date_to}
+                      onChange={(e) =>
+                        updateFilter("invoice_date_to", e.target.value)
+                      }
+                      onClick={() => openDatePicker(toDateRef)}
+                    />
+                  </div>
                   <div className="mbr-advanced-grid">
                     {advancedFields.map((f) => (
                       <div className="mbr-field" key={f.key}>
@@ -594,70 +623,34 @@ export default function InvoiceBook() {
                         )}
                       </div>
                     ))}
+                    <div className="mbr-filter-apply-reset-buttons-raw">
+                      <button
+                        className="mbr-btn-primary mbr-btn-apply"
+                        onClick={applyFilters}
+                        disabled={isSearching || hasBlockingErrors()}
+                        type="button"
+                      >
+                        {isSearching ? (
+                          <Loader2 size={16} className="mbr-spin" />
+                        ) : (
+                          <Search size={16} />
+                        )}
+                        <span>Apply</span>
+                      </button>
+                      <button
+                        className="mbr-btn-clear"
+                        onClick={clearFilters}
+                        type="button"
+                      >
+                        <RotateCcw size={14} />
+                        <span>Clear filters</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-
-            <button
-              className="mbr-btn-primary mbr-btn-apply"
-              onClick={applyFilters}
-              disabled={isSearching || hasBlockingErrors()}
-              type="button"
-            >
-              {isSearching ? (
-                <Loader2 size={16} className="mbr-spin" />
-              ) : (
-                <Search size={16} />
-              )}
-              <span>Apply</span>
-            </button>
           </div>
-
-          <div className="mbr-date-row">
-            <div
-              className="mbr-date-field"
-              onClick={() => openDatePicker(fromDateRef)}
-            >
-              <span className="mbr-date-label">From</span>
-              <input
-                ref={fromDateRef}
-                id="invoice_date_from"
-                type="date"
-                value={filters.invoice_date_from}
-                onChange={(e) =>
-                  updateFilter("invoice_date_from", e.target.value)
-                }
-                onClick={() => openDatePicker(fromDateRef)}
-              />
-            </div>
-            <span className="mbr-date-separator">–</span>
-            <div
-              className="mbr-date-field"
-              onClick={() => openDatePicker(toDateRef)}
-            >
-              <span className="mbr-date-label">To</span>
-              <input
-                ref={toDateRef}
-                id="invoice_date_to"
-                type="date"
-                value={filters.invoice_date_to}
-                onChange={(e) =>
-                  updateFilter("invoice_date_to", e.target.value)
-                }
-                onClick={() => openDatePicker(toDateRef)}
-              />
-            </div>
-          </div>
-
-          <button
-            className="mbr-btn-clear"
-            onClick={clearFilters}
-            type="button"
-          >
-            <RotateCcw size={14} />
-            <span>Clear filters</span>
-          </button>
         </div>
       </div>
 

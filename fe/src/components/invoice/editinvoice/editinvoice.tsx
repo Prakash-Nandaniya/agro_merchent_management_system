@@ -991,12 +991,12 @@ export default function EditInvoiceForm() {
       {/* ── Top Navigation Bar ── */}
       <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print-hide">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/invoice-book')}
           className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-400
                      text-sm font-medium px-4 py-2 rounded shadow-sm transition-colors"
         >
           <ArrowLeft size={16} />
-          Back
+          Back to Book
         </button>
       </div>
 
