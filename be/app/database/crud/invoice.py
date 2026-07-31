@@ -29,14 +29,20 @@ def save_invoice(db: Session, payload: InvoiceSchema, created_by: str) -> Invoic
     if account is None:
         db.rollback()
         raise NotFoundError(resource="Account")
-
-    new_invoice_no = int(account.last_millbill_invoiceNo) + 1
+    
+    raw_invoice = payload.invoice_no
+    
+    if not raw_invoice or not raw_invoice.strip():
+        new_invoice_no = str(int(account.last_millbill_invoiceNo) + 1)
+    else:
+        new_invoice_no = raw_invoice.strip()
+        
     data = payload.to_orm_kwargs()
-    invoice = Invoice(
-        **data,
-        created_by=created_by.upper(),
-        invoice_no=new_invoice_no,
-    )
+    
+    data["invoice_no"] = new_invoice_no
+    data["created_by"] = created_by.upper()
+    
+    invoice = Invoice(**data)
 
     account.last_millbill_invoiceNo = new_invoice_no
 

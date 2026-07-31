@@ -1,4 +1,3 @@
-import re
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Optional
@@ -9,28 +8,18 @@ from app.core.exceptions import (
     BlankFieldError,
     InvalidDateFormatError,
     InvalidNumberError,
-    NonPositiveValueError,
-    NegativeValueError,
     InvalidFieldTypeError,
-    InvalidGSTINError,
 )
-
-GSTIN_RE = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
-
 
 class CreateTradeSchema(BaseModel):
     trade_creation_date: date
+
     crop_name: str
 
     invoice_no: Optional[str] = None
-    party_name: Optional[str] = None
-    party_city: Optional[str] = None
-    party_gstin: Optional[str] = None
 
-    invoice_crop_qty: Optional[Decimal] = None
-    invoice_crop_qty_unit: Optional[str] = None
-    invoice_crop_rate: Optional[Decimal] = None
-    invoice_crop_rate_unit: Optional[str] = None
+    party_name: Optional[str] = None
+
     vehicle_no: Optional[str] = None
 
     # ── Inflow ───────────────────────────────────────────────────────────────
@@ -59,16 +48,6 @@ class CreateTradeSchema(BaseModel):
             raise BlankFieldError("crop_name")
         return v
 
-    @field_validator("party_gstin")
-    @classmethod
-    def validate_party_gstin(cls, v: Optional[str]) -> Optional[str]:
-        if v is None or v.strip() == "":
-            return None
-        v = v.strip().upper()
-        if not GSTIN_RE.match(v):
-            raise InvalidGSTINError(f"Invalid GSTIN format: '{v}'.")
-        return v
-
     @field_validator("trade_creation_date", mode="before")
     @classmethod
     def parse_trade_date(cls, v):
@@ -84,16 +63,6 @@ class CreateTradeSchema(BaseModel):
 
     @field_validator("mill_qty", "mill_rate", mode="before")
     @classmethod
-    def parse_optional_positive_decimal(cls, v, info):
-        if v is None or v == "":
-            return None
-        d = _coerce_decimal(v, info.field_name)
-        if d <= 0:
-            raise NonPositiveValueError(info.field_name)
-        return d
-
-    @field_validator("invoice_crop_qty", "invoice_crop_rate", mode="before")
-    @classmethod
     def parse_optional_decimal(cls, v, info):
         if v is None or v == "":
             return None
@@ -104,8 +73,6 @@ class CreateTradeSchema(BaseModel):
         pairs = [
             ("mill_qty", "mill_qty_unit"),
             ("mill_rate", "mill_rate_unit"),
-            ("invoice_crop_qty", "invoice_crop_qty_unit"),
-            ("invoice_crop_rate", "invoice_crop_rate_unit"),
         ]
         for value_field, unit_field in pairs:
             value = getattr(self, value_field)
@@ -125,13 +92,10 @@ class CreateTradeSchema(BaseModel):
         mode="before",
     )
     @classmethod
-    def parse_optional_non_negative_decimal(cls, v, info):
+    def parse_optional_decimal_money(cls, v, info):
         if v is None or v == "":
             return None
-        d = _coerce_decimal(v, info.field_name)
-        if d < 0:
-            raise NegativeValueError(info.field_name)
-        return d
+        return _coerce_decimal(v, info.field_name)
 
     @classmethod
     def as_form(
@@ -140,12 +104,6 @@ class CreateTradeSchema(BaseModel):
         crop_name: str = Form(...),
         invoice_no: Optional[str] = Form(None),
         party_name: Optional[str] = Form(None),
-        party_city: Optional[str] = Form(None),
-        party_gstin: Optional[str] = Form(None),
-        invoice_crop_qty: Optional[str] = Form(None),
-        invoice_crop_qty_unit: Optional[str] = Form(None),
-        invoice_crop_rate: Optional[str] = Form(None),
-        invoice_crop_rate_unit: Optional[str] = Form(None),
         vehicle_no: Optional[str] = Form(None),
         mill_qty: Optional[str] = Form(None),
         mill_qty_unit: Optional[str] = Form(None),
@@ -165,12 +123,6 @@ class CreateTradeSchema(BaseModel):
             crop_name=crop_name,
             invoice_no=invoice_no,
             party_name=party_name,
-            party_city=party_city,
-            party_gstin=party_gstin,
-            invoice_crop_qty=invoice_crop_qty,
-            invoice_crop_qty_unit=invoice_crop_qty_unit,
-            invoice_crop_rate=invoice_crop_rate,
-            invoice_crop_rate_unit=invoice_crop_rate_unit,
             vehicle_no=vehicle_no,
             mill_qty=mill_qty,
             mill_qty_unit=mill_qty_unit,
@@ -191,7 +143,6 @@ class CreateTradeSchema(BaseModel):
         data.pop("id", None)
         return {"bill": data}
 
-
 class EditTradeSchema(CreateTradeSchema):
     id: int
     created_at: Optional[datetime] = None
@@ -210,12 +161,6 @@ class EditTradeSchema(CreateTradeSchema):
         crop_name: str = Form(...),
         invoice_no: Optional[str] = Form(None),
         party_name: Optional[str] = Form(None),
-        party_city: Optional[str] = Form(None),
-        party_gstin: Optional[str] = Form(None),
-        invoice_crop_qty: Optional[str] = Form(None),
-        invoice_crop_qty_unit: Optional[str] = Form(None),
-        invoice_crop_rate: Optional[str] = Form(None),
-        invoice_crop_rate_unit: Optional[str] = Form(None),
         vehicle_no: Optional[str] = Form(None),
         mill_qty: Optional[str] = Form(None),
         mill_qty_unit: Optional[str] = Form(None),
@@ -241,12 +186,6 @@ class EditTradeSchema(CreateTradeSchema):
             crop_name=crop_name,
             invoice_no=invoice_no,
             party_name=party_name,
-            party_city=party_city,
-            party_gstin=party_gstin,
-            invoice_crop_qty=invoice_crop_qty,
-            invoice_crop_qty_unit=invoice_crop_qty_unit,
-            invoice_crop_rate=invoice_crop_rate,
-            invoice_crop_rate_unit=invoice_crop_rate_unit,
             vehicle_no=vehicle_no,
             mill_qty=mill_qty,
             mill_qty_unit=mill_qty_unit,
@@ -279,7 +218,6 @@ class EditTradeSchema(CreateTradeSchema):
         data.pop("id", None)
         return {"bill": data}
 
-
 class TradeOut(BaseModel):
     id: int
     created_at: datetime
@@ -289,14 +227,8 @@ class TradeOut(BaseModel):
 
     invoice_no: Optional[str] = None
     party_name: Optional[str] = None
-    party_city: Optional[str] = None
-    party_gstin: Optional[str] = None
     crop_name: str
 
-    invoice_crop_qty: Optional[Decimal] = None
-    invoice_crop_qty_unit: Optional[str] = None
-    invoice_crop_rate: Optional[Decimal] = None
-    invoice_crop_rate_unit: Optional[str] = None
     vehicle_no: Optional[str] = None
 
     mill_qty: Optional[Decimal] = None

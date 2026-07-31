@@ -44,7 +44,7 @@ class Invoice(BaseModel):
     seller_ifsc: Optional[str] = Field(None, max_length=11, alias="sellerIFSC")
 
     invoice_date: date = Field(..., alias="invoiceDate")
-
+    invoice_no:Optional[str] = Field(None, max_length=50, alias="invoiceNo")
     eway_bill_no: Optional[str] = Field(None, alias="ewayBillNo")    
     docket_no: Optional[str] = Field(None, max_length=50, alias="docketNo")
     transport_name: Optional[str] = Field(None, max_length=100, alias="transportName")

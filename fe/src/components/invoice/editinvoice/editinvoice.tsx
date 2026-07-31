@@ -21,6 +21,7 @@ import { useContext } from "react";
 import { ErrorContext } from "@/components/errors/errorcontext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Invoice as InvoiceListItem } from "../invoice_book/invoice_book";
+import BlurLoading from "@/components/blurloading/animation";
 
 // ─── Profile config shapes (matches backend ProfileConfigSchema) ──────────────
 interface ProfileBank {
@@ -45,7 +46,7 @@ interface SavedInvoice {
   seller_gstin: string;
   invoice_no: string;
   invoice_date: string;
-  eway_bill_no:string | null;
+  eway_bill_no: string | null;
   docket_no?: string | null;
   transport_name?: string | null;
   delivery_through: string;
@@ -248,7 +249,7 @@ const buildInit = () => ({
   sellerIFSC: "",
   invoiceNo: "",
   invoiceDate: "",
-  eway_bill_no:"",
+  eway_bill_no: "",
   docketNo: "",
   transportName: "",
   deliveryThrough: "",
@@ -348,18 +349,6 @@ function ErrorPopup({
   );
 }
 
-// ─── Saving overlay — shown while the bill is being POSTed to the backend ─────
-function SavingOverlay() {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 print-hide">
-      <div className="bg-white rounded-lg shadow-xl px-8 py-6 flex flex-col items-center gap-3">
-        <div className="mb-spinner" />
-        <span className="text-sm text-gray-700 font-medium">Saving...</span>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function EditInvoiceForm() {
   const errorcontext = useContext(ErrorContext);
@@ -431,7 +420,7 @@ export default function EditInvoiceForm() {
       sellerIFSC: existingBill.seller_ifsc || "",
       invoiceNo: existingBill.invoice_no,
       invoiceDate: existingBill.invoice_date,
-      eway_bill_no:existingBill.eway_bill_no || "",
+      eway_bill_no: existingBill.eway_bill_no || "",
       docketNo: existingBill.docket_no || "",
       transportName: existingBill.transport_name || "",
       deliveryThrough: existingBill.delivery_through,
@@ -576,7 +565,7 @@ export default function EditInvoiceForm() {
       sellerAccount: s.sellerAccount,
       sellerIFSC: s.sellerIFSC,
       invoiceDate: s.invoiceDate,
-      eway_bill_no:s.eway_bill_no,
+      eway_bill_no: s.eway_bill_no,
       docketNo: s.docketNo,
       transportName: s.transportName,
       deliveryThrough: s.deliveryThrough,
@@ -943,7 +932,7 @@ export default function EditInvoiceForm() {
           No bill found to edit.
         </div>
         <button
-          onClick={() => navigate('/invoice-book')}
+          onClick={() => navigate("/invoice-book")}
           className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-400
                text-sm font-medium px-4 py-2 rounded shadow-sm transition-colors"
         >
@@ -955,625 +944,623 @@ export default function EditInvoiceForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-20">
-      {errors.length > 0 && (
-        <ErrorPopup errors={errors} onClose={() => setErrors([])} />
-      )}
-
-      {isSaving && <SavingOverlay />}
-
-      {isGeneratingPdf && (
-        <div className="pdf-generating-overlay print-hide">
-          <div className="mb-spinner" />
-          <div className="pdf-generating-text">Generating PDF...</div>
-        </div>
-      )}
-
-      {showRetryBanner && (
-        <div className="send-retry-banner print-hide">
-          <div className="send-retry-banner-text">
-            Please tap Send again to complete it.
-          </div>
-          <div className="send-retry-banner-actions">
-            <button onClick={handleSendRetry} className="send-retry-btn">
-              <SendIcon size={16} /> Send
-            </button>
-            <button
-              onClick={() => setShowRetryBanner(false)}
-              className="send-retry-cancel-btn"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Top Navigation Bar ── */}
-      <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print-hide">
-        <button
-          onClick={() => navigate('/invoice-book')}
-          className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-400
-                     text-sm font-medium px-4 py-2 rounded shadow-sm transition-colors"
-        >
-          <ArrowLeft size={16} />
-          Back to Book
-        </button>
-      </div>
-
-      <div ref={zoomOuterRef} className="invoice-zoom-outer">
-        <div
-          className="invoice-zoom-inner"
-          style={{
-            width: DESKTOP_WIDTH,
-            zoom: zoomLevel,
-            visibility: zoomReady ? "visible" : "hidden",
-          }}
-        >
-          <div
-            className={`invoice-form invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? "preview-mode" : ""}`}
-          >
-            {/* ── HEADER ── */}
-            <img
-              src={karmaLogo}
-              alt=""
-              aria-hidden="true"
-              className="watermark-img"
-            />
-            <div className="relative border-b border-gray-600 p-5">
-              <div className="text-center">
-                <div className="text-3xl font-bold tracking-wide break-words">
-                  {s.sellerName}
-                </div>
-                <div className="mt-1 text-sm">{s.sellerAddress}</div>
-                <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
-                  <span className="flex items-baseline gap-1">
-                    <span className="font-semibold">PAN No.:</span>
-                    <Field
-                      value={s.sellerPAN}
-                      onChange={f("sellerPAN")}
-                      upper
-                      width="w-32"
-                    />
-                  </span>
-                  <span className="flex items-baseline gap-1">
-                    <span className="font-semibold">GSTIN No.:</span>
-                    <Field
-                      value={s.sellerGSTIN}
-                      onChange={f("sellerGSTIN")}
-                      upper
-                      width="w-44"
-                    />
-                  </span>
-                </div>
-              </div>
-              <div className="absolute top-4 right-4 border border-gray-700 px-2 py-0.5 text-sm font-bold tracking-widest">
-                ORIGINAL
-              </div>
+    <BlurLoading
+      message={isSaving ? "Saving" : isGeneratingPdf ? "Generating PDF" : ""}
+      loading={isSaving || isGeneratingPdf}
+    >
+      <div className="min-h-screen edit-invoice-container bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-20">
+        {errors.length > 0 && (
+          <ErrorPopup errors={errors} onClose={() => setErrors([])} />
+        )}
+        {showRetryBanner && (
+          <div className="send-retry-banner print-hide">
+            <div className="send-retry-banner-text">
+              Please tap Send again to complete it.
             </div>
+            <div className="send-retry-banner-actions">
+              <button onClick={handleSendRetry} className="send-retry-btn">
+                <SendIcon size={16} /> Send
+              </button>
+              <button
+                onClick={() => setShowRetryBanner(false)}
+                className="send-retry-cancel-btn"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
-            {/* ── TITLE BAR ── */}
-            <div className="border border-gray-600">
-              <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
-                <span className="text-base font-bold tracking-widest">
-                  TAX INVOICE (EDIT)
-                </span>
+        {/* ── Top Navigation Bar ── */}
+        <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print-hide">
+          <button
+            onClick={() => navigate("/invoice-book")}
+            className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-400
+                     text-sm font-medium px-4 py-2 rounded shadow-sm transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Back to Book
+          </button>
+        </div>
+
+        <div ref={zoomOuterRef} className="invoice-zoom-outer">
+          <div
+            className="invoice-zoom-inner"
+            style={{
+              width: DESKTOP_WIDTH,
+              zoom: zoomLevel,
+              visibility: zoomReady ? "visible" : "hidden",
+            }}
+          >
+            <div
+              className={`invoice-form invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? "preview-mode" : ""}`}
+            >
+              {/* ── HEADER ── */}
+              <img
+                src={karmaLogo}
+                alt=""
+                aria-hidden="true"
+                className="watermark-img"
+              />
+              <div className="relative border-b border-gray-600 p-5">
+                <div className="text-center">
+                  <div className="text-3xl font-bold tracking-wide break-words">
+                    {s.sellerName}
+                  </div>
+                  <div className="mt-1 text-sm">{s.sellerAddress}</div>
+                  <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
+                    <span className="flex items-baseline gap-1">
+                      <span className="font-semibold">PAN No.:</span>
+                      <Field
+                        value={s.sellerPAN}
+                        onChange={f("sellerPAN")}
+                        upper
+                        width="w-32"
+                      />
+                    </span>
+                    <span className="flex items-baseline gap-1">
+                      <span className="font-semibold">GSTIN No.:</span>
+                      <Field
+                        value={s.sellerGSTIN}
+                        onChange={f("sellerGSTIN")}
+                        upper
+                        width="w-44"
+                      />
+                    </span>
+                  </div>
+                </div>
+                <div className="absolute top-4 right-4 border border-gray-700 px-2 py-0.5 text-sm font-bold tracking-widest">
+                  ORIGINAL
+                </div>
               </div>
 
-              {/* ── PARTY + INVOICE DETAILS ── */}
-              <div className="border-b border-gray-600 grid grid-cols-[55%_45%]">
-                {/* LEFT — party details */}
-                <div className="border-r border-gray-600 p-4">
-                  <div className="grid grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-sm">
-                    <span className="font-bold whitespace-nowrap text-base">
-                      M/s.
-                    </span>
-                    <span></span>
-                    <input
-                      value={s.partyName}
-                      onChange={(e) =>
-                        f("partyName")(e.target.value.toUpperCase())
-                      }
-                      placeholder="PARTY / BUYER NAME"
-                      spellCheck={false}
-                      className="bg-transparent outline-none border-b border-dashed border-gray-400
+              {/* ── TITLE BAR ── */}
+              <div className="border border-gray-600">
+                <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
+                  <span className="text-base font-bold tracking-widest">
+                    TAX INVOICE
+                  </span>
+                </div>
+
+                {/* ── PARTY + INVOICE DETAILS ── */}
+                <div className="border-b border-gray-600 grid grid-cols-[55%_45%]">
+                  {/* LEFT — party details */}
+                  <div className="border-r border-gray-600 p-4">
+                    <div className="grid grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-sm">
+                      <span className="font-bold whitespace-nowrap text-base">
+                        M/s.
+                      </span>
+                      <span></span>
+                      <input
+                        value={s.partyName}
+                        onChange={(e) =>
+                          f("partyName")(e.target.value.toUpperCase())
+                        }
+                        placeholder="PARTY / BUYER NAME"
+                        spellCheck={false}
+                        className="bg-transparent outline-none border-b border-dashed border-gray-400
                                  hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
                                  text-gray-900 transition-colors font-bold text-base w-full"
-                    />
+                      />
 
-                    <span></span>
-                    <span></span>
-                    <textarea
-                      rows={
-                        s.partyAddress.length > 45 ||
-                        s.partyAddress.includes("\n")
-                          ? 2
-                          : 1
-                      }
-                      value={s.partyAddress}
-                      onChange={(e) =>
-                        f("partyAddress")(e.target.value.toUpperCase())
-                      }
-                      placeholder="ADDRESS..."
-                      spellCheck={false}
-                      className="bg-transparent outline-none border-b border-dashed border-gray-400
+                      <span></span>
+                      <span></span>
+                      <textarea
+                        rows={
+                          s.partyAddress.length > 45 ||
+                          s.partyAddress.includes("\n")
+                            ? 2
+                            : 1
+                        }
+                        value={s.partyAddress}
+                        onChange={(e) =>
+                          f("partyAddress")(e.target.value.toUpperCase())
+                        }
+                        placeholder="ADDRESS..."
+                        spellCheck={false}
+                        className="bg-transparent outline-none border-b border-dashed border-gray-400
                                  hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
                                  text-gray-900 transition-colors w-full resize-none overflow-hidden
                                  leading-tight text-sm"
-                    />
-
-                    {(
-                      [
-                        ["City", "partyCity", false],
-                        ["State", "partyState", false],
-                        ["Party GSTIN", "partyGSTIN", true],
-                        ["Party PAN", "partyPAN", true],
-                      ] as [string, keyof FormState, boolean][]
-                    ).map(([label, key, up]) => (
-                      <React.Fragment key={key}>
-                        <span className="whitespace-nowrap font-medium">
-                          {label}
-                        </span>
-                        <span>:</span>
-                        <Field
-                          value={s[key]}
-                          onChange={f(key)}
-                          upper={up}
-                          className="text-sm w-full"
-                        />
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
-
-                {/* RIGHT — invoice info */}
-                <div className="p-4 space-y-1 text-sm">
-                  <div className="grid grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
-                    <span className="whitespace-nowrap font-semibold">
-                      Invoice No.
-                    </span>
-                    <span>:</span>
-                    {/* invoice_no is the record identity for /edit-invoice —
-                        kept read-only so it can't be accidentally changed */}
-                    <Field
-                      value={s.invoiceNo}
-                      onChange={f("invoiceNo")}
-                      bold
-                      readOnly
-                      className="text-sm w-full"
-                    />
-                    <span className="whitespace-nowrap font-semibold">
-                      Invoice Date
-                    </span>
-                    <span>:</span>
-                    <div className="flex-1 w-full">
-                      <input
-                        type="date"
-                        value={s.invoiceDate}
-                        onChange={(e) => f("invoiceDate")(e.target.value)}
-                        className="bg-transparent outline-none w-full border-b border-dashed border-gray-400
-                                   hover:border-blue-400 focus:border-blue-600 text-sm transition-colors print-hide"
                       />
-                      <span className="screen-hide">
-                        {formatDateForPrint(s.invoiceDate)}
-                      </span>
-                    </div>
-                    <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-4 w-[calc(100%+2rem)]"></div>
-                    {(
-                      [
-                        ["E-Way Bill No.","eway_bill_no",false],
-                        ["Docket No.", "docketNo", false],
-                        ["Transport Name", "transportName", false],
-                        ["Delivery Through", "deliveryThrough", true],
-                      ] as [string, keyof FormState, boolean][]
-                    ).map(([label, key, up]) => (
-                      <React.Fragment key={key}>
-                        <span className="whitespace-nowrap font-semibold">
-                          {label}
-                        </span>
-                        <span>:</span>
-                        <Field
-                          value={s[key]}
-                          onChange={f(key)}
-                          upper={up}
-                          placeholder={
-                            key === "deliveryThrough" ? "Vehicle No." : ""
-                          }
-                          className="text-sm w-full"
-                        />
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
-              </div>
 
-              {/* ── ITEMS TABLE ── */}
-              <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
-                <table className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse">
-                  <thead>
-                    <tr className="bg-gray-300 border-b border-gray-600">
                       {(
                         [
-                          ["Sr.\nNo.", "center"],
-                          ["Crop", "center"],
-                          ["HSN /\nSAC", "center"],
-                          ["Qty.", "center"],
-                          ["UQC", "center"],
-                          ["Rate", "center"],
-                          ["Taxable\nAmt.", "right"],
-                          ["CGST\n%", "center"],
-                          ["CGST\nAmt.", "right"],
-                          ["SGST\n%", "center"],
-                          ["SGST\nAmt.", "right"],
-                          ["FINAL\nAmt.", "right"],
-                        ] as [string, string][]
-                      ).map(([label, align], i) => (
-                        <th
-                          key={i}
-                          className={`p-2 font-semibold whitespace-pre-line text-${align} line-height-1-3
-                            ${i < 12 ? "border-r border-gray-400" : ""}`}
-                        >
-                          {label}
-                        </th>
+                          ["City", "partyCity", false],
+                          ["State", "partyState", false],
+                          ["Party GSTIN", "partyGSTIN", true],
+                          ["Party PAN", "partyPAN", true],
+                        ] as [string, keyof FormState, boolean][]
+                      ).map(([label, key, up]) => (
+                        <React.Fragment key={key}>
+                          <span className="whitespace-nowrap font-medium">
+                            {label}
+                          </span>
+                          <span>:</span>
+                          <Field
+                            value={s[key]}
+                            onChange={f(key)}
+                            upper={up}
+                            className="text-sm w-full"
+                          />
+                        </React.Fragment>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Array.from({ length: 6 }).map((_, idx) => {
-                      if (idx === 0) {
+                    </div>
+                  </div>
+
+                  {/* RIGHT — invoice info */}
+                  <div className="p-4 space-y-1 text-sm">
+                    <div className="grid grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
+                      <span className="whitespace-nowrap font-semibold">
+                        Invoice No.
+                      </span>
+                      <span>:</span>
+                      {/* invoice_no is the record identity for /edit-invoice —
+                        kept read-only so it can't be accidentally changed */}
+                      <Field
+                        value={s.invoiceNo}
+                        onChange={f("invoiceNo")}
+                        bold
+                        className="text-sm w-full"
+                      />
+                      <span className="whitespace-nowrap font-semibold">
+                        Invoice Date
+                      </span>
+                      <span>:</span>
+                      <div className="flex-1 w-full">
+                        <input
+                          type="date"
+                          value={s.invoiceDate}
+                          onChange={(e) => f("invoiceDate")(e.target.value)}
+                          className="bg-transparent outline-none w-full border-b border-dashed border-gray-400
+                                   hover:border-blue-400 focus:border-blue-600 text-sm transition-colors print-hide"
+                        />
+                        <span className="screen-hide">
+                          {formatDateForPrint(s.invoiceDate)}
+                        </span>
+                      </div>
+                      <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-4 w-[calc(100%+2rem)]"></div>
+                      {(
+                        [
+                          ["E-Way Bill No.", "eway_bill_no", false],
+                          ["Docket No.", "docketNo", false],
+                          ["Transport Name", "transportName", false],
+                          ["Delivery Through", "deliveryThrough", true],
+                        ] as [string, keyof FormState, boolean][]
+                      ).map(([label, key, up]) => (
+                        <React.Fragment key={key}>
+                          <span className="whitespace-nowrap font-semibold">
+                            {label}
+                          </span>
+                          <span>:</span>
+                          <Field
+                            value={s[key]}
+                            onChange={f(key)}
+                            upper={up}
+                            placeholder={
+                              key === "deliveryThrough" ? "Vehicle No." : ""
+                            }
+                            className="text-sm w-full"
+                          />
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── ITEMS TABLE ── */}
+                <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
+                  <table className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse">
+                    <thead>
+                      <tr className="bg-gray-300 border-b border-gray-600">
+                        {(
+                          [
+                            ["Sr.\nNo.", "center"],
+                            ["Crop", "center"],
+                            ["HSN /\nSAC", "center"],
+                            ["Qty.", "center"],
+                            ["UQC", "center"],
+                            ["Rate", "center"],
+                            ["Taxable\nAmt.", "right"],
+                            ["CGST\n%", "center"],
+                            ["CGST\nAmt.", "right"],
+                            ["SGST\n%", "center"],
+                            ["SGST\nAmt.", "right"],
+                            ["FINAL\nAmt.", "right"],
+                          ] as [string, string][]
+                        ).map(([label, align], i) => (
+                          <th
+                            key={i}
+                            className={`p-2 font-semibold whitespace-pre-line text-${align} line-height-1-3
+                            ${i < 12 ? "border-r border-gray-400" : ""}`}
+                          >
+                            {label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: 6 }).map((_, idx) => {
+                        if (idx === 0) {
+                          return (
+                            <tr
+                              key={idx}
+                              className="border-b border-gray-300 row-height-44"
+                            >
+                              <td className="border-r border-gray-400 p-1 text-center align-middle text-sm">
+                                <span className="print-hide">1</span>
+                                {s.crop !== "" && (
+                                  <span className="screen-hide">1</span>
+                                )}
+                              </td>
+
+                              <td className="border-r border-gray-400 p-1 align-middle text-center">
+                                <select
+                                  value={s.crop}
+                                  onChange={(e) =>
+                                    handleCropChange(e.target.value)
+                                  }
+                                  className="crop-select bg-transparent outline-none w-full border-b border-dashed
+                                           border-gray-400 hover:border-blue-400 focus:border-blue-600
+                                           text-xs transition-colors text-gray-900 print-hide text-center"
+                                >
+                                  <option value={s.crop}>
+                                    {s.crop || "—Select—"}
+                                  </option>
+                                  {cropOptions
+                                    .filter((c) => c.crop !== s.crop)
+                                    .map((c) => (
+                                      <option key={c.crop} value={c.crop}>
+                                        {c.crop}
+                                      </option>
+                                    ))}
+                                </select>
+                                {s.crop !== "" && (
+                                  <span className="screen-hide font-medium">
+                                    {s.crop}
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="border-r border-gray-400 p-1 align-middle text-center">
+                                <Field
+                                  value={s.hsnCode}
+                                  onChange={f("hsnCode")}
+                                  align="center"
+                                  autoFit
+                                  minChars={4}
+                                />
+                              </td>
+                              <td className="border-r border-gray-400 p-1 align-middle text-center">
+                                <Field
+                                  value={s.qty}
+                                  onChange={f("qty")}
+                                  type="number"
+                                  align="center"
+                                  autoFit
+                                  minChars={3}
+                                />
+                              </td>
+                              <td className="border-r border-gray-400 p-1 align-middle text-center">
+                                <select
+                                  value={s.uqc}
+                                  onChange={(e) =>
+                                    handleuqcChange(e.target.value)
+                                  }
+                                  className="crop-select bg-transparent outline-none w-20 border-b border-dashed
+                                           border-gray-400 hover:border-blue-400 focus:border-blue-600
+                                           text-xs transition-colors text-gray-900 print-hide text-center"
+                                >
+                                  <option value="">—Select—</option>
+                                  {uqcOptions.map((uqc, i) => (
+                                    <option key={i} value={uqc}>
+                                      {uqc}
+                                    </option>
+                                  ))}
+                                </select>
+                                {s.crop !== "" && (
+                                  <span className="screen-hide font-medium">
+                                    {s.uqc}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="border-r border-gray-400 p-1 align-middle text-center">
+                                <Field
+                                  value={s.rate}
+                                  onChange={f("rate")}
+                                  type="number"
+                                  align="center"
+                                  autoFit
+                                  minChars={3}
+                                />
+                              </td>
+                              <td className="border-r border-gray-400 p-1 text-right align-middle font-medium">
+                                {taxableDec.gt(0) ? fmt(taxableDec) : ""}
+                              </td>
+                              <td className="border-r border-gray-400 p-1 align-middle text-center">
+                                <Field
+                                  value={s.cgstRate}
+                                  onChange={f("cgstRate")}
+                                  type="number"
+                                  align="center"
+                                  autoFit
+                                  minChars={2}
+                                />
+                              </td>
+                              <td className="border-r border-gray-400 p-1 text-right align-middle">
+                                {isCropEmpty
+                                  ? ""
+                                  : cgstDec.gt(0)
+                                    ? fmt(cgstDec)
+                                    : "0.00"}
+                              </td>
+                              <td className="border-r border-gray-400 p-1 align-middle text-center">
+                                <Field
+                                  value={s.sgstRate}
+                                  onChange={f("sgstRate")}
+                                  type="number"
+                                  align="center"
+                                  autoFit
+                                  minChars={2}
+                                />
+                              </td>
+                              <td className="border-r border-gray-400 p-1 text-right align-middle">
+                                {isCropEmpty
+                                  ? ""
+                                  : sgstDec.gt(0)
+                                    ? fmt(sgstDec)
+                                    : "0.00"}
+                              </td>
+                              <td className="p-1 text-right align-middle font-semibold">
+                                {finalDec.gt(0) ? fmt(finalDec) : ""}
+                              </td>
+                            </tr>
+                          );
+                        }
+
                         return (
                           <tr
                             key={idx}
                             className="border-b border-gray-300 row-height-44"
                           >
-                            <td className="border-r border-gray-400 p-1 text-center align-middle text-sm">
-                              <span className="print-hide">1</span>
-                              {s.crop !== "" && (
-                                <span className="screen-hide">1</span>
-                              )}
-                            </td>
-
-                            <td className="border-r border-gray-400 p-1 align-middle text-center">
-                              <select
-                                value={s.crop}
-                                onChange={(e) =>
-                                  handleCropChange(e.target.value)
-                                }
-                                className="crop-select bg-transparent outline-none w-full border-b border-dashed
-                                           border-gray-400 hover:border-blue-400 focus:border-blue-600
-                                           text-xs transition-colors text-gray-900 print-hide text-center"
-                              >
-                                <option value={s.crop}>{s.crop || "—Select—"}</option>
-                                {cropOptions
-                                  .filter((c) => c.crop !== s.crop)
-                                  .map((c) => (
-                                    <option key={c.crop} value={c.crop}>
-                                      {c.crop}
-                                    </option>
-                                  ))}
-                              </select>
-                              {s.crop !== "" && (
-                                <span className="screen-hide font-medium">
-                                  {s.crop}
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="border-r border-gray-400 p-1 align-middle text-center">
-                              <Field
-                                value={s.hsnCode}
-                                onChange={f("hsnCode")}
-                                align="center"
-                                autoFit
-                                minChars={4}
-                              />
-                            </td>
-                            <td className="border-r border-gray-400 p-1 align-middle text-center">
-                              <Field
-                                value={s.qty}
-                                onChange={f("qty")}
-                                type="number"
-                                align="center"
-                                autoFit
-                                minChars={3}
-                              />
-                            </td>
-                            <td className="border-r border-gray-400 p-1 align-middle text-center">
-                              <select
-                                value={s.uqc}
-                                onChange={(e) =>
-                                  handleuqcChange(e.target.value)
-                                }
-                                className="crop-select bg-transparent outline-none w-20 border-b border-dashed
-                                           border-gray-400 hover:border-blue-400 focus:border-blue-600
-                                           text-xs transition-colors text-gray-900 print-hide text-center"
-                              >
-                                <option value="">—Select—</option>
-                                {uqcOptions.map((uqc, i) => (
-                                  <option key={i} value={uqc}>
-                                    {uqc}
-                                  </option>
-                                ))}
-                              </select>
-                              {s.crop !== "" && (
-                                <span className="screen-hide font-medium">
-                                  {s.uqc}
-                                </span>
-                              )}
-                            </td>
-                            <td className="border-r border-gray-400 p-1 align-middle text-center">
-                              <Field
-                                value={s.rate}
-                                onChange={f("rate")}
-                                type="number"
-                                align="center"
-                                autoFit
-                                minChars={3}
-                              />
-                            </td>
-                            <td className="border-r border-gray-400 p-1 text-right align-middle font-medium">
-                              {taxableDec.gt(0) ? fmt(taxableDec) : ""}
-                            </td>
-                            <td className="border-r border-gray-400 p-1 align-middle text-center">
-                              <Field
-                                value={s.cgstRate}
-                                onChange={f("cgstRate")}
-                                type="number"
-                                align="center"
-                                autoFit
-                                minChars={2}
-                              />
-                            </td>
-                            <td className="border-r border-gray-400 p-1 text-right align-middle">
-                              {isCropEmpty
-                                ? ""
-                                : cgstDec.gt(0)
-                                  ? fmt(cgstDec)
-                                  : "0.00"}
-                            </td>
-                            <td className="border-r border-gray-400 p-1 align-middle text-center">
-                              <Field
-                                value={s.sgstRate}
-                                onChange={f("sgstRate")}
-                                type="number"
-                                align="center"
-                                autoFit
-                                minChars={2}
-                              />
-                            </td>
-                            <td className="border-r border-gray-400 p-1 text-right align-middle">
-                              {isCropEmpty
-                                ? ""
-                                : sgstDec.gt(0)
-                                  ? fmt(sgstDec)
-                                  : "0.00"}
-                            </td>
-                            <td className="p-1 text-right align-middle font-semibold">
-                              {finalDec.gt(0) ? fmt(finalDec) : ""}
-                            </td>
+                            <td className="border-r border-gray-400 p-1 text-center"></td>
+                            <td className="border-r border-gray-400 p-1 text-center"></td>
+                            <td className="border-r border-gray-400 p-1 text-center"></td>
+                            <td className="border-r border-gray-400 p-1 text-right"></td>
+                            <td className="border-r border-gray-400 p-1 text-center"></td>
+                            <td className="border-r border-gray-400 p-1 text-center"></td>
+                            <td className="border-r border-gray-400 p-1 text-right"></td>
+                            <td className="border-r border-gray-400 p-1 text-center"></td>
+                            <td className="border-r border-gray-400 p-1 text-right"></td>
+                            <td className="border-r border-gray-400 p-1 text-center"></td>
+                            <td className="border-r border-gray-400 p-1 text-right"></td>
+                            <td className="p-1 text-right"></td>
                           </tr>
                         );
-                      }
+                      })}
 
-                      return (
-                        <tr
-                          key={idx}
-                          className="border-b border-gray-300 row-height-44"
+                      {/* Totals row */}
+                      <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-xs">
+                        <td
+                          colSpan={6}
+                          className="border-r border-gray-400 p-2 text-center pr-4"
                         >
-                          <td className="border-r border-gray-400 p-1 text-center"></td>
-                          <td className="border-r border-gray-400 p-1 text-center"></td>
-                          <td className="border-r border-gray-400 p-1 text-center"></td>
-                          <td className="border-r border-gray-400 p-1 text-right"></td>
-                          <td className="border-r border-gray-400 p-1 text-center"></td>
-                          <td className="border-r border-gray-400 p-1 text-center"></td>
-                          <td className="border-r border-gray-400 p-1 text-right"></td>
-                          <td className="border-r border-gray-400 p-1 text-center"></td>
-                          <td className="border-r border-gray-400 p-1 text-right"></td>
-                          <td className="border-r border-gray-400 p-1 text-center"></td>
-                          <td className="border-r border-gray-400 p-1 text-right"></td>
-                          <td className="p-1 text-right"></td>
-                        </tr>
-                      );
-                    })}
-
-                    {/* Totals row */}
-                    <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-xs">
-                      <td
-                        colSpan={6}
-                        className="border-r border-gray-400 p-2 text-center pr-4"
-                      >
-                        Final Amount
-                      </td>
-                      <td className="border-r border-gray-400 p-2 text-right">
-                        {fmt(taxableDec)}
-                      </td>
-                      <td className="border-r border-gray-400" />
-                      <td className="border-r border-gray-400 p-2 text-right">
-                        {fmt(cgstDec)}
-                      </td>
-                      <td className="border-r border-gray-400" />
-                      <td className="border-r border-gray-400 p-2 text-right">
-                        {fmt(sgstDec)}
-                      </td>
-                      <td className="p-2 text-right">{fmt(finalDec)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {/* ── FOOTER ── */}
-              <div className="flex flex-col text-sm">
-                <div className="border-b border border-gray-600 p-3">
-                  <span className="font-semibold">Amt in Word: </span>
-                  <span className="italic ml-2 break-words">
-                    {finalDec.gt(0) ? (
-                      s.final_amount_in_words
-                    ) : (
-                      <span className="text-gray-300">
-                        Auto-generated when amount is entered
-                      </span>
-                    )}
-                  </span>
+                          Final Amount
+                        </td>
+                        <td className="border-r border-gray-400 p-2 text-right">
+                          {fmt(taxableDec)}
+                        </td>
+                        <td className="border-r border-gray-400" />
+                        <td className="border-r border-gray-400 p-2 text-right">
+                          {fmt(cgstDec)}
+                        </td>
+                        <td className="border-r border-gray-400" />
+                        <td className="border-r border-gray-400 p-2 text-right">
+                          {fmt(sgstDec)}
+                        </td>
+                        <td className="p-2 text-right">{fmt(finalDec)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
 
-                {/* Bank details */}
-                <div className="border-b border-gray-600 p-3">
-                  {bankAccountOptions.length > 1 && (
-                    <div className="mb-2 print-hide">
-                      <label className="text-xs font-semibold text-gray-600 mr-2">
-                        Select Bank Account:
-                      </label>
-                      <select
-                        value={selectedBankIndex}
-                        onChange={(e) =>
-                          handleBankSelect(Number(e.target.value))
-                        }
-                        className="bg-transparent outline-none border-b border-dashed border-gray-400
+                {/* ── FOOTER ── */}
+                <div className="flex flex-col text-sm">
+                  <div className="border-b border border-gray-600 p-3">
+                    <span className="font-semibold">Amt in Word: </span>
+                    <span className="italic ml-2 break-words">
+                      {finalDec.gt(0) ? (
+                        s.final_amount_in_words
+                      ) : (
+                        <span className="text-gray-300">
+                          Auto-generated when amount is entered
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Bank details */}
+                  <div className="border-b border-gray-600 p-3">
+                    {bankAccountOptions.length > 1 && (
+                      <div className="mb-2 print-hide">
+                        <label className="text-xs font-semibold text-gray-600 mr-2">
+                          Select Bank Account:
+                        </label>
+                        <select
+                          value={selectedBankIndex}
+                          onChange={(e) =>
+                            handleBankSelect(Number(e.target.value))
+                          }
+                          className="bg-transparent outline-none border-b border-dashed border-gray-400
                                    hover:border-blue-400 focus:border-blue-600 text-sm transition-colors"
-                      >
-                        {bankAccountOptions.map((b, i) => (
-                          <option key={i} value={i}>
-                            {b.bank} - {b.account}
-                          </option>
-                        ))}
-                      </select>
+                        >
+                          {bankAccountOptions.map((b, i) => (
+                            <option key={i} value={i}>
+                              {b.bank} - {b.account}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-1/2">
+                      <span className="whitespace-nowrap">Bank</span>
+                      <span>:</span>
+                      <Field
+                        value={s.sellerBank}
+                        onChange={f("sellerBank")}
+                        placeholder="Bank Name"
+                        className="w-full"
+                      />
+
+                      <span className="whitespace-nowrap">Account No.</span>
+                      <span>:</span>
+                      <Field
+                        value={s.sellerAccount}
+                        onChange={f("sellerAccount")}
+                        placeholder="000000000000"
+                        className="w-full"
+                      />
+
+                      <span className="whitespace-nowrap">IFSC</span>
+                      <span>:</span>
+                      <Field
+                        value={s.sellerIFSC}
+                        onChange={f("sellerIFSC")}
+                        placeholder="XXXX0000000"
+                        upper
+                        className="w-full"
+                      />
                     </div>
-                  )}
+                  </div>
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-1/2">
-                    <span className="whitespace-nowrap">Bank</span>
-                    <span>:</span>
-                    <Field
-                      value={s.sellerBank}
-                      onChange={f("sellerBank")}
-                      placeholder="Bank Name"
-                      className="w-full"
-                    />
-
-                    <span className="whitespace-nowrap">Account No.</span>
-                    <span>:</span>
-                    <Field
-                      value={s.sellerAccount}
-                      onChange={f("sellerAccount")}
-                      placeholder="000000000000"
-                      className="w-full"
-                    />
-
-                    <span className="whitespace-nowrap">IFSC</span>
-                    <span>:</span>
-                    <Field
-                      value={s.sellerIFSC}
-                      onChange={f("sellerIFSC")}
-                      placeholder="XXXX0000000"
-                      upper
-                      className="w-full"
-                    />
+              {/* Terms & Signatory */}
+              <div className="grid grid-cols-2 p-3 gap-0 min-h-[120px]">
+                <div className="flex flex-col pr-4">
+                  <div className="font-bold text-base mb-1">
+                    Terms &amp; Condition
+                  </div>
+                  <textarea
+                    value={s.terms}
+                    onChange={(e) => f("terms")(e.target.value)}
+                    rows={2}
+                    className="w-full bg-transparent outline-none resize-none text-sm border border-dashed
+                             border-gray-300 hover:border-blue-400 focus:border-blue-600 transition-colors p-1"
+                  />
+                </div>
+                <div className="flex flex-col justify-between text-right">
+                  <div className="font-bold text-base">For, {s.sellerName}</div>
+                  <div className="mt-12 text-gray-900">
+                    Authorised Signatory
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Terms & Signatory */}
-            <div className="grid grid-cols-2 p-3 gap-0 min-h-[120px]">
-              <div className="flex flex-col pr-4">
-                <div className="font-bold text-base mb-1">
-                  Terms &amp; Condition
-                </div>
-                <textarea
-                  value={s.terms}
-                  onChange={(e) => f("terms")(e.target.value)}
-                  rows={2}
-                  className="w-full bg-transparent outline-none resize-none text-sm border border-dashed
-                             border-gray-300 hover:border-blue-400 focus:border-blue-600 transition-colors p-1"
-                />
-              </div>
-              <div className="flex flex-col justify-between text-right">
-                <div className="font-bold text-base">For, {s.sellerName}</div>
-                <div className="mt-12 text-gray-900">Authorised Signatory</div>
-              </div>
-            </div>
           </div>
         </div>
-      </div>
 
-      {/* ══════════════════════════════════════════ BOTTOM ACTION BAR ══════════════════════════════════════════ */}
-      <div className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 print-hide px-2 sm:px-0">
-        {viewMode === "edit" && (
-          <button
-            onClick={handlePreview}
-            className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
+        {/* ══════════════════════════════════════════ BOTTOM ACTION BAR ══════════════════════════════════════════ */}
+        <div className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 print-hide px-2 sm:px-0">
+          {viewMode === "edit" && (
+            <button
+              onClick={handlePreview}
+              className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white
                        text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
-          >
-            <Eye size={16} />
-            Preview Bill
-          </button>
-        )}
+            >
+              <Eye size={16} />
+              Preview Bill
+            </button>
+          )}
 
-        {viewMode === "preview" && (
-          <>
-            <button
-              onClick={handleEdit}
-              className="flex items-center justify-center gap-2 bg-white hover:bg-gray-100 text-gray-800
+          {viewMode === "preview" && (
+            <>
+              <button
+                onClick={handleEdit}
+                className="flex items-center justify-center gap-2 bg-white hover:bg-gray-100 text-gray-800
                          border border-gray-400 text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
-            >
-              <Pencil size={16} />
-              Edit
-            </button>
-            <button
-              onClick={handleSaveBill}
-              disabled={isSaving}
-              className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60
+              >
+                <Pencil size={16} />
+                Edit
+              </button>
+              <button
+                onClick={handleSaveBill}
+                disabled={isSaving}
+                className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60
                          disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
-            >
-              <SaveIcon size={16} />
-              Save
-            </button>
-          </>
-        )}
+              >
+                <SaveIcon size={16} />
+                Save
+              </button>
+            </>
+          )}
 
-        {viewMode === "saved" && (
-          <>
-            <button
-              onClick={handlePrint}
-              disabled={isPrinting}
-              className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 disabled:opacity-70
+          {viewMode === "saved" && (
+            <>
+              <button
+                onClick={handlePrint}
+                disabled={isPrinting}
+                className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 disabled:opacity-70
                          disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
-            >
-              {isPrinting ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Printer size={16} />
-              )}
-              {isPrinting ? "Preparing..." : "Print"}
-            </button>
-            <button
-              onClick={handleSend}
-              disabled={isSending}
-              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-70
+              >
+                {isPrinting ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Printer size={16} />
+                )}
+                {isPrinting ? "Preparing..." : "Print"}
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={isSending}
+                className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-70
                          disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
-            >
-              {isSending ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <SendIcon size={16} />
-              )}
-              {isSending ? "Preparing PDF..." : "Send"}
-            </button>
-            <button
-              onClick={handleDownload}
-              disabled={isPrinting || isDownloading || isSending}
-              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-70
+              >
+                {isSending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <SendIcon size={16} />
+                )}
+                {isSending ? "Preparing PDF..." : "Send"}
+              </button>
+              <button
+                onClick={handleDownload}
+                disabled={isPrinting || isDownloading || isSending}
+                className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-70
                          disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
-            >
-              {isDownloading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Download size={16} />
-              )}
-              {isDownloading ? "Downloading..." : "Download"}
-            </button>
-          </>
-        )}
+              >
+                {isDownloading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Download size={16} />
+                )}
+                {isDownloading ? "Downloading..." : "Download"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </BlurLoading>
   );
 }

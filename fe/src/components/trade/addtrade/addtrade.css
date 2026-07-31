@@ -1,77 +1,49 @@
 .at-page {
-  --at-paper: #F4F7F2;
-  --at-surface: #FFFFFF;
-  --at-ink: #0A1A14;
-  --at-muted: #4A5A52;
-  --at-line: #D5DFD3;
-  --at-accent: #0F6E5D;
-  --at-accent-dark: #0A4F42;
-  --at-accent-soft: #E4EEEA;
+  --at-paper: #f4f7f2;
+  --at-surface: #ffffff;
+  --at-ink: #0a1a14;
+  --at-muted: #4a5a52;
+  --at-line: #d5dfd3;
+  --at-accent: #0f6e5d;
+  --at-accent-dark: #0a4f42;
+  --at-accent-soft: #e4eeea;
 
-  --at-inflow-bg: #E8F5EC;
-  --at-inflow-border: #7CC091;
-  --at-inflow-accent: #15803D;
+  --at-inflow-bg: #e8f5ec;
+  --at-inflow-border: #7cc091;
+  --at-inflow-accent: #15803d;
 
-  --at-outflow-bg: #FDECE7;
-  --at-outflow-border: #E8A491;
-  --at-outflow-accent: #B3432B;
+  --at-outflow-bg: #fdece7;
+  --at-outflow-border: #e8a491;
+  --at-outflow-accent: #b3432b;
 
-  --at-error: #B3432B;
-  --at-error-soft: #F7E9E5;
-  --at-profit: #16A34A;
-  --at-loss: #DC2626;
-  --at-grey-bg: #EEF1EB;
-  --at-grey-text: #8B948C;
-
+  --at-error: #b3432b;
+  --at-error-soft: #f7e9e5;
+  --at-profit: #16a34a;
+  --at-loss: #dc2626;
+  --at-grey-bg: #eef1eb;
+  --at-grey-text: #8b948c;
+  margin: 0;
+  padding: 0;
   background:
-    radial-gradient(1200px 500px at 100% -10%, rgba(15, 110, 93, 0.08), transparent 60%),
-    radial-gradient(900px 400px at -10% 110%, rgba(15, 110, 93, 0.06), transparent 60%),
+    radial-gradient(
+      1200px 500px at 100% -10%,
+      rgba(15, 110, 93, 0.08),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 400px at -10% 110%,
+      rgba(15, 110, 93, 0.06),
+      transparent 60%
+    ),
     var(--at-paper);
   min-height: 100vh;
   padding: 32px 24px;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   color: var(--at-ink);
   box-sizing: border-box;
-}
-
-.at-saving-dots {
-  display: inline-block;
-  width: 24px;
-  text-align: left;
-}
-
-.at-saving-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(110, 158, 140, 0.45);
-  backdrop-filter: blur(2px);
-
-  & .at-saving-overlay__box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    background: transparent;
-    border-radius: 14px;
-  }
-
-  & .at-saving-overlay__spinner {
-    color: var(--at-accent);
-    animation: at-spin 0.8s linear infinite;
-  }
-
-  & .at-saving-overlay__text {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--at-ink);
-    min-width: 84px;
-    /* prevents the box from jittering width as dots grow/shrink */
-    text-align: center;
-  }
 }
 
 .at-shell {
@@ -96,10 +68,10 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
-
-
 
 .at-btn-back:hover {
   background: var(--at-accent-soft);
@@ -127,7 +99,7 @@
 }
 
 .at-title {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 34px;
   font-weight: 800;
   color: rgb(19, 70, 19);
@@ -176,20 +148,38 @@
   outline: none;
 }
 
-/* Invoice inline field (no panel container) */
+/* Update your existing inline container */
 .at-invoice-inline {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 2px 4px;
+  flex-wrap: wrap; /* Allows wrapping on mobile */
+  justify-content: space-between; /* Spreads them evenly with space in between */
+  gap: 24px; /* Minimum space before wrapping */
+  padding: 8px 4px;
+}
+
+/* Groups the icon, label, and input together */
+.at-field-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto; /* Allows fields to flexibly size themselves */
+}
+
+/* Lucide icon color matching */
+.at-icon {
+  color: var(--at-ink);
+  opacity: 0.8;
 }
 
 .at-invoice-inline .at-label {
   margin: 0;
   white-space: nowrap;
+  font-weight: 800;
+  font-size: small;
 }
 
-/* Invoice input — small underline only, no box, narrow width for short numbers */
+/* Your existing input styling remains exactly the same */
 .at-invoice-input {
   width: 96px;
   height: 30px;
@@ -199,20 +189,50 @@
   background: transparent;
   padding: 0 2px;
   font-size: 16px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   color: var(--at-ink);
   box-sizing: border-box;
   transition: border-color 0.15s;
+  margin-left: 5px;
 }
 
 .at-invoice-input:focus {
   outline: none;
-  border-bottom-color: var(--at-accent);
 }
 
 .at-invoice-input[readonly] {
   color: var(--at-ink);
   border-bottom-style: dashed;
+}
+
+/* Vehicle input needs to be slightly wider for GJ-05-XX-0000 format */
+.at-vehicle-input {
+  width: 130px;
+}
+
+/* Select wrapper to hold the custom chevron icon */
+.at-select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Override standard select box to look like your invoice underline */
+.at-select-inline {
+  width: 110px;
+  appearance: none; /* Kills the ugly browser default box/arrow */
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: 20px; /* Leaves space for the Lucide chevron */
+}
+
+/* Position the Lucide chevron over the select field */
+.at-select-icon {
+  position: absolute;
+  right: 2px;
+  pointer-events: none; /* Lets you click 'through' the icon to open the dropdown */
+  color: var(--at-ink);
+  opacity: 0.7;
 }
 
 /* Panels */
@@ -247,7 +267,7 @@
 }
 
 .at-panel--inflow {
-  background: linear-gradient(180deg, var(--at-inflow-bg), #F3FAF5);
+  background: linear-gradient(180deg, var(--at-inflow-bg), #f3faf5);
   border-color: var(--at-inflow-border);
   border-left: 4px solid var(--at-inflow-accent);
 }
@@ -257,7 +277,7 @@
 }
 
 .at-panel--outflow {
-  background: linear-gradient(180deg, var(--at-outflow-bg), #FDF5F1);
+  background: linear-gradient(180deg, var(--at-outflow-bg), #fdf5f1);
   border-color: var(--at-outflow-border);
   border-left: 4px solid var(--at-outflow-accent);
 }
@@ -347,11 +367,13 @@
   border-radius: 8px;
   padding: 0 12px;
   font-size: 15px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-farmer-input:focus {
@@ -368,11 +390,13 @@
   border-radius: 8px;
   padding: 0 12px;
   font-size: 15px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-labour-input:focus {
@@ -389,11 +413,13 @@
   border-radius: 8px;
   padding: 0 12px;
   font-size: 15px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-transport-input:focus {
@@ -410,11 +436,13 @@
   border-radius: 8px;
   padding: 0 12px;
   font-size: 15px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-other-input:focus {
@@ -431,11 +459,13 @@
   border-radius: 8px;
   padding: 0 12px;
   font-size: 15px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-millqty-input:focus {
@@ -456,7 +486,9 @@
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-qtyunit-custom-input:focus {
@@ -473,11 +505,13 @@
   border-radius: 8px;
   padding: 0 12px;
   font-size: 15px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-millrate-input:focus {
@@ -498,7 +532,9 @@
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-rateunit-custom-input:focus {
@@ -515,11 +551,13 @@
   border-radius: 8px;
   padding: 0 12px;
   font-size: 15px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-gst-input:focus {
@@ -536,11 +574,13 @@
   border-radius: 8px;
   padding: 0 12px;
   font-size: 15px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-tds-input:focus {
@@ -557,11 +597,13 @@
   border-radius: 8px;
   padding: 0 12px;
   font-size: 15px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   color: var(--at-ink);
   background: var(--at-surface);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .at-millpayment-input:focus {
@@ -585,7 +627,7 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  background: linear-gradient(135deg, #0A1A14 0%, #0F2A20 100%);
+  background: linear-gradient(135deg, #0a1a14 0%, #0f2a20 100%);
   border-radius: 14px;
   padding: 20px 26px;
   flex-wrap: wrap;
@@ -595,10 +637,14 @@
 }
 
 .at-summary::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(400px 200px at 100% 0%, rgba(21, 128, 61, 0.25), transparent 70%);
+  background: radial-gradient(
+    400px 200px at 100% 0%,
+    rgba(21, 128, 61, 0.25),
+    transparent 70%
+  );
   pointer-events: none;
 }
 
@@ -614,12 +660,12 @@
   font-size: 10.5px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #9AB0A6;
+  color: #9ab0a6;
   font-weight: 600;
 }
 
 .at-summary-value {
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
   font-size: 18px;
   color: #fff;
   font-weight: 700;
@@ -642,11 +688,11 @@
 }
 
 .at-summary-item.at-profit .at-summary-value {
-  color: #6FE0A4;
+  color: #6fe0a4;
 }
 
 .at-summary-item.at-loss .at-summary-value {
-  color: #F0897A;
+  color: #f0897a;
 }
 
 /* Actions */
@@ -671,7 +717,11 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  background: linear-gradient(135deg, var(--at-accent) 0%, var(--at-accent-dark) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--at-accent) 0%,
+    var(--at-accent-dark) 100%
+  );
   color: #fff;
   border: none;
   padding: 14px 34px;
@@ -681,7 +731,9 @@
   letter-spacing: 0.02em;
   cursor: pointer;
   box-shadow: 0 6px 18px rgba(15, 110, 93, 0.3);
-  transition: transform 0.05s, box-shadow 0.15s;
+  transition:
+    transform 0.05s,
+    box-shadow 0.15s;
 }
 
 .at-btn-save:hover:not(:disabled) {
@@ -724,6 +776,11 @@
 
   .at-invoice-inline {
     flex-wrap: wrap;
+  }
+
+  .at-invoice-inline .at-label {
+    font-weight: 800;
+    font-size: small;
   }
 
   .at-summary {
@@ -803,7 +860,9 @@
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition:
+      background 0.15s,
+      border-color 0.15s;
 
     &:hover:not(:disabled) {
       background: #d9ece6;
@@ -826,7 +885,6 @@
     color: rgb(223, 47, 47);
     border: solid rgb(130, 36, 36) 1px;
     cursor: pointer;
-
   }
 
   & .at-receipt-section__preview {

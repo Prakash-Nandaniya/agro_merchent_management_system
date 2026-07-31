@@ -1,0 +1,43 @@
+.at-blur-wrap {
+  position: relative;
+}
+
+.at-saving-overlay {
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  margin: 0;
+  padding: 0;
+  & .at-saving-overlay__box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    background: transparent;
+    border-radius: 14px;
+  }
+
+  & .at-saving-overlay__spinner {
+    color: var(--at-accent);
+    animation: at-spin 0.8s linear infinite;
+  }
+
+  & .at-saving-overlay__text {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--at-ink);
+    position: relative;
+    display: inline-block;
+  }
+  & .at-saving-dots {
+    position: absolute;
+    left: 100%;
+    width: 24px;
+    text-align: left;
+    margin-left: 5px;
+  }
+}

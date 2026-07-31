@@ -1,21 +1,21 @@
-import { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect, useRef, useContext } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   RotateCcw,
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Pencil,
-  Trash2,
   X,
+  Trash2,
   Filter,
 } from "lucide-react";
 import "./tradebook.css";
 import { settings } from "@/settings";
 import { apiFetch } from "@/utils/apifetch";
-import { useContext } from "react";
 import { ErrorContext } from "@/components/errors/errorcontext";
+import { FetchTrades } from "@/utils/cachestorage"; // add this alongside FetchInvoices
+import TradeRow from "@/components/trade/traderaw/trade";
 
 export interface Trade {
   id: number;
@@ -35,32 +35,30 @@ export interface Trade {
   mill_receipt: string | null;
   created_by: string;
   party_name: string | null;
-  party_city: string | null;
-  seller_name: string | null;
-  crops: string[];
+  crop_name: string;
+  vehicle_no: string;
 }
 
 interface Filters {
   party_name: string;
   crop: string;
-  party_city: string;
   invoice_no: string;
   created_by: string;
   date_from: string;
   date_to: string;
 }
 
-const STORAGE_KEY = "trade_book_state";
-
 const EMPTY_FILTERS: Filters = {
   party_name: "",
   crop: "",
-  party_city: "",
   invoice_no: "",
   created_by: "",
   date_from: "",
   date_to: "",
 };
+
+const FILTER_STORAGE_KEY = ["TradeBookFilter"] as const;
+const SEARCH_QUERY_BASE_KEY = "Trades_Search" as const;
 
 function toNum(v: string | undefined | null): number {
   const n = parseFloat(v || "0");
@@ -69,15 +67,10 @@ function toNum(v: string | undefined | null): number {
 
 function fmtAmount(n: number): string {
   const sign = n < 0 ? "-" : "";
-  return `${sign}${Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function formatDateDMY(iso: string | undefined | null): string {
-  if (!iso) return "";
-  const datePart = iso.split("T")[0]; // trade_creation_date is a datetime, strip the time part
-  const [y, m, d] = datePart.split("-");
-  if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
+  return `${sign}${Math.abs(n).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function tradeInflow(t: Trade): number {
@@ -97,7 +90,7 @@ function tradeProfit(t: Trade): number {
   return tradeInflow(t) - tradeOutflow(t);
 }
 
-// Latest trade_creation_date first; if two trades share a date, higher id (more recently created) wins.
+// Latest trade_creation_date first; if two trades share a date, higher id wins.
 function compareTradesDesc(a: Trade, b: Trade): number {
   const aDate = a.trade_creation_date?.split("T")[0] || "";
   const bDate = b.trade_creation_date?.split("T")[0] || "";
@@ -122,16 +115,100 @@ function getPageNumbers(
   return withGaps;
 }
 
+function extractErrorDetail(body: any, status: number): string {
+  if (typeof body.detail === "string") return body.detail;
+  if (Array.isArray(body.detail)) {
+    return body.detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ");
+  }
+  return `Request failed with status ${status}`;
+}
+
+async function fetchTradesSearch(filters: Filters): Promise<Trade[]> {
+  const payload: Record<string, string> = {};
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) payload[key] = value;
+  });
+
+  const res = await apiFetch(`${settings.BE_URL}/tradebook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (res.status === 404) return [];
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(extractErrorDetail(body, res.status));
+  }
+  const data: Trade[] = await res.json();
+  return [...data].sort(compareTradesDesc);
+}
+
 export default function TradeBook() {
+  const errorcontext = useContext(ErrorContext);
+  const queryClient = useQueryClient();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fromDateRef = useRef<HTMLInputElement>(null);
   const toDateRef = useRef<HTMLInputElement>(null);
+
+  const persistedFilters =
+    queryClient.getQueryData<Filters | null>([...FILTER_STORAGE_KEY]) ?? null;
+
+  const [filters, setFilters] = useState<Filters>(
+    persistedFilters ?? EMPTY_FILTERS,
+  );
+  const [appliedFilters, setAppliedFilters] = useState<Filters | null>(
+    persistedFilters,
+  );
+
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const navigate = useNavigate();
-  const savedState = getSavedState();
-  const errorcontext = useContext(ErrorContext);
-  // ── Responsive page size: 20 rows on desktop, 10 on mobile ──────────────
+  const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState(window.innerWidth < 640 ? 10 : 20);
+
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // ── Default full list, cached forever, same shape as FetchInvoices ──────
+  const { data: allTrades } = useQuery<Trade[]>({
+    queryKey: ["Trades"],
+    queryFn: FetchTrades,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
+
+  // ── Search results, only runs once filters are applied ──────────────────
+  const {
+    data: searchTrades,
+    isFetching: isSearching,
+    error: searchError,
+  } = useQuery<Trade[]>({
+    queryKey: [SEARCH_QUERY_BASE_KEY, appliedFilters],
+    queryFn: () => fetchTradesSearch(appliedFilters as Filters),
+    enabled: appliedFilters !== null,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  const isSearchActive = appliedFilters !== null;
+  const trades = isSearchActive ? searchTrades : allTrades;
+
+  const activeQueryKey = isSearchActive
+    ? ([SEARCH_QUERY_BASE_KEY, appliedFilters] as const)
+    : (["Trades"] as const);
+
+  useEffect(() => {
+    if (searchError) {
+      errorcontext.addError(
+        searchError instanceof Error
+          ? searchError.message
+          : "Could not reach the server.",
+      );
+    }
+  }, [searchError]);
 
   useEffect(() => {
     const handleResize = () => setPageSize(window.innerWidth < 640 ? 10 : 20);
@@ -139,28 +216,40 @@ export default function TradeBook() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const [filters, setFilters] = useState<Filters>(
-    savedState?.filters || EMPTY_FILTERS,
-  );
-  const [trades, setTrades] = useState<Trade[] | null>(
-    savedState?.trades ? [...savedState.trades].sort(compareTradesDesc) : null,
-  );
-  const [page, setPage] = useState<number>(savedState?.page || 1);
-  const [hasSearched, setHasSearched] = useState<boolean>(
-    savedState?.hasSearched || false,
-  );
-  const [loading, setLoading] = useState(false);
-
-  const [deleteTarget, setDeleteTarget] = useState<Trade | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowAdvancedFilters(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((prev) => ({ ...prev, [key]: value }));
   }
 
+  function applyFilters() {
+    setShowAdvancedFilters(false);
+    const snapshot = { ...filters };
+    setAppliedFilters(snapshot);
+    queryClient.setQueryData([...FILTER_STORAGE_KEY], snapshot);
+    setPage(1);
+  }
+
   function clearFilters() {
     setFilters(EMPTY_FILTERS);
+    setShowAdvancedFilters(false);
+    setAppliedFilters(null);
+    setPage(1);
+    queryClient.setQueryData([...FILTER_STORAGE_KEY], null);
+    queryClient.removeQueries({ queryKey: [SEARCH_QUERY_BASE_KEY] });
   }
+
   function openDatePicker(ref: React.RefObject<HTMLInputElement | null>) {
     const el = ref.current;
     if (!el) return;
@@ -174,100 +263,40 @@ export default function TradeBook() {
     }
     el.focus();
   }
-  function extractErrorDetail(body: any, status: number): string {
-    if (typeof body.detail === "string") return body.detail;
-    if (Array.isArray(body.detail)) {
-      return body.detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ");
-    }
-    return `Request failed with status ${status}`;
-  }
 
-  function getSavedState() {
-    const saved = sessionStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        errorcontext.addError("Failed to parse session storage");
-      }
-    }
-    return null;
-  }
-
-  async function runSearch() {
-    const payload: Record<string, string> = {};
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) payload[key] = value;
-    });
-
-    setLoading(true);
-    setHasSearched(true);
-
-    try {
-      const res = await apiFetch(`${settings.BE_URL}/tradebook`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.status === 404) {
-        setTrades([]);
-      } else if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        errorcontext.addError(extractErrorDetail(body, res.status));
-      } else {
-        const data: Trade[] = await res.json();
-        setTrades([...data].sort(compareTradesDesc));
-      }
-      setPage(1);
-    } catch (err) {
-      errorcontext.addError(
-        err instanceof Error ? err.message : "Could not reach the server.",
-      );
-      setTrades(null);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleRowClick(t: Trade) {
-    navigate("/view-trade", { state: { trade: t } });
-  }
-
-  function handleEdit(e: React.MouseEvent, t: Trade) {
-    e.stopPropagation(); // don't also trigger the row's own onClick
-    navigate("/add-trade", { state: { trade: t } });
-  }
-
-  function handleDeleteClick(e: React.MouseEvent, t: Trade) {
-    e.stopPropagation();
-    setDeleteTarget(t);
+  // Stable identity -> rows that aren't affected never re-render.
+  function handleDeleteClick(id: number) {
+    setDeleteTargetId(id);
   }
 
   async function confirmDelete() {
-    if (!deleteTarget) return;
+    if (deleteTargetId === null) return;
     setDeleting(true);
     try {
       const res = await apiFetch(
-        `${settings.BE_URL}/delete-trade/${deleteTarget.id}`,
-        {
-          method: "DELETE",
-        },
+        `${settings.BE_URL}/delete-trade/${deleteTargetId}`,
+        { method: "DELETE" },
       );
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         errorcontext.addError(extractErrorDetail(body, res.status));
+        return;
       }
 
-      setTrades((prev) => {
-        if (!prev) return prev;
-        const next = prev.filter((t) => t.id !== deleteTarget.id);
-        const nextTotalPages = Math.max(1, Math.ceil(next.length / pageSize));
-        setPage((p) => Math.min(p, nextTotalPages));
-        return next;
-      });
-      setDeleteTarget(null);
+      // Remove it from every cached list it could live in, so it can't
+      // reappear (e.g. if the user clears filters afterwards).
+      queryClient.setQueryData<Trade[]>(["Trades"], (prev) =>
+        prev ? prev.filter((t) => t.id !== deleteTargetId) : prev,
+      );
+      if (appliedFilters) {
+        queryClient.setQueryData<Trade[]>(
+          [SEARCH_QUERY_BASE_KEY, appliedFilters],
+          (prev) => (prev ? prev.filter((t) => t.id !== deleteTargetId) : prev),
+        );
+      }
+
+      setDeleteTargetId(null);
     } catch (err) {
       errorcontext.addError(
         err instanceof Error ? err.message : "Could not reach the server.",
@@ -295,24 +324,14 @@ export default function TradeBook() {
     ? trades.slice((page - 1) * pageSize, page * pageSize)
     : [];
 
-  useEffect(() => {
-    const stateToSave = { filters, trades, hasSearched, page };
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-  }, [filters, trades, hasSearched, page]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowAdvancedFilters(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
   const hasActiveFilters = Object.values(filters).some((v) => v !== "");
+
+  const deleteTargetLabel = useMemo(() => {
+    if (deleteTargetId === null) return null;
+    const list = queryClient.getQueryData<Trade[]>(activeQueryKey as any);
+    return list?.find((t) => t.id === deleteTargetId)?.invoice_no ?? null;
+  }, [deleteTargetId, activeQueryKey, queryClient]);
+
   return (
     <div className="tb-page">
       <div className="tb-header">
@@ -344,7 +363,6 @@ export default function TradeBook() {
                   <h3>Search Filters</h3>
                 </div>
 
-                {/* --- NEW DATE FIELDS MATCHING INVOICE BOOK --- */}
                 <div
                   className="tb-date-field"
                   onClick={() => openDatePicker(fromDateRef)}
@@ -373,7 +391,6 @@ export default function TradeBook() {
                     onClick={() => openDatePicker(toDateRef)}
                   />
                 </div>
-                {/* --- END NEW DATE FIELDS --- */}
 
                 <div className="tb-advanced-grid">
                   <div className="tb-field">
@@ -398,19 +415,6 @@ export default function TradeBook() {
                       placeholder="Contains..."
                       value={filters.crop}
                       onChange={(e) => updateFilter("crop", e.target.value)}
-                    />
-                  </div>
-                  <div className="tb-field">
-                    <label className="tb-label" htmlFor="party_city">
-                      Party City
-                    </label>
-                    <input
-                      id="party_city"
-                      placeholder="Contains..."
-                      value={filters.party_city}
-                      onChange={(e) =>
-                        updateFilter("party_city", e.target.value)
-                      }
                     />
                   </div>
                   <div className="tb-field">
@@ -440,21 +444,19 @@ export default function TradeBook() {
                     />
                   </div>
 
-                  {/* (Removed the old date_from and date_to tb-fields from here) */}
-
                   <div className="tb-filter-apply-reset-buttons-raw">
                     <button
                       className="tb-btn-primary tb-btn-apply"
-                      onClick={runSearch}
-                      disabled={loading}
+                      onClick={applyFilters}
+                      disabled={isSearching}
                       type="button"
                     >
-                      {loading ? (
+                      {isSearching ? (
                         <Loader2 size={16} className="tb-spin" />
                       ) : (
                         <Search size={16} />
                       )}
-                      <span>{loading ? "Searching…" : "Search"}</span>
+                      <span>{isSearching ? "Searching…" : "Search"}</span>
                     </button>
                     <button
                       className="tb-btn-clear"
@@ -472,7 +474,7 @@ export default function TradeBook() {
         </div>
       </div>
 
-      {hasSearched && !loading && trades && trades.length === 0 && (
+      {!isSearching && trades && trades.length === 0 && (
         <div className="tb-empty">No trades match these filters.</div>
       )}
 
@@ -493,55 +495,14 @@ export default function TradeBook() {
                 </tr>
               </thead>
               <tbody>
-                {pageTrades.map((t) => {
-                  const profit = tradeProfit(t);
-                  return (
-                    <tr
-                      key={t.id}
-                      className="tb-row-clickable"
-                      onClick={() => handleRowClick(t)}
-                    >
-                      <td className="tb-mono" data-label="Date">
-                        {formatDateDMY(t.trade_creation_date)}
-                      </td>
-                      <td className="tb-mono" data-label="Invoice No.">
-                        {t.invoice_no}
-                      </td>
-                      <td data-label="Party">{t.party_name || "—"}</td>
-                      <td data-label="Crop">{t.crops || "—"}</td>
-                      <td className="tb-num tb-mono" data-label="Mill Qty">
-                        {fmtAmount(toNum(t.mill_qty))} {t.mill_qty_unit}
-                      </td>
-                      <td className="tb-num tb-mono" data-label="Mill Rate">
-                        ₹ {fmtAmount(toNum(t.mill_rate))} / {t.mill_rate_unit}
-                      </td>
-                      <td
-                        className={`tb-num tb-mono tb-strong ${profit >= 0 ? "tb-profit" : "tb-loss"}`}
-                        data-label="Profit"
-                      >
-                        ₹ {fmtAmount(profit)}
-                      </td>
-                      <td className="tb-num tb-row-actions">
-                        <button
-                          className="tb-icon-btn tb-icon-btn--edit"
-                          onClick={(e) => handleEdit(e, t)}
-                          type="button"
-                          aria-label="Edit trade"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          className="tb-icon-btn tb-icon-btn--delete"
-                          onClick={(e) => handleDeleteClick(e, t)}
-                          type="button"
-                          aria-label="Delete trade"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {pageTrades.map((t) => (
+                  <TradeRow
+                    key={t.id}
+                    id={t.id}
+                    trade={t}
+                    onDeleteClick={handleDeleteClick}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
@@ -614,14 +575,14 @@ export default function TradeBook() {
         </>
       )}
 
-      {deleteTarget && (
+      {deleteTargetId !== null && (
         <div className="tb-modal-overlay">
           <div className="tb-modal">
             <div className="tb-modal-header">
               <h3 className="tb-modal-title">Delete trade?</h3>
               <button
                 className="tb-modal-close"
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => setDeleteTargetId(null)}
                 type="button"
                 aria-label="Close"
               >
@@ -629,12 +590,18 @@ export default function TradeBook() {
               </button>
             </div>
             <p className="tb-modal-text">
-              This will permanently delete this trade.
+              This will permanently delete{" "}
+              {deleteTargetLabel ? (
+                <strong>{deleteTargetLabel}</strong>
+              ) : (
+                "this trade"
+              )}
+              .
             </p>
             <div className="tb-modal-actions">
               <button
                 className="tb-btn-ghost"
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => setDeleteTargetId(null)}
                 disabled={deleting}
                 type="button"
               >

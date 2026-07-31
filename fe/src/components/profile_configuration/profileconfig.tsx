@@ -24,7 +24,8 @@ interface CropForm {
   cgst: string;
   sgst: string;
 }
-interface ProfileConfig {
+
+export interface ProfileConfig {
   seller: { name: string; address: string; pan: string; gstin: string };
   bank_accounts: Bank[];
   crops: Record<string, Crop>;

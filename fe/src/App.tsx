@@ -12,8 +12,9 @@ import { AuthProvider } from "./components/authcontext";
 import { ProtectedRoute } from "./components/protectedcomponent";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorContextProvider } from "./components/errors/errorcontext.tsx";
-import EditInvoiceForm from "./components/invoice/editinvoice/editinvoice.tsx";
+import EditInvoicePage from "./pages/editinvoice/invoice.tsx";
 import GlobalDataLoader from "./utils/DataLoader";
+import ViewTrade from "./pages/viewtradePage/viewtrade.tsx";
 
 const queryClient = new QueryClient();
 
@@ -46,12 +47,13 @@ export default function App() {
                   element={<ProfileConfigurationPage />}
                 />
                 <Route
-                  path="/show-invoice-from-book"
+                  path="/view-invoice"
                   element={<ViewInvoiceFromBookPage />}
                 />
                 <Route path="/trade-book" element={<TradeBookPage />} />
                 <Route path="/add-trade" element={<AddTradePage />} />
-                <Route path="/edit-invoice" element={<EditInvoiceForm />} />
+                <Route path="/edit-invoice" element={<EditInvoicePage />} />
+                <Route path="/view-trade" element={<ViewTrade />} />
               </Route>
             </Routes>
           </BrowserRouter>

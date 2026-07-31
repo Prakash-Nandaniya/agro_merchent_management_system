@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Printer,
@@ -7,15 +7,14 @@ import {
   ArrowLeft,
   Loader2,
   Download,
-  Pencil,
 } from "lucide-react";
-import "./view_invoice.css";
+import "./viewinvoice.css";
 import watermarkUrl from "@/assets/karma_trading_logo_color_bg_removed.png";
 import { settings } from "@/settings";
 import { apiFetch } from "@/utils/apifetch";
 import { useContext } from "react";
 import { ErrorContext } from "@/components/errors/errorcontext";
-import type { Invoice as InvoiceListItem } from "../invoice_book/invoice_book";
+import type { Invoice as InvoiceListItem } from "@/components/invoice/invoice_book/invoice_book";
 import BlurLoading from "@/components/blurloading/animation";
 
 export interface InvoiceDetail {
@@ -418,12 +417,9 @@ function InvoiceDocument({
   );
 }
 
-export default function ViewInvoiceFromBook() {
-  const location = useLocation();
+export default function ViewInvoice({ invoiceNo }: { invoiceNo: string }) {
   const errorcontext = useContext(ErrorContext);
   const navigate = useNavigate();
-
-  const id = location.state?.id as number | undefined;
 
   const { data: invoices } = useQuery<InvoiceListItem[]>({
     queryKey: ["Invoices"],
@@ -431,7 +427,7 @@ export default function ViewInvoiceFromBook() {
     enabled: false,
   });
 
-  const bill = invoices?.find((b) => b.id === id) as unknown as
+  const bill = invoices?.find((b) => b.invoice_no === invoiceNo) as unknown as
     | InvoiceDetail
     | undefined;
 
@@ -495,17 +491,7 @@ export default function ViewInvoiceFromBook() {
 
   if (!bill) {
     return (
-      <div className="min-h-screen bg-gray-300 flex flex-col items-center justify-center gap-4 px-4">
-        <div className="text-gray-700 font-medium text-lg text-center">
-          No bill data found.
-        </div>
-        <button
-          onClick={() => navigate(-1)}
-          className="bg-gray-800 text-white px-4 py-2 rounded shadow flex items-center gap-2"
-        >
-          <ArrowLeft size={16} /> Go Back
-        </button>
-      </div>
+      <></>
     );
   }
 
@@ -691,26 +677,6 @@ export default function ViewInvoiceFromBook() {
             </div>
           </div>
         )}
-
-        {/* ── Top Navigation Bar ── */}
-        <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print-hide">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-400
-               text-sm font-medium px-4 py-2 rounded shadow-sm transition-colors"
-          >
-            <ArrowLeft size={16} />
-            Back to Book
-          </button>
-
-          <button
-            onClick={() => navigate("/edit-invoice", { state: { id: id } })}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-black bg-transparent border border-black-500 rounded cursor-pointer transition-all duration-300 hover:border-black-400 hover:backdrop-brightness-110 ]"
-          >
-            <Pencil size={16} />
-            Edit
-          </button>
-        </div>
 
         <div ref={zoomOuterRef} className="invoice-zoom-outer">
           <div

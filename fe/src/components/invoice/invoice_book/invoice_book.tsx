@@ -18,7 +18,7 @@ import { settings } from "@/settings";
 import { apiFetch } from "@/utils/apifetch";
 import { ErrorContext } from "@/components/errors/errorcontext";
 import BillRow from "../invoiceRaw/raw";
-
+import Decimal from "decimal.js";
 const math = create(all);
 math.config({ number: "BigNumber", precision: 64 });
 
@@ -733,15 +733,9 @@ export default function InvoiceBook() {
                 </span>
               </div>
               <div className="mbr-total-item">
-                <span className="mbr-total-label">CGST</span>
+                <span className="mbr-total-label">GST</span>
                 <span className="mbr-total-value" title={totals.cgst}>
-                  ₹ {toIndianAmount(totals.cgst)}
-                </span>
-              </div>
-              <div className="mbr-total-item">
-                <span className="mbr-total-label">SGST</span>
-                <span className="mbr-total-value" title={totals.sgst}>
-                  ₹ {toIndianAmount(totals.sgst)}
+                  ₹ {toIndianAmount(Decimal(totals.cgst).plus(Decimal(totals.sgst)).toFixed(2))}
                 </span>
               </div>
               <div className="mbr-total-item mbr-total-grand">

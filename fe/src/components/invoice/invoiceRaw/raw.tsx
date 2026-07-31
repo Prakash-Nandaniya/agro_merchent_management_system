@@ -51,7 +51,7 @@ function BillRowInner({ id, queryKey }: Props) {
   if (!bill) return null;
 
   function goToBill() {
-    navigate("/show-invoice-from-book", { state: { id: bill!.id } });
+    navigate("/view-invoice", { state: { id: bill!.id } });
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTableRowElement>) {

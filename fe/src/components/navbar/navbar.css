@@ -2,17 +2,17 @@
 .navbar {
   width: 100%;
   background-color: #ffffff;
-  border-bottom: 1px solid #d1d5db; /* gray-300 */
+  border-bottom: 1px solid #d1d5db; 
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   position: sticky;
   top: 0;
   padding: 0;
   margin: 0;
-  z-index: 40;
+  z-index: 100;
 }
 
 .navbar-inner {
-  height: 64px; /* Fixed height for clean scaling */
+  height: 64px; 
   margin: 0;
   padding: 0 1rem;
   display: flex;

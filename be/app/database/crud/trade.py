@@ -62,7 +62,9 @@ def edit_trade(
     return trade
 
 
-def get_trade(db: Session, filters: dict, page: int) -> List[Trade]:
+from typing import List, Optional
+
+def get_trade(db: Session, filters: dict, page: Optional[int] = None) -> List[Trade]:
     query = db.query(Trade)  
 
     if filters:
@@ -85,9 +87,12 @@ def get_trade(db: Session, filters: dict, page: int) -> List[Trade]:
             else:
                 query = query.filter(column == value)
 
-    trades = query.order_by(Trade.updated_at.desc()).offset(settings.BE_PAGE_SIZE*(page-1)).limit(settings.BE_PAGE_SIZE).all()
+    query = query.order_by(Trade.updated_at.desc())
 
-    return trades
+    if page is not None and page > 0:
+        query = query.offset(settings.BE_PAGE_SIZE * (page - 1)).limit(settings.BE_PAGE_SIZE)
+
+    return query.all()
 
 def delete_trade_committed(db: Session, trade_id: int) -> dict:
     """
