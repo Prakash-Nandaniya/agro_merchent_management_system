@@ -86,10 +86,6 @@ function tradeOutflow(t: Trade): number {
   );
 }
 
-function tradeProfit(t: Trade): number {
-  return tradeInflow(t) - tradeOutflow(t);
-}
-
 // Latest trade_creation_date first; if two trades share a date, higher id wins.
 function compareTradesDesc(a: Trade, b: Trade): number {
   const aDate = a.trade_creation_date?.split("T")[0] || "";

@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Printer,
   Send as SendIcon,
-  ArrowLeft,
   Loader2,
   Download,
 } from "lucide-react";
@@ -419,7 +418,6 @@ function InvoiceDocument({
 
 export default function ViewInvoice({ invoiceNo }: { invoiceNo: string }) {
   const errorcontext = useContext(ErrorContext);
-  const navigate = useNavigate();
 
   const { data: invoices } = useQuery<InvoiceListItem[]>({
     queryKey: ["Invoices"],
