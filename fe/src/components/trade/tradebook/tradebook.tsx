@@ -322,12 +322,6 @@ export default function TradeBook() {
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== "");
 
-  const deleteTargetLabel = useMemo(() => {
-    if (deleteTargetId === null) return null;
-    const list = queryClient.getQueryData<Trade[]>(activeQueryKey as any);
-    return list?.find((t) => t.id === deleteTargetId)?.invoice_no ?? null;
-  }, [deleteTargetId, activeQueryKey, queryClient]);
-
   return (
     <div className="tb-page">
       <div className="tb-header">
