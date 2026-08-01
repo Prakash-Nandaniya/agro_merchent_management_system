@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { ErrorContext } from "./errorcontext";
 import ErrorRaw from "./errorraw";
-import './errordisplay.css';
+import "./errordisplay.css";
 
 export default function ErrorDisplay() {
   const { errors, removeError } = useContext(ErrorContext);
@@ -13,8 +13,9 @@ export default function ErrorDisplay() {
       {errors.map((err) => (
         <ErrorRaw
           key={err.id}
+          id={err.id}
           message={err.message}
-          onExpire={() => removeError(err.id)}
+          onExpire={removeError} 
         />
       ))}
     </div>
