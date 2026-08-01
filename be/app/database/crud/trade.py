@@ -90,7 +90,7 @@ def get_trade(db: Session, filters: dict, page: Optional[int] = None) -> List[Tr
     query = query.order_by(Trade.updated_at.desc())
 
     if page is not None and page > 0:
-        query = query.offset(settings.BE_PAGE_SIZE * (page - 1)).limit(settings.BE_PAGE_SIZE)
+        query = query.offset(PAGE_SIZE * (page - 1)).limit(PAGE_SIZE)
 
     return query.all()
 

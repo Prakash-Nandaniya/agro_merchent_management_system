@@ -7,7 +7,7 @@ from app.database.models.trade import Trade
 from app.schemas.trade import CreateTradeSchema, EditTradeSchema
 from app.services.r2 import upload_bill_to_r2, delete_bill_from_r2
 from app.services.mill_receipt_to_pdf import convert_to_pdf
-from app.core.exceptions import FileTooLargeError
+from app.core.exceptions import FileTooLargeError, NotFoundError
 
 MAX_RECEIPT_BYTES = 1 * 1024 * 1024  # 1MB
 
@@ -166,7 +166,11 @@ def delete_trade_and_receipt(db: Session, trade_id: int) -> Optional[Trade]:
                                       same id, but mill_receipt has changed.
       - both failed               -> nothing happened, re-raise.
     """
-    existing = get_trade(db, {"id": trade_id})[0]
+    trades = get_trade(db, {"id": trade_id})
+    if not trades:
+        raise NotFoundError(resource="Trade")
+    existing = trades[0]
+    
     old_key = existing.mill_receipt
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:

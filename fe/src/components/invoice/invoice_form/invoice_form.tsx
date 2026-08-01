@@ -950,7 +950,16 @@ export default function InvoiceForm() {
                         M/s.
                       </span>
                       <span></span>
-                      <input
+
+                      {/* Changed from <input> to <textarea> with auto-resize ref */}
+                      <textarea
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = "auto";
+                            el.style.height = el.scrollHeight + "px";
+                          }
+                        }}
+                        rows={1}
                         value={s.partyName}
                         onChange={(e) =>
                           f("partyName")(e.target.value.toUpperCase())
@@ -958,19 +967,22 @@ export default function InvoiceForm() {
                         placeholder="PARTY / BUYER NAME"
                         spellCheck={false}
                         className="bg-transparent outline-none border-b border-dashed border-gray-400
-                                 hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
-                                 text-gray-900 transition-colors font-bold text-base w-full"
+                         hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
+                         text-gray-900 transition-colors font-bold text-base w-full resize-none overflow-hidden"
                       />
 
                       <span></span>
                       <span></span>
+
+                      {/* Added auto-resize ref and fixed rows to 1 */}
                       <textarea
-                        rows={
-                          s.partyAddress.length > 45 ||
-                          s.partyAddress.includes("\n")
-                            ? 2
-                            : 1
-                        }
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = "auto";
+                            el.style.height = el.scrollHeight + "px";
+                          }
+                        }}
+                        rows={1}
                         value={s.partyAddress}
                         onChange={(e) =>
                           f("partyAddress")(e.target.value.toUpperCase())
@@ -978,9 +990,9 @@ export default function InvoiceForm() {
                         placeholder="ADDRESS..."
                         spellCheck={false}
                         className="bg-transparent outline-none border-b border-dashed border-gray-400
-                                 hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
-                                 text-gray-900 transition-colors w-full resize-none overflow-hidden
-                                 leading-tight text-sm"
+                         hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
+                         text-gray-900 transition-colors w-full resize-none overflow-hidden
+                         leading-tight text-sm"
                       />
 
                       {(

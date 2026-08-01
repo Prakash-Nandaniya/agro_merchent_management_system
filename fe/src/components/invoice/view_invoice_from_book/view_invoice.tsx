@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useLayoutEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -94,7 +94,7 @@ function InvoiceDocument({
           <div className="text-3xl font-bold tracking-wide break-words">
             {bill.seller_name}
           </div>
-          <div className="mt-1 text-sm whitespace-pre-line">
+          <div className="mt-1 text-sm whitespace-pre-line break-words">
             {bill.seller_address}
           </div>
           <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
@@ -130,13 +130,13 @@ function InvoiceDocument({
                 M/s.
               </span>
               <span></span>
-              <div className="font-bold text-base uppercase break-words">
+              <div className="font-bold text-base w-full whitespace-pre-wrap break-words  text-gray-900">
                 {bill.party_name}
               </div>
 
               <span></span>
               <span></span>
-              <div className="uppercase leading-tight text-sm whitespace-pre-wrap break-words">
+              <div className="leading-tight text-sm w-full whitespace-pre-wrap break-words  text-gray-900">
                 {bill.party_address}
               </div>
 
@@ -305,7 +305,7 @@ function InvoiceDocument({
                     <td className="border-r border-gray-400 p-1 text-center align-middle text-sm">
                       {idx + 1}
                     </td>
-                    <td className="border-r border-gray-400 p-1 align-middle font-medium uppercase text-center">
+                    <td className="border-r border-gray-400 p-1 align-middle font-medium uppercase text-center break-words">
                       {row.crop}
                     </td>
                     <td className="border-r border-gray-400 p-1 align-middle text-center">
@@ -410,7 +410,9 @@ function InvoiceDocument({
           </div>
         </div>
         <div className="flex flex-col justify-between text-right">
-          <div className="font-bold text-base">For, {bill.seller_name}</div>
+          <div className="font-bold text-base break-words">
+            For, {bill.seller_name}
+          </div>
           <div className="mt-12 text-gray-900">Authorised Signatory</div>
         </div>
       </div>
@@ -444,10 +446,6 @@ export default function ViewInvoiceFromBook() {
 
   const pdfBlobRef = useRef<Blob | null>(null);
 
-  const zoomOuterRef = useRef<HTMLDivElement | null>(null);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const DESKTOP_WIDTH = 925;
-
   async function fetchInvoicePdf(): Promise<Blob> {
     if (pdfBlobRef.current) return pdfBlobRef.current;
 
@@ -474,7 +472,12 @@ export default function ViewInvoiceFromBook() {
     }
   }
 
-  useEffect(() => {
+  const zoomOuterRef = useRef<HTMLDivElement | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomReady, setZoomReady] = useState(false);
+  const DESKTOP_WIDTH = 925;
+
+  useLayoutEffect(() => {
     const computeZoom = () => {
       const el = zoomOuterRef.current;
       if (!el) return;
@@ -482,6 +485,7 @@ export default function ViewInvoiceFromBook() {
       setZoomLevel(
         availableWidth < DESKTOP_WIDTH ? availableWidth / DESKTOP_WIDTH : 1,
       );
+      setZoomReady(true);
     };
 
     computeZoom();
@@ -715,7 +719,11 @@ export default function ViewInvoiceFromBook() {
         <div ref={zoomOuterRef} className="invoice-zoom-outer">
           <div
             className="invoice-zoom-inner"
-            style={{ width: DESKTOP_WIDTH, zoom: zoomLevel }}
+            style={{
+              width: DESKTOP_WIDTH,
+              zoom: zoomLevel,
+              visibility: zoomReady ? "visible" : "hidden",
+            }}
           >
             <InvoiceDocument bill={bill} displayRows={displayRows} />
           </div>

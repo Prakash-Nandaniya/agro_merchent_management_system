@@ -585,15 +585,7 @@ export default function TradeBook() {
                 <X size={18} />
               </button>
             </div>
-            <p className="tb-modal-text">
-              This will permanently delete{" "}
-              {deleteTargetLabel ? (
-                <strong>{deleteTargetLabel}</strong>
-              ) : (
-                "this trade"
-              )}
-              .
-            </p>
+            <p className="tb-modal-text">This will permanently delete.</p>
             <div className="tb-modal-actions">
               <button
                 className="tb-btn-ghost"

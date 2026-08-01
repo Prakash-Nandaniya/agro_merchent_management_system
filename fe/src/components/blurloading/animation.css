@@ -22,14 +22,14 @@
   }
 
   & .at-saving-overlay__spinner {
-    color: var(--at-accent);
+    color:  #166534;
     animation: at-spin 0.8s linear infinite;
   }
 
   & .at-saving-overlay__text {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--at-ink);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #0b5226;
     position: relative;
     display: inline-block;
   }

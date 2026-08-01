@@ -1,10 +1,11 @@
+import asyncio
 import base64
 from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import List
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from playwright.async_api import async_playwright, Browser
+from weasyprint import HTML, CSS
 
 from app.schemas.invoice import Invoice
 
@@ -22,6 +23,16 @@ _watermark_data_uri = None
 if _watermark_path.exists():
     _b64 = base64.b64encode(_watermark_path.read_bytes()).decode("ascii")
     _watermark_data_uri = f"data:image/png;base64,{_b64}"
+
+# Playwright used to get A4 + 0.5in margins from page.pdf(format=..., margin=...).
+# WeasyPrint reads page setup from CSS @page instead — applied as an extra
+# stylesheet at render time so invoice.html / invoice_book.html need zero changes.
+_PAGE_CSS = CSS(string="""
+    @page {
+        size: A4;
+        margin: 0.5in;
+    }
+""")
 
 
 def _indian_grouping(integer_str: str) -> str:
@@ -64,9 +75,9 @@ def _fmt(val) -> str:
 def _format_date(iso) -> str:
     if not iso:
         return ""
-        
+
     iso_str = str(iso)
-    
+
     parts = iso_str.split("-")
     if len(parts) != 3:
         return iso_str
@@ -140,72 +151,31 @@ def render_bill_book_html(bills: List[Invoice]) -> str:
     return template.render(bills=[_build_bill_context(b) for b in bills])
 
 
-# ── Browser lifecycle — launched once, reused across requests ──────────────
-class PdfRenderer:
-    def __init__(self):
-        self._playwright = None
-        self.browser: Browser | None = None
+def _render_pdf_sync(html: str) -> bytes:
+    """WeasyPrint is synchronous and CPU-bound — always call this through
+    asyncio.to_thread so it doesn't block the event loop under concurrent load."""
+    return HTML(string=html).write_pdf(stylesheets=[_PAGE_CSS])
 
+
+# ── Kept as a class with start/stop so main.py's lifespan wiring and the
+# router's `pdf_renderer.render_pdf(...)` calls don't need to change.
+# WeasyPrint has no browser process to manage, so these are now no-ops.
+class PdfRenderer:
     async def start(self):
-        self._playwright = await async_playwright().start()
-        self.browser = await self._playwright.chromium.launch(headless=True)
+        pass
 
     async def stop(self):
-        if self.browser:
-            await self.browser.close()
-        if self._playwright:
-            await self._playwright.stop()
+        pass
 
     async def render_pdf(self, bill: Invoice) -> bytes:
-        if not self.browser:
-            raise RuntimeError("PdfRenderer not started.")
-
         html = render_invoice_html(bill)
-
-        page = await self.browser.new_page(viewport={"width": 690, "height": 1200})
-        try:
-            await page.set_content(html, wait_until="networkidle")
-
-            pdf_bytes = await page.pdf(
-                format="A4",
-                print_background=True,
-                scale=1.0,
-                margin={
-                    "top": "0.5in",
-                    "bottom": "0.5in",
-                    "left": "0.5in",
-                    "right": "0.5in",
-                },
-            )
-            return pdf_bytes
-        finally:
-            await page.close()
+        return await asyncio.to_thread(_render_pdf_sync, html)
 
     async def render_pdf_book(self, bills: List[Invoice]) -> bytes:
-        if not self.browser:
-            raise RuntimeError("PdfRenderer not started.")
         if not bills:
             raise ValueError("At least one bill is required to build a book.")
-
         html = render_bill_book_html(bills)
-
-        page = await self.browser.new_page(viewport={"width": 690, "height": 1200})
-        try:
-            await page.set_content(html, wait_until="networkidle")
-
-            pdf_bytes = await page.pdf(
-                format="A4",
-                print_background=True,
-                margin={
-                    "top": "0.5in",
-                    "bottom": "0.5in",
-                    "left": "0.5in",
-                    "right": "0.5in",
-                },
-            )
-            return pdf_bytes
-        finally:
-            await page.close()
+        return await asyncio.to_thread(_render_pdf_sync, html)
 
 
 pdf_renderer = PdfRenderer()
