@@ -192,9 +192,6 @@ export default function TradeBook() {
   const isSearchActive = appliedFilters !== null;
   const trades = isSearchActive ? searchTrades : allTrades;
 
-  const activeQueryKey = isSearchActive
-    ? ([SEARCH_QUERY_BASE_KEY, appliedFilters] as const)
-    : (["Trades"] as const);
 
   useEffect(() => {
     if (searchError) {
