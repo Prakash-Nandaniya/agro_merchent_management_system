@@ -2,7 +2,12 @@ import concurrent.futures
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from app.database.crud.trade import save_trade, edit_trade, get_trade, delete_trade_committed
+from app.database.crud.trade import (
+    save_trade,
+    edit_trade,
+    get_trade,
+    delete_trade_committed,
+)
 from app.database.models.trade import Trade
 from app.schemas.trade import CreateTradeSchema, EditTradeSchema
 from app.services.r2 import upload_bill_to_r2, delete_bill_from_r2
@@ -18,6 +23,9 @@ def _check_file_size(raw_bytes: bytes) -> None:
 
 
 # ── CREATE ────────────────────────────────────────────────────────────────
+# Unchanged — R2 op here is always a brand-new key, so it's non-destructive
+# on failure. Existing compensation (delete orphaned upload / delete
+# orphaned row) is correct as-is.
 def create_trade_with_receipt(
     db: Session,
     payload: CreateTradeSchema,
@@ -36,7 +44,8 @@ def create_trade_with_receipt(
         db_future = executor.submit(save_trade, db, payload, created_by, None)
         r2_future = (
             executor.submit(upload_bill_to_r2, pdf_buffer, naming_key)
-            if pdf_buffer is not None else None
+            if pdf_buffer is not None
+            else None
         )
 
         trade, db_error = None, None
@@ -52,7 +61,6 @@ def create_trade_with_receipt(
             except Exception as e:
                 r2_error = e
 
-    # ── Compensate ────────────────────────────────────────────────────────
     if db_error and mill_receipt_key:
         delete_bill_from_r2(mill_receipt_key)
     if r2_error and trade:
@@ -83,7 +91,6 @@ def edit_trade_with_receipt(
 ) -> Trade:
     existing = get_trade(db, {"id": payload.id})[0]
 
-    # ── Nothing to do at all — avoids every redundant call ──────────────────
     if not form_edited and not mill_receipt_edited:
         return existing
 
@@ -99,19 +106,54 @@ def edit_trade_with_receipt(
         else:
             removing_receipt = True  # receipt_edited=true + no file = user removed it
 
-    # Only submit the work that's actually needed — this is the
-    # "don't make redundant calls" part.
+    # ── DESTRUCTIVE PATH: removing an existing receipt ──────────────────────
+    # An R2 delete is irreversible. If we ran it in parallel with a DB write
+    # that could fail and roll back, a failed form-field save would leave the
+    # trade row still pointing at old_key — a key that no longer exists in
+    # R2. So this case is deliberately NOT parallelized: commit the DB side
+    # first (mill_receipt=None baked into the same transaction as any other
+    # form changes), and only delete from R2 once that's safely persisted.
+    # If the R2 delete then fails, the DB is already correct — we just log
+    # it and leave an orphaned object in storage, which is a far safer
+    # failure mode than a broken reference in the database.
+    if removing_receipt and old_key:
+        if form_edited:
+            trade = edit_trade(
+                db, payload, None
+            )  # mill_receipt=None, atomic with form fields
+        else:
+            trade = existing
+            trade.mill_receipt = None
+            db.commit()
+            db.refresh(trade)
+
+        try:
+            delete_bill_from_r2(old_key)
+        except Exception as e:
+            # DB is already correct — don't fail the whole edit over cleanup.
+            print(
+                f"Warning: DB updated but failed to delete orphaned R2 object {old_key}: {e}"
+            )
+
+        return trade
+
+    # ── NON-DESTRUCTIVE PATH: no receipt change, brand-new receipt, or an
+    #    in-place replace of an existing one. S3 PUT is atomic — on failure
+    #    the previous object is left untouched — so it's safe to run the DB
+    #    write and the R2 write in parallel. ───────────────────────────────
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        db_future = executor.submit(edit_trade, db, payload, old_key) if form_edited else None
+        db_future = (
+            executor.submit(edit_trade, db, payload, old_key) if form_edited else None
+        )
 
         r2_future = None
         if pdf_buffer is not None:
-            # Replace-in-place if a key already exists (no delete needed —
-            # PUT is atomic, old content survives on failure). Only mint a
-            # brand-new key if this trade never had a receipt before.
-            r2_future = executor.submit(upload_bill_to_r2, pdf_buffer, naming_key, old_key)
-        elif removing_receipt and old_key:
-            r2_future = executor.submit(delete_bill_from_r2, old_key)
+            # Replace-in-place if a key already exists (PUT is atomic — old
+            # content survives on failure). Only mints a new key if this
+            # trade never had a receipt before.
+            r2_future = executor.submit(
+                upload_bill_to_r2, pdf_buffer, naming_key, old_key
+            )
 
         trade, db_error = existing, None
         if db_future is not None:
@@ -135,11 +177,7 @@ def edit_trade_with_receipt(
     if r2_error:
         raise r2_error
 
-    if removing_receipt:
-        trade.mill_receipt = None
-        db.commit()
-        db.refresh(trade)
-    elif r2_result and old_key is None:
+    if r2_result and old_key is None:
         trade.mill_receipt = r2_result
         db.commit()
         db.refresh(trade)
@@ -147,30 +185,18 @@ def edit_trade_with_receipt(
     return trade
 
 
-# ── DELETE — now genuinely parallel, with saga-style compensation ──────────
+# ── DELETE — already correct, unchanged ─────────────────────────────────────
+# Both directions of failure are already compensated for:
+#   - DB succeeds, R2 fails  -> row recreated from snapshot (new id — flagged
+#     to the caller since this can break anything holding the old id).
+#   - R2 succeeds, DB fails  -> existing row patched (mill_receipt=None,
+#     same id) so it never points at a deleted object.
 def delete_trade_and_receipt(db: Session, trade_id: int) -> Optional[Trade]:
-    """
-    Runs the DB delete+commit and the R2 delete AT THE SAME TIME. Afterwards:
-      - both succeeded            -> fully deleted, returns None
-      - DB succeeded, R2 failed   -> file is orphaned in R2; recreate the row
-                                      from its snapshot so nothing points to
-                                      a ghost object. NOTE: the recreated row
-                                      gets a NEW id (autoincrement can't be
-                                      reused) — this is the "new things"
-                                      you flagged; the frontend must re-sync
-                                      against the returned trade's new id.
-      - R2 succeeded, DB failed   -> row still exists (transaction rolled
-                                      back) but now points at a deleted R2
-                                      object. Patch mill_receipt to None on
-                                      the still-existing row and return it —
-                                      same id, but mill_receipt has changed.
-      - both failed               -> nothing happened, re-raise.
-    """
     trades = get_trade(db, {"id": trade_id})
     if not trades:
         raise NotFoundError(resource="Trade")
     existing = trades[0]
-    
+
     old_key = existing.mill_receipt
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -192,23 +218,19 @@ def delete_trade_and_receipt(db: Session, trade_id: int) -> Optional[Trade]:
                 r2_error = e
                 r2_ok = False
 
-    # ── Both succeeded — fully gone ──────────────────────────────────────
     if not db_error and r2_ok:
         return None
 
-    # ── Both failed — nothing changed, nothing to compensate ─────────────
     if db_error and not r2_ok:
         raise db_error
 
-    # ── DB succeeded, R2 failed: recreate the row from its snapshot ──────
     if not db_error and not r2_ok:
-        recreated = Trade(**snapshot)  # new autoincrement id — flagged above
+        recreated = Trade(**snapshot)
         db.add(recreated)
         db.commit()
         db.refresh(recreated)
         return recreated
 
-    # ── R2 succeeded, DB failed: row still exists, null out the dead key ──
     if db_error and r2_ok:
         existing.mill_receipt = None
         db.commit()
