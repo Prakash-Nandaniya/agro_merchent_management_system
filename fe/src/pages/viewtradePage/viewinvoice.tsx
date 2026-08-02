@@ -5,6 +5,7 @@ import {
   Send as SendIcon,
   Loader2,
   Download,
+  FileText,
 } from "lucide-react";
 import "./viewinvoice.css";
 import watermarkUrl from "@/assets/karma_trading_logo_color_bg_removed.png";
@@ -487,9 +488,7 @@ export default function ViewInvoice({ invoiceNo }: { invoiceNo: string }) {
   }, []);
 
   if (!bill) {
-    return (
-      <></>
-    );
+    return <></>;
   }
 
   // Single crop line per invoice — build a 1-row array (padded to 6 rows
@@ -655,7 +654,11 @@ export default function ViewInvoice({ invoiceNo }: { invoiceNo: string }) {
 
   return (
     <BlurLoading message="Generating PDF" loading={isGeneratingPdf}>
-      <div className="view_invoice_from_book min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
+      <div className="view_invoice_from_book min-h-screen py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
+        <div className="at-receipt-section__header">
+              <FileText size={25} />
+              <h2 className="at-receipt-section__title">Invoice</h2>
+            </div>
         {showRetryBanner && (
           <div className="send-retry-banner print-hide">
             <div className="send-retry-banner-text">

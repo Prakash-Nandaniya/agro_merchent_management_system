@@ -1,10 +1,30 @@
 @import "tailwindcss";
 
 .view_invoice_from_book {
+  background: rgba(240, 238, 238, 0.6);
+}
+.view_invoice_from_book {
+  & .at-receipt-section__header {
+    display: flex;
+    align-items: center;
+    justify-content:center;
+    gap: 8px;
+    color:  #0f6e5d;
+    margin-top: 20px;
+    margin-bottom: 14px;
+  }
 
+  & .at-receipt-section__title {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: inherit;
+    margin: 0;
+  }
   /* ── Invoice paper container ────────────────────────────────────────────────*/
   .invoice-container {
-    font-family: 'Arial', sans-serif;
+    font-family: "Arial", sans-serif;
     position: relative;
     isolation: isolate;
   }
@@ -51,13 +71,13 @@
   }
 
   /* ── Remove number input spin buttons ───────────────────────────────────────*/
-  input[type='number']::-webkit-inner-spin-button,
-  input[type='number']::-webkit-outer-spin-button {
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
 
-  input[type='number'] {
+  input[type="number"] {
     -moz-appearance: textfield;
   }
 
@@ -65,10 +85,6 @@
   .screen-hide {
     display: none;
   }
-
-
-
- 
 
   .send-retry-banner {
     position: fixed;
@@ -162,11 +178,11 @@
       margin-bottom: 0.25rem !important;
     }
 
-    input[type='date']::-webkit-calendar-picker-indicator {
+    input[type="date"]::-webkit-calendar-picker-indicator {
       display: none !important;
     }
 
-    input[type='date'] {
+    input[type="date"] {
       -webkit-appearance: none;
       appearance: none;
     }
@@ -218,11 +234,11 @@
       display: none !important;
     }
 
-    input[type='date']::-webkit-calendar-picker-indicator {
+    input[type="date"]::-webkit-calendar-picker-indicator {
       display: none !important;
     }
 
-    input[type='date'] {
+    input[type="date"] {
       -webkit-appearance: none;
       appearance: none;
     }
@@ -240,7 +256,6 @@
 }
 
 @media print {
-
   html {
     font-size: 12px !important;
   }

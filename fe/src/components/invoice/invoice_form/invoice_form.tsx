@@ -270,14 +270,8 @@ const INIT = {
   qty: "",
   uqc: "",
   rate: "",
-  taxableAmt: "",
   cgstRate: "",
-  cgstAmt: "",
   sgstRate: "",
-  sgstAmt: "",
-  finalAmt: "",
-
-  final_amount_in_words: "",
   terms: "",
   createdBy: "",
 };
@@ -357,13 +351,14 @@ function ErrorPopup({
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function InvoiceForm() {
   const errorcontext = useContext(ErrorContext);
-  // ── Central state — all bill fields as strings, including the single crop ───
   const [s, setS] = useState<FormState>(INIT);
   const [isSending, setIsSending] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [showRetryBanner, setShowRetryBanner] = useState(false);
-
+  const itemsTableWrapRef = useRef<HTMLDivElement | null>(null);
+  const itemsTableRef = useRef<HTMLTableElement | null>(null);
+  const [rowFontScale, setRowFontScale] = useState(1);
   const [errors, setErrors] = useState<string[]>([]);
 
   const [viewMode, setViewMode] = useState<"edit" | "preview" | "saved">(
@@ -427,31 +422,6 @@ export default function InvoiceForm() {
       }));
     }
   }, []);
-
-  // ── Derive taxable/cgst/sgst/final + words whenever qty/rate/rates change ────
-  const calcInputsKey = `${s.qty}|${s.rate}|${s.cgstRate}|${s.sgstRate}`;
-
-  useEffect(() => {
-    const qty = parseDecimal(s.qty);
-    const rate = parseDecimal(s.rate);
-    const cgstRate = parseDecimal(s.cgstRate);
-    const sgstRate = parseDecimal(s.sgstRate);
-
-    const taxableAmt = qty.mul(rate);
-    const cgstAmt = taxableAmt.mul(cgstRate).div(100);
-    const sgstAmt = taxableAmt.mul(sgstRate).div(100);
-    const finalAmt = taxableAmt.plus(cgstAmt).plus(sgstAmt);
-
-    setS((prev) => ({
-      ...prev,
-      taxableAmt: taxableAmt.toString(),
-      cgstAmt: cgstAmt.toString(),
-      sgstAmt: sgstAmt.toString(),
-      finalAmt: finalAmt.toString(),
-      final_amount_in_words: amountInWords(finalAmt),
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calcInputsKey]);
 
   useLayoutEffect(() => {
     const computeZoom = () => {
@@ -539,13 +509,13 @@ export default function InvoiceForm() {
       qty: s.qty,
       uqc: s.uqc,
       rate: s.rate,
-      taxableAmt: s.taxableAmt,
+      taxableAmt: taxableDec.toString(),
       cgstRate: s.cgstRate,
-      cgstAmt: s.cgstAmt,
+      cgstAmt: cgstDec.toString(),
       sgstRate: s.sgstRate,
-      sgstAmt: s.sgstAmt,
-      finalAmt: s.finalAmt,
-      final_amount_in_words: s.final_amount_in_words,
+      sgstAmt: sgstDec.toString(),
+      finalAmt: finalDec.toString(),
+      final_amount_in_words: finalAmountInWords,
       terms: s.terms,
     };
   }
@@ -576,13 +546,13 @@ export default function InvoiceForm() {
       qty: s.qty,
       uqc: s.uqc,
       rate: s.rate,
-      taxable_amount: s.taxableAmt,
+      taxable_amount: taxableDec.toString(),
       cgst_rate: s.cgstRate,
-      cgst_amount: s.cgstAmt,
+      cgst_amount: cgstDec.toString(),
       sgst_rate: s.sgstRate,
-      sgst_amount: s.sgstAmt,
-      final_amount: s.finalAmt,
-      final_amount_in_words: s.final_amount_in_words,
+      sgst_amount: sgstDec.toString(),
+      final_amount: finalDec.toString(),
+      final_amount_in_words: finalAmountInWords,
       terms: s.terms,
     };
   }
@@ -603,6 +573,8 @@ export default function InvoiceForm() {
       if (!s.rate || parseFloat(s.rate) <= 0)
         errs.push(`${s.crop}: Rate is missing or zero.`);
       if (!s.uqc) errs.push(`${s.crop}: UQC is required.`);
+      if (taxableDec.lte(0))
+        errs.push(`${s.crop}: Taxable amount could not be calculated.`);
     }
     return errs;
   }
@@ -845,13 +817,54 @@ export default function InvoiceForm() {
     }
   };
 
-  // ── Decimal values derived from central-state strings, for display only ──────
-  const taxableDec = parseDecimal(s.taxableAmt);
-  const cgstDec = parseDecimal(s.cgstAmt);
-  const sgstDec = parseDecimal(s.sgstAmt);
-  const finalDec = parseDecimal(s.finalAmt);
+  const taxableDec = parseDecimal(s.qty).mul(parseDecimal(s.rate));
+  const cgstDec = taxableDec.mul(parseDecimal(s.cgstRate)).div(100);
+  const sgstDec = taxableDec.mul(parseDecimal(s.sgstRate)).div(100);
+  const finalDec = taxableDec.plus(cgstDec).plus(sgstDec);
+  const finalAmountInWords = amountInWords(finalDec);
   const isCropEmpty = s.crop === "";
 
+  useLayoutEffect(() => {
+    const wrap = itemsTableWrapRef.current;
+    const table = itemsTableRef.current;
+    if (!wrap || !table) return;
+
+    // Reset to natural size first so we measure true overflow, not a
+    // previously-shrunk state compounding on itself.
+    table.style.fontSize = "";
+
+    const availableWidth = wrap.clientWidth;
+    const naturalWidth = table.scrollWidth;
+
+    if (naturalWidth > availableWidth && availableWidth > 0) {
+      const ratio = availableWidth / naturalWidth;
+      // Clamp so text never becomes unreadably tiny.
+      const clamped = Math.max(0.55, Math.min(1, ratio));
+      setRowFontScale(clamped);
+    } else {
+      setRowFontScale(1);
+    }
+  }, [
+    s.crop,
+    s.hsnCode,
+    s.qty,
+    s.uqc,
+    s.rate,
+    s.cgstRate,
+    s.sgstRate,
+    taxableDec.toString(),
+    cgstDec.toString(),
+    sgstDec.toString(),
+    finalDec.toString(),
+    zoomLevel,
+  ]);
+
+  // Apply the computed scale as an actual font-size, base is text-xs (12px)
+  useLayoutEffect(() => {
+    const table = itemsTableRef.current;
+    if (!table) return;
+    table.style.fontSize = `${12 * rowFontScale}px`;
+  }, [rowFontScale]);
   // ── Render bill ───────────────────────────────────────────────────────────────
   return (
     <BlurLoading
@@ -1082,8 +1095,14 @@ export default function InvoiceForm() {
                   Alignment convention: Crop / HSN / UQC / Rate / CGST% / SGST%
                   (and Sr.No.) are centred; Qty and all money columns
                   (Taxable/CGST Amt/SGST Amt/Final Amt) are right-aligned. */}
-                <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
-                  <table className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse">
+                <div
+                  ref={itemsTableWrapRef}
+                  className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full"
+                >
+                  <table
+                    ref={itemsTableRef}
+                    className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse"
+                  >
                     <thead>
                       <tr className="bg-gray-300 border-b border-gray-600">
                         {(
@@ -1299,7 +1318,7 @@ export default function InvoiceForm() {
                     <span className="font-semibold">Amt in Word: </span>
                     <span className="italic ml-2 break-words">
                       {finalDec.gt(0) ? (
-                        s.final_amount_in_words
+                        finalAmountInWords
                       ) : (
                         <span className="text-gray-300">
                           Auto-generated when amount is entered

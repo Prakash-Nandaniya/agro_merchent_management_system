@@ -24,18 +24,7 @@
   --at-grey-text: #8b948c;
   margin: 0;
   padding: 0;
-  background:
-    radial-gradient(
-      1200px 500px at 100% -10%,
-      rgba(15, 110, 93, 0.08),
-      transparent 60%
-    ),
-    radial-gradient(
-      900px 400px at -10% 110%,
-      rgba(15, 110, 93, 0.06),
-      transparent 60%
-    ),
-    var(--at-paper);
+  background: rgba(240, 238, 238, 0.6);
   min-height: 100vh;
   padding: 32px 24px;
   font-family:
@@ -130,7 +119,6 @@
   margin: 0;
 }
 
-/* Date input — fully self-contained, does not affect / get affected by any other field */
 .at-date-input {
   height: 34px;
   width: auto;
@@ -148,25 +136,30 @@
   outline: none;
 }
 
-/* Update your existing inline container */
+.at-invoice-title-row {
+  padding: 8px 4px 0;
+}
+
+.at-invoice-title-row .at-section-title {
+  color: var(--at-accent);
+}
+
 .at-invoice-inline {
   display: flex;
   align-items: center;
-  flex-wrap: wrap; /* Allows wrapping on mobile */
-  justify-content: space-between; /* Spreads them evenly with space in between */
-  gap: 24px; /* Minimum space before wrapping */
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 24px;
   padding: 8px 4px;
 }
 
-/* Groups the icon, label, and input together */
 .at-field-group {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1 1 auto; /* Allows fields to flexibly size themselves */
+  flex: 1 1 auto;
 }
 
-/* Lucide icon color matching */
 .at-icon {
   color: var(--at-ink);
   opacity: 0.8;
@@ -179,7 +172,6 @@
   font-size: small;
 }
 
-/* Your existing input styling remains exactly the same */
 .at-invoice-input {
   width: 96px;
   height: 30px;
@@ -204,33 +196,28 @@
   color: var(--at-ink);
   border-bottom-style: dashed;
 }
-
-/* Vehicle input needs to be slightly wider for GJ-05-XX-0000 format */
-.at-vehicle-input {
+.react .at-vehicle-input {
   width: 130px;
 }
 
-/* Select wrapper to hold the custom chevron icon */
 .at-select-wrapper {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-/* Override standard select box to look like your invoice underline */
 .at-select-inline {
   width: 110px;
-  appearance: none; /* Kills the ugly browser default box/arrow */
+  appearance: none;
   -webkit-appearance: none;
   cursor: pointer;
-  padding-right: 20px; /* Leaves space for the Lucide chevron */
+  padding-right: 20px;
 }
 
-/* Position the Lucide chevron over the select field */
 .at-select-icon {
   position: absolute;
   right: 2px;
-  pointer-events: none; /* Lets you click 'through' the icon to open the dropdown */
+  pointer-events: none;
   color: var(--at-ink);
   opacity: 0.7;
 }
@@ -315,7 +302,6 @@
   text-transform: uppercase;
 }
 
-/* Label row — holds the label plus its inline unit dropdown */
 .at-label-row {
   display: flex;
   align-items: center;
@@ -330,7 +316,6 @@
   text-transform: uppercase;
 }
 
-/* Small inline unit dropdowns — same size/color as the label text, sit next to it */
 .at-qty-inline-select,
 .at-rate-inline-select {
   font-size: 12px;
@@ -359,237 +344,15 @@
   cursor: not-allowed;
 }
 
-/* Farmer Payment input */
-.at-farmer-input {
-  height: 42px;
-  width: 100%;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 12px;
-  font-size: 15px;
-  font-family: ui-monospace, "SF Mono", Consolas, monospace;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.at-farmer-input:focus {
-  outline: none;
-  border-color: var(--at-outflow-accent);
-  box-shadow: 0 0 0 3px rgba(179, 67, 43, 0.15);
-}
-
-/* Labour Cost input */
-.at-labour-input {
-  height: 42px;
-  width: 100%;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 12px;
-  font-size: 15px;
-  font-family: ui-monospace, "SF Mono", Consolas, monospace;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.at-labour-input:focus {
-  outline: none;
-  border-color: var(--at-outflow-accent);
-  box-shadow: 0 0 0 3px rgba(179, 67, 43, 0.15);
-}
-
-/* Transport Cost input */
-.at-transport-input {
-  height: 42px;
-  width: 100%;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 12px;
-  font-size: 15px;
-  font-family: ui-monospace, "SF Mono", Consolas, monospace;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.at-transport-input:focus {
-  outline: none;
-  border-color: var(--at-outflow-accent);
-  box-shadow: 0 0 0 3px rgba(179, 67, 43, 0.15);
-}
-
-/* Other Cost input */
-.at-other-input {
-  height: 42px;
-  width: 100%;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 12px;
-  font-size: 15px;
-  font-family: ui-monospace, "SF Mono", Consolas, monospace;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.at-other-input:focus {
-  outline: none;
-  border-color: var(--at-outflow-accent);
-  box-shadow: 0 0 0 3px rgba(179, 67, 43, 0.15);
-}
-
-/* Mill Qty input */
-.at-millqty-input {
-  height: 42px;
-  width: 100%;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 12px;
-  font-size: 15px;
-  font-family: ui-monospace, "SF Mono", Consolas, monospace;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.at-millqty-input:focus {
-  outline: none;
-  border-color: var(--at-inflow-accent);
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
-}
-
-/* Custom unit text input shown when "Other" is picked for Mill Qty */
-.at-qtyunit-custom-input {
-  height: 36px;
-  width: 100%;
-  margin-top: 6px;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 10px;
-  font-size: 14px;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.at-qtyunit-custom-input:focus {
-  outline: none;
-  border-color: var(--at-inflow-accent);
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
-}
-
-/* Mill Rate input */
-.at-millrate-input {
-  height: 42px;
-  width: 100%;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 12px;
-  font-size: 15px;
-  font-family: ui-monospace, "SF Mono", Consolas, monospace;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.at-millrate-input:focus {
-  outline: none;
-  border-color: var(--at-inflow-accent);
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
-}
-
-/* Custom unit text input shown when "Other" is picked for Mill Rate */
-.at-rateunit-custom-input {
-  height: 36px;
-  width: 100%;
-  margin-top: 6px;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 10px;
-  font-size: 14px;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.at-rateunit-custom-input:focus {
-  outline: none;
-  border-color: var(--at-inflow-accent);
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
-}
-
-/* GST Collected input */
-.at-gst-input {
-  height: 42px;
-  width: 100%;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 12px;
-  font-size: 15px;
-  font-family: ui-monospace, "SF Mono", Consolas, monospace;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.at-gst-input:focus {
-  outline: none;
-  border-color: var(--at-inflow-accent);
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
-}
-
-/* TDS Deducted input */
-.at-tds-input {
-  height: 42px;
-  width: 100%;
-  border: 1px solid var(--at-line);
-  border-radius: 8px;
-  padding: 0 12px;
-  font-size: 15px;
-  font-family: ui-monospace, "SF Mono", Consolas, monospace;
-  color: var(--at-ink);
-  background: var(--at-surface);
-  box-sizing: border-box;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.at-tds-input:focus {
-  outline: none;
-  border-color: var(--at-inflow-accent);
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
-}
-
-/* Mill Payment input */
+/* Form Inputs */
+.at-farmer-input,
+.at-labour-input,
+.at-transport-input,
+.at-other-input,
+.at-millqty-input,
+.at-millrate-input,
+.at-gst-input,
+.at-tds-input,
 .at-millpayment-input {
   height: 42px;
   width: 100%;
@@ -606,7 +369,44 @@
     box-shadow 0.15s;
 }
 
+.at-farmer-input:focus,
+.at-labour-input:focus,
+.at-transport-input:focus,
+.at-other-input:focus {
+  outline: none;
+  border-color: var(--at-outflow-accent);
+  box-shadow: 0 0 0 3px rgba(179, 67, 43, 0.15);
+}
+
+.at-millqty-input:focus,
+.at-millrate-input:focus,
+.at-gst-input:focus,
+.at-tds-input:focus,
 .at-millpayment-input:focus {
+  outline: none;
+  border-color: var(--at-inflow-accent);
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
+}
+
+.at-qtyunit-custom-input,
+.at-rateunit-custom-input {
+  height: 36px;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--at-line);
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 14px;
+  color: var(--at-ink);
+  background: var(--at-surface);
+  box-sizing: border-box;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.at-qtyunit-custom-input:focus,
+.at-rateunit-custom-input:focus {
   outline: none;
   border-color: var(--at-inflow-accent);
   box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
@@ -700,17 +500,6 @@
   display: flex;
   justify-content: flex-end;
   padding-top: 4px;
-}
-
-.at-receipt-section__loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 20px 0;
-  color: var(--at-muted);
-  font-size: 13px;
-  font-weight: 500;
 }
 
 .at-btn-save {
@@ -810,6 +599,12 @@
     width: 100%;
     justify-content: center;
   }
+
+  at-receipt-section__box,
+  .at-receipt-section__pdf-frame,
+  .at-receipt-section__image {
+    width: 100% !important;
+  }
 }
 
 @keyframes at-spin {
@@ -819,8 +614,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Mill Receipt section — fully nested under .at-receipt-section so nothing
-   here can leak out and affect (or be affected by) any other component.
+   Mill Receipt section
    ───────────────────────────────────────────────────────────────────────── */
 .at-receipt-section {
   padding: 5px 5px;
@@ -829,13 +623,15 @@
   & .at-receipt-section__header {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     color: var(--at-accent);
+    margin-top: 20px;
     margin-bottom: 14px;
   }
 
   & .at-receipt-section__title {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -874,11 +670,29 @@
     }
   }
 
+  & .at-receipt-section__preview {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
   & .at-receipt-section__remove-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--at-surface);
     color: rgb(130, 36, 36);
     border: solid rgb(130, 36, 36) 1px;
     border-radius: 50px;
-    align-self: flex-end;
+    box-shadow: 0 2px 6px rgba(10, 26, 20, 0.15);
   }
 
   & .at-receipt-section__remove-btn:hover {
@@ -887,50 +701,109 @@
     cursor: pointer;
   }
 
-  & .at-receipt-section__preview {
+  & .at-receipt-section__box {
+    position: relative;
+    width: 80%; /* 80% width for laptop */
+    max-width: none; /* Removed the 480px limit */
+    height: 520px;
+    margin: 0 auto; /* Centered horizontally */
+    background: transparent; /* Transparent background */
+    overflow: hidden;
     display: flex;
-    flex-direction: column;
+    align-items: center; /* Centered vertically */
+    justify-content: center; /* Centered horizontally */
+    box-sizing: border-box;
+    border-radius: 8px;
+  }
+
+  & .at-receipt-section__viewport {
+    width: 100%;
+    background: transparent;
+    border: none;
+    display: flex;
     align-items: center;
-    gap: 12px;
+    justify-content: center;
   }
 
   & .at-receipt-section__pdf-frame {
+    width: 75%;
+    margin: 0 auto; 
+    display: flex;
+    flex-direction: column;
+    align-items: center; 
+    justify-content: center; 
+  }
+
+  & .at-receipt-section__document.is-loading {
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+
+  & .at-receipt-section__document.is-ready {
+    height: auto;
+    opacity: 1;
+    width: 100%;
     display: flex;
     justify-content: center;
-    width: 100%;
-    max-width: 100%;
-    overflow: hidden;
-    box-sizing: border-box;
   }
 
   & .at-receipt-section__pdf-frame canvas {
+    display: block;
+    width: 100% !important;
     max-width: 100% !important;
     height: auto !important;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(10, 26, 20, 0.08);
   }
 
   & .at-receipt-section__image {
-    max-width: 100%;
-    max-height: 640px;
-    border: 1px solid var(--at-line);
-    border-radius: 10px;
+    flex-shrink: 0;
+    display: block;
+    width: 80%; /* 80% width for laptop */
+    margin: 0 auto; /* Centered horizontally */
+    height: auto;
     object-fit: contain;
-    background: var(--at-grey-bg);
+    border-radius: 8px;
+    background: transparent; /* Transparent background */
+    box-shadow: 0 4px 14px rgba(10, 26, 20, 0.08);
+  }
+
+  & .at-receipt-section__skeleton {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      100deg,
+      var(--at-grey-bg) 30%,
+      #e4e9e0 45%,
+      #e4e9e0 55%,
+      var(--at-grey-bg) 70%
+    );
+    background-size: 300% 100%;
+    animation: at-shimmer 1.4s ease-in-out infinite;
   }
 
   & .at-receipt-section__error {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 12px;
     color: var(--at-error);
     font-size: 13px;
     font-weight: 500;
   }
 }
 
+@keyframes at-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
-   Centered full-screen "Saving..." overlay shown while the receipt uploads.
-   Fully nested under .at-receipt-overlay — isolated from every other style.
+   Centered full-screen "Saving..." overlay
    ───────────────────────────────────────────────────────────────────────── */
 .at-receipt-overlay {
   position: fixed;

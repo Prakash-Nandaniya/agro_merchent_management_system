@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Loader2,
@@ -30,6 +30,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
+const PDF_RENDER_WIDTH = 480;
+
 type IconProps = {
   size?: number;
   className?: string;
@@ -58,14 +60,10 @@ const WalletInflow = ({ size = 24, className = "", ...props }: IconProps) => (
     aria-hidden="true"
     {...props}
   >
-    {/* Coin dropping in */}
     <circle cx="12" cy="3.25" r="2.25" />
     <circle cx="12" cy="3.25" r="0.55" fill="currentColor" stroke="none" />
-    {/* Wallet body */}
     <path d="M3 12a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    {/* Top slot / opening */}
     <path d="M9 10h6" />
-    {/* Card pocket + clasp dot */}
     <path d="M21 14.5h-3a1.5 1.5 0 0 0 0 3h3" />
     <circle cx="18" cy="16" r="0.55" fill="currentColor" stroke="none" />
   </svg>
@@ -86,23 +84,17 @@ const WalletOutflow = ({ size = 24, className = "", ...props }: IconProps) => (
     aria-hidden="true"
     {...props}
   >
-    {/* Wallet body, tipped open at the bottom */}
     <path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    {/* Bottom slot / opening */}
     <path d="M9 14h6" />
-    {/* Card pocket + clasp dot */}
     <path d="M21 7.5h-3a1.5 1.5 0 0 0 0 3h3" />
     <circle cx="18" cy="9" r="0.55" fill="currentColor" stroke="none" />
-    {/* Dropped coin */}
     <circle cx="12" cy="20.75" r="2.25" />
     <circle cx="12" cy="20.75" r="0.55" fill="currentColor" stroke="none" />
-    {/* Dropped coin */}
     <circle cx="12" cy="20.75" r="2.25" />
     <circle cx="12" cy="20.75" r="0.55" fill="currentColor" stroke="none" />
   </svg>
 );
 
-// ─── Safely convert any string/number/undefined into a Decimal ────────────────
 const parseDecimal = (val: string | number | undefined | null): Decimal => {
   if (val === undefined || val === null || val === "") return new Decimal(0);
   try {
@@ -199,7 +191,6 @@ function toISODateOnly(raw: string): string {
   return todayISO();
 }
 
-// ─── Preset units offered in the quantity / rate dropdowns ────────────────────
 const UNIT_OPTIONS = ["Kg", "Qtl", "T", "MT"];
 
 export default function AddTrade(props: {
@@ -210,7 +201,7 @@ export default function AddTrade(props: {
   const errorcontext = useContext(ErrorContext);
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const existingTrade =
     props.trade !== undefined ? props.trade : location.state?.trade;
   const isEditMode =
@@ -234,19 +225,15 @@ export default function AddTrade(props: {
   const [cropName, setcropName] = useState(existingTrade?.crop_name || "");
   const [VehicleNo, setvehicleNo] = useState(existingTrade?.vehicle_no || "");
 
-  // ── Inflow ────────────────────────────────────────────────────────────────
   const [partyName, setpartyName] = useState(existingTrade?.party_name || "");
-
   const [millQty, setMillQty] = useState(existingTrade?.mill_qty || "");
   const [millQtyUnit, setMillQtyUnit] = useState(
     existingTrade?.mill_qty_unit || "",
   );
-
   const [millRate, setMillRate] = useState(existingTrade?.mill_rate || "");
   const [millRateUnit, setMillRateUnit] = useState(
     existingTrade?.mill_rate_unit || "",
   );
-
   const [gstCollected, setGstCollected] = useState(
     existingTrade?.gst_collected || "",
   );
@@ -257,7 +244,6 @@ export default function AddTrade(props: {
     existingTrade?.mill_payment || "",
   );
 
-  // ── Outflow ───────────────────────────────────────────────────────────────
   const [farmerPayment, setFarmerPayment] = useState(
     existingTrade?.farmer_payment || "",
   );
@@ -339,7 +325,6 @@ export default function AddTrade(props: {
     setReceiptEdited(true);
   }
 
-  // ── Actual money received from mill = mill payment + TDS - GST ─────────────
   const inflowDec = parseDecimal(millPayment)
     .plus(parseDecimal(tdsDeducted))
     .minus(parseDecimal(gstCollected));
@@ -349,22 +334,16 @@ export default function AddTrade(props: {
     .plus(parseDecimal(otherCost));
   const profitLossDec = inflowDec.minus(outflowDec);
 
-  const pdfContainerRef = useRef<HTMLDivElement>(null);
-  const [pdfWidth, setPdfWidth] = useState<number>(520);
+  const receiptFileSource = useMemo(
+    () => receiptFile || millReceiptUrl,
+    [receiptFile, millReceiptUrl],
+  );
+
+  const [pdfRendered, setPdfRendered] = useState(false);
 
   useEffect(() => {
-    const el = pdfContainerRef.current;
-    if (!el) return;
-
-    const updateWidth = () => {
-      setPdfWidth(Math.min(el.clientWidth, 520));
-    };
-
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [millReceiptUrl]);
+    setPdfRendered(false);
+  }, [receiptFileSource]);
 
   function handleQtyUnitSelect(value: string) {
     setMillQtyUnit(value);
@@ -406,7 +385,8 @@ export default function AddTrade(props: {
 
       if (isEditMode) {
         fd.append("id", existingTrade!.id);
-        fd.append("receipt_edited", String(receiptEdited));
+        fd.append("form_edited", "true");
+        fd.append("mill_receipt_edited", String(receiptEdited));
         if (existingReceiptKey)
           fd.append("existing_mill_receipt", existingReceiptKey);
       }
@@ -458,11 +438,109 @@ export default function AddTrade(props: {
     }
   }
 
+  function renderReceiptSection() {
+    return (
+      <section className="at-receipt-section">
+        <div className="at-receipt-section__header">
+          <FileText size={25} />
+          <h2 className="at-receipt-section__title">Mill Receipt</h2>
+        </div>
+
+        {!isReadOnly && (
+          <input
+            ref={receiptFileInputRef}
+            type="file"
+            className="at-receipt-section__hidden-input"
+            accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,image/*,application/pdf"
+            onChange={handleReceiptFileChange}
+          />
+        )}
+
+        {!millReceiptUrl && !loadingExistingReceipt && !isReadOnly && (
+          <button
+            type="button"
+            className="at-receipt-section__add-btn"
+            onClick={openReceiptPicker}
+          >
+            <Plus size={16} />
+            Add Mill Receipt
+          </button>
+        )}
+
+        {loadingExistingReceipt && (
+          <div className="at-receipt-section__box">
+            <div className="at-receipt-section__skeleton" />
+          </div>
+        )}
+
+        {millReceiptUrl && !loadingExistingReceipt && (
+          <div className="at-receipt-section__preview">
+            {!isReadOnly && (
+              <button
+                type="button"
+                className="at-receipt-section__remove-btn"
+                onClick={handleRemoveReceipt}
+                title="Remove receipt"
+              >
+                <X size={20} />
+              </button>
+            )}
+
+            <div className="at-receipt-section__viewport">
+              {millReceiptIsPdf ? (
+                <div className="at-receipt-section__pdf-frame">
+                  {!pdfRendered && (
+                    <div className="at-receipt-section__box">
+                      <div className="at-receipt-section__skeleton" />
+                    </div>
+                  )}
+                  <div
+                    className={`at-receipt-section__document ${pdfRendered ? "is-ready" : "is-loading"}`}
+                  >
+                    <Document
+                      file={receiptFileSource}
+                      error={
+                        <div className="at-receipt-section__error">
+                          <AlertTriangle size={16} />
+                          Could not load PDF.
+                        </div>
+                      }
+                    >
+                      <Page
+                        pageNumber={1}
+                        width={PDF_RENDER_WIDTH}
+                        devicePixelRatio={Math.max(
+                          window.devicePixelRatio || 1,
+                          3,
+                        )}
+                        renderTextLayer={false}
+                        renderAnnotationLayer={false}
+                        onRenderSuccess={() => setPdfRendered(true)}
+                      />
+                    </Document>
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={millReceiptUrl}
+                  className="at-receipt-section__image"
+                  alt="Mill receipt"
+                />
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  const shouldRenderReceiptSection =
+    !isViewMode || !!existingTrade?.mill_receipt;
+
   return (
     <BlurLoading message="Saving" loading={saving}>
       <div className="at-page">
         <div className="at-shell">
-          {/* Header */}
           {isEditMode || isViewMode ? (
             <button
               type="button"
@@ -502,9 +580,10 @@ export default function AddTrade(props: {
               />
             </div>
           </header>
-          {/* Invoice No. - plain inline field, underline only */}
+          <div className="at-invoice-title-row">
+            <h2 className="at-section-title">Invoice</h2>
+          </div>
           <div className="at-invoice-inline">
-            {/* 1. Invoice Number */}
             <div className="at-field-group">
               <label className="at-label">Invoice No.</label>
               <input
@@ -516,7 +595,6 @@ export default function AddTrade(props: {
               />
             </div>
 
-            {/* 2. Crop Dropdown (Underline Style) */}
             <div className="at-field-group">
               <Wheat size={18} className="at-icon" />
               <label className="at-label">Crop</label>
@@ -534,12 +612,10 @@ export default function AddTrade(props: {
                     </option>
                   ))}
                 </select>
-                {/* Custom dropdown arrow to match the minimal look */}
                 <ChevronDown size={16} className="at-select-icon" />
               </div>
             </div>
 
-            {/* 3. Vehicle Number */}
             <div className="at-field-group">
               <Truck size={18} className="at-icon" />
               <label className="at-label">Vehicle No.</label>
@@ -552,7 +628,7 @@ export default function AddTrade(props: {
               />
             </div>
           </div>
-          {/* Two column: outflow + inflow */}
+
           <div className="at-two-col">
             <section className="at-panel at-panel--inflow">
               <div className="at-panel-head">
@@ -571,7 +647,6 @@ export default function AddTrade(props: {
                   />
                 </div>
 
-                {/* Mill Qty — unit dropdown sits next to the label, not the value */}
                 <div className="at-field">
                   <div className="at-label-row">
                     <label className="at-label">Mill Qty</label>
@@ -600,7 +675,6 @@ export default function AddTrade(props: {
                   />
                 </div>
 
-                {/* Mill Rate — (per unit) dropdown sits next to the label */}
                 <div className="at-field">
                   <div className="at-label-row">
                     <label className="at-label">Mill Rate</label>
@@ -710,7 +784,6 @@ export default function AddTrade(props: {
               </div>
             </section>
           </div>
-          {/* Summary */}
           <section className="at-summary">
             <div className="at-summary-item">
               <span className="at-summary-label">Inflow</span>
@@ -736,91 +809,9 @@ export default function AddTrade(props: {
               </span>
             </div>
           </section>
-          {/* Mill Receipt — staged locally, only uploaded when Save is hit */}
-          <section className="at-receipt-section">
-            <div className="at-receipt-section__header">
-              <FileText size={18} />
-              <h2 className="at-receipt-section__title">Mill Receipt</h2>
-            </div>
 
-            <input
-              ref={receiptFileInputRef}
-              type="file"
-              className="at-receipt-section__hidden-input"
-              accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,image/*,application/pdf"
-              onChange={handleReceiptFileChange}
-              readOnly={isReadOnly}
-            />
+          {shouldRenderReceiptSection && renderReceiptSection()}
 
-            {!millReceiptUrl && !loadingExistingReceipt && !isReadOnly && (
-              <button
-                type="button"
-                className="at-receipt-section__add-btn"
-                onClick={openReceiptPicker}
-              >
-                <Plus size={16} />
-                Add Mill Receipt
-              </button>
-            )}
-
-            {loadingExistingReceipt && (
-              <div className="at-receipt-section__loading">
-                <Loader2 size={16} className="at-spin" />
-                Loading receipt...
-              </div>
-            )}
-
-            {millReceiptUrl && (
-              <div className="at-receipt-section__preview">
-                {!isReadOnly && (
-                  <button
-                    type="button"
-                    className="at-receipt-section__remove-btn"
-                    onClick={handleRemoveReceipt}
-                    title="Remove receipt"
-                  >
-                    <X size={20} />
-                  </button>
-                )}
-
-                {millReceiptIsPdf ? (
-                  <div
-                    className="at-receipt-section__pdf-frame"
-                    ref={pdfContainerRef}
-                  >
-                    <Document
-                      file={receiptFile || millReceiptUrl}
-                      loading={
-                        <div className="at-receipt-section__loading">
-                          <Loader2 size={16} className="at-spin" />
-                          Loading receipt...
-                        </div>
-                      }
-                      error={
-                        <div className="at-receipt-section__error">
-                          <AlertTriangle size={16} />
-                          Could not load PDF.
-                        </div>
-                      }
-                    >
-                      <Page
-                        pageNumber={1}
-                        width={pdfWidth}
-                        renderTextLayer={false}
-                        renderAnnotationLayer={false}
-                      />
-                    </Document>
-                  </div>
-                ) : (
-                  <img
-                    src={millReceiptUrl}
-                    className="at-receipt-section__image"
-                    alt="Mill receipt"
-                  />
-                )}
-              </div>
-            )}
-          </section>
           {!isReadOnly && (
             <div className="at-actions">
               <button
