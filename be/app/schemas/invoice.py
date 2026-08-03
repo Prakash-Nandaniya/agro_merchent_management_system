@@ -57,7 +57,7 @@ class Invoice(BaseModel):
     party_city: Optional[str] = Field(None, max_length=50, alias="partyCity")
     party_state: str = Field(..., min_length=1, max_length=50, alias="partyState")
     party_gstin: str = Field(..., max_length=15, alias="partyGSTIN")
-    party_pan: Optional[str] = Field(None, max_length=10, alias="partyPAN")
+    party_pan: Optional[str] = Field("", max_length=10, alias="partyPAN")
 
     crop: str = Field(..., min_length=1, max_length=100)
     hsn_code: str = Field(..., min_length=1, max_length=6, alias="hsnCode")
@@ -253,7 +253,7 @@ class InvoiceOut(BaseModel):
     party_city: Optional[str] = None
     party_state: str
     party_gstin: str
-    party_pan: Optional[str] = None
+    party_pan: Optional[str] = ""
     crop: str
     hsn_code: str
     qty: Decimal
@@ -303,7 +303,7 @@ class InvoicePdfRequest(BaseModel):
     party_city: Optional[str] = None
     party_state: str
     party_gstin: str
-    party_pan: Optional[str] = None
+    party_pan: Optional[str] = ""
     crop: str
     hsn_code: str
     qty: str

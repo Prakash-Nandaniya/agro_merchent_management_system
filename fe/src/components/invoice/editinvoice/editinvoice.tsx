@@ -55,7 +55,7 @@ interface SavedInvoice {
   party_city?: string | null;
   party_state: string;
   party_gstin: string;
-  party_pan: string | null;
+  party_pan: string | "";
   seller_bank?: string | null;
   seller_account?: string | null;
   seller_ifsc?: string | null;
@@ -608,7 +608,7 @@ export default function EditInvoiceForm() {
       party_city: s.partyCity || null,
       party_state: s.partyState,
       party_gstin: s.partyGSTIN,
-      party_pan: s.partyPAN || null,
+      party_pan: s.partyPAN || "",
       seller_bank: s.sellerBank || null,
       seller_account: s.sellerAccount || null,
       seller_ifsc: s.sellerIFSC || null,
@@ -705,7 +705,7 @@ export default function EditInvoiceForm() {
         party_city: s.partyCity || null,
         party_state: s.partyState,
         party_gstin: s.partyGSTIN,
-        party_pan: s.partyPAN || null,
+        party_pan: s.partyPAN || "",
         seller_bank: s.sellerBank || null,
         seller_account: s.sellerAccount || null,
         seller_ifsc: s.sellerIFSC || null,

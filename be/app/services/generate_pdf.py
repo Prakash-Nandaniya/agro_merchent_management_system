@@ -57,13 +57,13 @@ def _fmt(val) -> str:
     e.g. 34736211 -> '3,47,36,211.00'
     """
     if not val:
-        return ""
+        return "0.0"
     try:
         n = float(val)
     except (TypeError, ValueError):
-        return ""
+        return "0.0"
     if n == 0:
-        return ""
+        return "0.0"
     negative = n < 0
     n = abs(n)
     integer_part, _, decimal_part = f"{n:.2f}".partition(".")
