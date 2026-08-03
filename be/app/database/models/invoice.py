@@ -51,7 +51,7 @@ class Invoice(Base):
     party_city: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     party_state: Mapped[str] = mapped_column(String(50), nullable=False)
     party_gstin: Mapped[str] = mapped_column(String(15), nullable=False)
-    party_pan: Mapped[str] = mapped_column(String(10), nullable=False)
+    party_pan: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
 
     crop: Mapped[str] = mapped_column(String(100), nullable=False)
     hsn_code: Mapped[str] = mapped_column(String(6), nullable=False)
@@ -117,9 +117,6 @@ class Invoice(Base):
         ),
         CheckConstraint(
             "trim(party_gstin) <> ''", name="ck_invoices_party_gstin_not_blank"
-        ),
-        CheckConstraint(
-            "trim(party_pan) <> ''", name="ck_invoices_party_pan_not_blank"
         ),
         CheckConstraint("trim(crop) <> ''", name="ck_invoices_crop_not_blank"),
         CheckConstraint("trim(hsn_code) <> ''", name="ck_invoices_hsn_code_not_blank"),

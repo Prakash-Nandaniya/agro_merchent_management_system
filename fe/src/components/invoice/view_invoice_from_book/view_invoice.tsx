@@ -34,7 +34,7 @@ export interface InvoiceDetail {
   party_city?: string | null;
   party_state: string;
   party_gstin: string;
-  party_pan: string;
+  party_pan: string | null;
   seller_bank?: string | null;
   seller_account?: string | null;
   seller_ifsc?: string | null;

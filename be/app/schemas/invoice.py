@@ -57,7 +57,7 @@ class Invoice(BaseModel):
     party_city: Optional[str] = Field(None, max_length=50, alias="partyCity")
     party_state: str = Field(..., min_length=1, max_length=50, alias="partyState")
     party_gstin: str = Field(..., max_length=15, alias="partyGSTIN")
-    party_pan: str = Field(..., max_length=10, alias="partyPAN")
+    party_pan: Optional[str] = Field(None, max_length=10, alias="partyPAN")
 
     crop: str = Field(..., min_length=1, max_length=100)
     hsn_code: str = Field(..., min_length=1, max_length=6, alias="hsnCode")
@@ -117,10 +117,24 @@ class Invoice(BaseModel):
         v = "0" if v in (None, "") else str(v)
         return Decimal(v).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
 
-    @field_validator("seller_pan", "party_pan")
+    @field_validator("seller_pan")
+    @classmethod
+    def _validate_seller_pan(cls, v: str) -> str:
+        v = v.strip().upper()
+        if not PAN_RE.match(v):
+            raise InvalidPANError(v)
+        return v
+    
+    @field_validator("party_pan")
     @classmethod
     def _validate_pan(cls, v: str) -> str:
-        v = v.strip().upper()
+        if not v:
+            return v
+        
+        v = v.strip().upper() 
+        if v=='-':
+            return v
+        
         if not PAN_RE.match(v):
             raise InvalidPANError(v)
         return v
@@ -239,7 +253,7 @@ class InvoiceOut(BaseModel):
     party_city: Optional[str] = None
     party_state: str
     party_gstin: str
-    party_pan: str
+    party_pan: Optional[str] = None
     crop: str
     hsn_code: str
     qty: Decimal
@@ -289,7 +303,7 @@ class InvoicePdfRequest(BaseModel):
     party_city: Optional[str] = None
     party_state: str
     party_gstin: str
-    party_pan: str
+    party_pan: Optional[str] = None
     crop: str
     hsn_code: str
     qty: str

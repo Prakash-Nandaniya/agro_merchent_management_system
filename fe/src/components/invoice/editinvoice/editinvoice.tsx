@@ -55,7 +55,7 @@ interface SavedInvoice {
   party_city?: string | null;
   party_state: string;
   party_gstin: string;
-  party_pan: string;
+  party_pan: string | null;
   seller_bank?: string | null;
   seller_account?: string | null;
   seller_ifsc?: string | null;
@@ -427,7 +427,7 @@ export default function EditInvoiceForm() {
       partyName: existingBill.party_name,
       partyAddress: existingBill.party_address,
       partyGSTIN: existingBill.party_gstin,
-      partyPAN: existingBill.party_pan,
+      partyPAN: existingBill.party_pan || "",
       partyState: existingBill.party_state,
       partyCity: existingBill.party_city || "",
 
@@ -608,7 +608,7 @@ export default function EditInvoiceForm() {
       party_city: s.partyCity || null,
       party_state: s.partyState,
       party_gstin: s.partyGSTIN,
-      party_pan: s.partyPAN,
+      party_pan: s.partyPAN || null,
       seller_bank: s.sellerBank || null,
       seller_account: s.sellerAccount || null,
       seller_ifsc: s.sellerIFSC || null,
@@ -635,7 +635,6 @@ export default function EditInvoiceForm() {
     if (!s.partyGSTIN.trim()) errs.push("Party / Buyer GSTIN is required.");
     if (!s.sellerGSTIN.trim()) errs.push("Seller GSTIN is required.");
     if (!s.sellerPAN.trim()) errs.push("Seller PAN is required.");
-    if (!s.partyPAN.trim()) errs.push("Party / Buyer PAN is required.");
     if (!s.deliveryThrough) errs.push("Delivery through is required.");
     if (!s.crop) errs.push("Select a crop before printing.");
     if (s.crop) {
@@ -706,7 +705,7 @@ export default function EditInvoiceForm() {
         party_city: s.partyCity || null,
         party_state: s.partyState,
         party_gstin: s.partyGSTIN,
-        party_pan: s.partyPAN,
+        party_pan: s.partyPAN || null,
         seller_bank: s.sellerBank || null,
         seller_account: s.sellerAccount || null,
         seller_ifsc: s.sellerIFSC || null,
