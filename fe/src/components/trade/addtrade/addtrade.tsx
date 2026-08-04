@@ -8,6 +8,9 @@ import {
   FileText,
   Plus,
   X,
+  Printer,
+  Download,
+  Send as SendIcon,
 } from "lucide-react";
 import Decimal from "decimal.js";
 import "./addtrade.css";
@@ -267,6 +270,10 @@ export default function AddTrade(props: {
   const [loadingExistingReceipt, setLoadingExistingReceipt] = useState(false);
   const [cropOptions, setcropOptions] = useState<string[]>([]);
 
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
   const queryClient = useQueryClient();
   useEffect(() => {
     const data = queryClient.getQueryData<ProfileConfig>(["Profile"]);
@@ -358,83 +365,119 @@ export default function AddTrade(props: {
     return `${day}-${month}-${year}`;
   }
 
-  async function handleSave() {
-    if (cropName == "") {
-      errorcontext.addError("Please select Crop");
-      return;
-    }
-    setSaving(true);
+  const receiptBlobRef = useRef<Blob | null>(null);
+
+  useEffect(() => {
+    receiptBlobRef.current = null;
+  }, [receiptFileSource]);
+
+  async function getReceiptBlob(): Promise<Blob> {
+    if (receiptFile) return receiptFile; 
+    if (receiptBlobRef.current) return receiptBlobRef.current;
+    const res = await fetch(millReceiptUrl);
+    const blob = await res.blob();
+    receiptBlobRef.current = blob;
+    return blob;
+  }
+
+  // --- Mill receipt Print / Download / Send ---
+  async function handlePrint() {
+    if (!millReceiptUrl) return;
+    setIsPrinting(true);
+    let printFrame: HTMLIFrameElement | null = null;
+    let url: string | null = null;
     try {
-      const fd = new FormData();
-      fd.append("trade_creation_date", toDDMMYYYY(tradeDate));
-      fd.append("invoice_no", invoiceNo.trim());
-      fd.append("crop_name", cropName);
-      fd.append("vehicle_no", VehicleNo || "");
-      fd.append("party_name", partyName || "");
-      fd.append("mill_qty", millQty || "");
-      fd.append("mill_qty_unit", millQtyUnit);
-      fd.append("mill_rate", millRate || "");
-      fd.append("mill_rate_unit", millRateUnit);
-      fd.append("gst_collected", gstCollected || "");
-      fd.append("tds_deducted", tdsDeducted || "");
-      fd.append("mill_payment", millPayment || "");
-      fd.append("farmer_payment", farmerPayment || "");
-      fd.append("labour_cost", labourCost || "");
-      fd.append("transport_cost", transportCost || "");
-      fd.append("other_cost", otherCost || "");
+      const blob = await getReceiptBlob();
+      url = URL.createObjectURL(blob);
 
-      if (isEditMode) {
-        fd.append("id", existingTrade!.id);
-        fd.append("form_edited", "true");
-        fd.append("mill_receipt_edited", String(receiptEdited));
-        if (existingReceiptKey)
-          fd.append("existing_mill_receipt", existingReceiptKey);
-      }
+      printFrame = document.createElement("iframe");
+      printFrame.style.position = "fixed";
+      printFrame.style.right = "0";
+      printFrame.style.bottom = "0";
+      printFrame.style.width = "0";
+      printFrame.style.height = "0";
+      printFrame.style.border = "0";
+      document.body.appendChild(printFrame);
 
-      if (receiptFile) fd.append("file", receiptFile);
-
-      const url = isEditMode
-        ? `${settings.BE_URL}/edit-trade`
-        : `${settings.BE_URL}/create-trade`;
-      const res = await apiFetch(url, {
-        method: isEditMode ? "PUT" : "POST",
-        body: fd,
+      await new Promise<void>((resolve) => {
+        printFrame!.onload = () => resolve();
+        printFrame!.src = url!;
       });
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const detail =
-          typeof body.detail === "string"
-            ? body.detail
-            : Array.isArray(body.detail)
-              ? body.detail
-                  .map((d: any) => d.msg || JSON.stringify(d))
-                  .join(", ")
-              : `Request failed with status ${res.status}`;
-        errorcontext.addError(detail);
-        return;
+      printFrame.contentWindow?.focus();
+      try {
+        printFrame.contentWindow?.print();
+      } catch {
+        window.open(url!, "_blank");
+        errorcontext.addError(
+          "The receipt has opened in a new tab — use the print icon there.",
+        );
       }
-      const savedTrade = await res.json();
-      queryClient.setQueryData<Trade[]>(["Trades"], (oldData) => {
-        if (!oldData) return [savedTrade];
-
-        const exists = oldData.some((trade) => trade.id === savedTrade.id);
-
-        if (exists) {
-          return oldData.map((trade) =>
-            trade.id === savedTrade.id ? savedTrade : trade,
-          );
-        } else {
-          return [savedTrade, ...oldData];
-        }
-      });
-      navigate("/trade-book");
-    } catch (err) {
-      errorcontext.addError(
-        err instanceof Error ? err.message : "Could not reach the server.",
-      );
+    } catch {
+      errorcontext.addError("Could not print the mill receipt.");
     } finally {
-      setSaving(false);
+      setIsPrinting(false);
+      setTimeout(() => {
+        if (printFrame) document.body.removeChild(printFrame);
+        if (url) URL.revokeObjectURL(url);
+      }, 60000);
+    }
+  }
+
+  async function handleDownload() {
+    if (!millReceiptUrl) return;
+    setIsDownloading(true);
+    try {
+      const blob = await getReceiptBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mill-receipt-${invoiceNo || existingTrade?.id || "trade"}${millReceiptIsPdf ? ".pdf" : ""}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      errorcontext.addError("Could not download the mill receipt.");
+    } finally {
+      setIsDownloading(false);
+    }
+  }
+
+  async function handleSend() {
+    if (!millReceiptUrl) return;
+    setIsSending(true);
+    try {
+      const blob = await getReceiptBlob();
+      const fileName = `mill-receipt-${invoiceNo || existingTrade?.id || "trade"}${millReceiptIsPdf ? ".pdf" : ""}`;
+      const file = new File([blob], fileName, {
+        type:
+          blob.type || (millReceiptIsPdf ? "application/pdf" : "image/jpeg"),
+      });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "Mill Receipt",
+        });
+      } else {
+        errorcontext.addError(
+          "Direct sharing is not supported on this browser. The file will download now so you can attach it manually.",
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      errorcontext.addError("Could not send the mill receipt.");
+    } finally {
+      setIsSending(false);
     }
   }
 
@@ -528,6 +571,57 @@ export default function AddTrade(props: {
                 />
               )}
             </div>
+            {isReadOnly && (
+              <div
+                className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 print-hide px-2 sm:px-0"
+                style={{ margin: 0, width: "100%" }}
+              >
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    disabled={isPrinting}
+                    className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 disabled:opacity-70
+                         disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
+                  >
+                    {isPrinting ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Printer size={16} />
+                    )}
+                    Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={isSending}
+                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-70
+                         disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
+                  >
+                    {isSending ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <SendIcon size={16} />
+                    )}
+                    Send
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownload}
+                    disabled={isPrinting || isDownloading || isSending}
+                    className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-70
+                         disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded shadow-md transition-colors w-full sm:w-auto"
+                  >
+                    {isDownloading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Download size={16} />
+                    )}
+                    Download
+                  </button>
+                </>
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -836,4 +930,84 @@ export default function AddTrade(props: {
       </div>
     </BlurLoading>
   );
+
+  async function handleSave() {
+    if (cropName == "") {
+      errorcontext.addError("Please select Crop");
+      return;
+    }
+    setSaving(true);
+    try {
+      const fd = new FormData();
+      fd.append("trade_creation_date", toDDMMYYYY(tradeDate));
+      fd.append("invoice_no", invoiceNo.trim());
+      fd.append("crop_name", cropName);
+      fd.append("vehicle_no", VehicleNo || "");
+      fd.append("party_name", partyName || "");
+      fd.append("mill_qty", millQty || "");
+      fd.append("mill_qty_unit", millQtyUnit);
+      fd.append("mill_rate", millRate || "");
+      fd.append("mill_rate_unit", millRateUnit);
+      fd.append("gst_collected", gstCollected || "");
+      fd.append("tds_deducted", tdsDeducted || "");
+      fd.append("mill_payment", millPayment || "");
+      fd.append("farmer_payment", farmerPayment || "");
+      fd.append("labour_cost", labourCost || "");
+      fd.append("transport_cost", transportCost || "");
+      fd.append("other_cost", otherCost || "");
+
+      if (isEditMode) {
+        fd.append("id", existingTrade!.id);
+        fd.append("form_edited", "true");
+        fd.append("mill_receipt_edited", String(receiptEdited));
+        if (existingReceiptKey)
+          fd.append("existing_mill_receipt", existingReceiptKey);
+      }
+
+      if (receiptFile) fd.append("file", receiptFile);
+
+      const url = isEditMode
+        ? `${settings.BE_URL}/edit-trade`
+        : `${settings.BE_URL}/create-trade`;
+      const res = await apiFetch(url, {
+        method: isEditMode ? "PUT" : "POST",
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const detail =
+          typeof body.detail === "string"
+            ? body.detail
+            : Array.isArray(body.detail)
+              ? body.detail
+                  .map((d: any) => d.msg || JSON.stringify(d))
+                  .join(", ")
+              : `Request failed with status ${res.status}`;
+        errorcontext.addError(detail);
+        return;
+      }
+      const savedTrade = await res.json();
+      queryClient.setQueryData<Trade[]>(["Trades"], (oldData) => {
+        if (!oldData) return [savedTrade];
+
+        const exists = oldData.some((trade) => trade.id === savedTrade.id);
+
+        if (exists) {
+          return oldData.map((trade) =>
+            trade.id === savedTrade.id ? savedTrade : trade,
+          );
+        } else {
+          return [savedTrade, ...oldData];
+        }
+      });
+      navigate("/trade-book");
+    } catch (err) {
+      errorcontext.addError(
+        err instanceof Error ? err.message : "Could not reach the server.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 }
