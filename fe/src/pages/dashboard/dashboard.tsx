@@ -3,6 +3,8 @@ import BillBookButton from "@/components/invoice/view_bill_book_button/billbookb
 import AddTradeButton from "@/components/trade/addtrade_button/button";
 import TradeBookButton from "@/components/trade/tradebook_button/button";
 import Navbar from "@/components/navbar/navbar";
+import Chat from "@/components/chat/chat";
+
 import "./dashboard.css";
 
 export default function Dashboard() {
@@ -15,6 +17,7 @@ export default function Dashboard() {
         <AddTradeButton />
         <TradeBookButton />
       </div>
+      <Chat />
     </div>
   );
 }
