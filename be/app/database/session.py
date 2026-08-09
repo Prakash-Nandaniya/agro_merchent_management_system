@@ -1,28 +1,33 @@
 from sqlalchemy.orm import sessionmaker
-from .engine import engine, ai_agent_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from .engine import engine, ai_agent_engine, sync_engine
 
-SessionLocal = sessionmaker(
-    autocommit=False, 
-    autoflush=False, 
-    bind=engine
-)
-
-AgentSessionLocal = sessionmaker(
+SyncSessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
-    bind=ai_agent_engine
+    bind=sync_engine,
+)
+SessionLocal = SyncSessionLocal
+
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False,
 )
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+AgentSessionLocal = async_sessionmaker(
+    ai_agent_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False,
+)
 
-def get_agent_db():
-    db = AgentSessionLocal()
-    try:
+async def get_db():
+    async with AsyncSessionLocal() as db:
         yield db
-    finally:
-        db.close()
+
+
+async def get_agent_db():
+    async with AgentSessionLocal() as db:
+        yield db

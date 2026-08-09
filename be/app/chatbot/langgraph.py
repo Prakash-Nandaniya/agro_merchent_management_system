@@ -1,221 +1,100 @@
-import json
-from typing import Annotated, Optional, TypedDict
+"""
+Flow:
 
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_core.runnables import RunnableConfig
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, StateGraph
-from langgraph.graph.message import add_messages
-from sqlalchemy.orm import Session
+  START -> classify_intent --+-> greeting_response -----------------> END
+                              +-> off_topic_response ----------------> END
+                              +-> web_search -> generate_sql <-------+
+                                                      |                |
+                                                      v                | (retry, up to
+                                                 execute_sql ----------+  MAX_SQL_RETRIES)
+                                                      |
+                                                      v
+                                                 plan_math -> execute_math --+-> final_analysis -> END
+                                                                              +-> custom_codegen <-+
+                                                                                    |     (retry)   |
+                                                                                    +----------------+
+                                                                                    -> final_analysis -> END
 
-from app.core.config import settings
+Memory: InMemorySaver, keyed by thread_id — same mechanism as before (new
+thread_id = blank state, seen thread_id = prior `messages` reloaded
+automatically). See the router in chat.py for how thread_id gets in.
+"""
 
-from app.chatbot.tools import (
-    DB_SCHEMA_DESCRIPTION,
-    apply_operations,
-    execute_readonly_query,
-    rows_to_json,
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, START, StateGraph
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.chatbot.codegen import custom_codegen_node, route_after_codegen
+from app.chatbot.nodes import (
+    direct_answer_node,
+    execute_math_node,
+    final_analysis_node,
+    generate_sql_node,
+    make_execute_sql_node,
+    plan_math_node,
+    route_after_execute_math,
+    route_after_execute_sql,
 )
+from app.chatbot.router import (
+    classify_intent_node,
+    greeting_response_node,
+    off_topic_response_node,
+    route_after_classify,
+)
+from app.chatbot.state import AgentState
+from app.chatbot.websearch import web_search_node
 
-def get_llm(temperature: float = 0.0) -> ChatOpenAI:
-    return ChatOpenAI(model="gpt-4o-mini", temperature=temperature, api_key=settings.OPENAI_API_KEY)
-
-
-# ---------------------------------------------------------------------------
-# Graph state
-# ---------------------------------------------------------------------------
-class AgentState(TypedDict):
-    user_query: str
-    messages: Annotated[list, add_messages]  # conversation memory, auto-appended
-    sql_query: Optional[str]
-    query_result_json: Optional[str]
-    operations: Optional[list]
-    operations_result: Optional[dict]
-    final_answer: Optional[str]
+_checkpointer = InMemorySaver()
 
 
-# ---------------------------------------------------------------------------
-# Node 1 — generate SQL from the user's question + conversation memory
-# ---------------------------------------------------------------------------
-SQL_SYSTEM_PROMPT = f"""You are a PostgreSQL query generator for a crop-trading business.
+def build_graph(db: AsyncSession):
+    graph = StateGraph(AgentState)
 
-{DB_SCHEMA_DESCRIPTION}
+    graph.add_node("classify_intent", classify_intent_node)
+    graph.add_node("greeting_response", greeting_response_node)
+    graph.add_node("off_topic_response", off_topic_response_node)
+    graph.add_node("web_search", web_search_node)
+    graph.add_node("generate_sql", generate_sql_node)
+    graph.add_node("execute_sql", make_execute_sql_node(db))
+    graph.add_node("plan_math", plan_math_node)
+    graph.add_node("execute_math", execute_math_node)
+    graph.add_node("custom_codegen", custom_codegen_node)
+    graph.add_node("direct_answer", direct_answer_node)
+    graph.add_node("final_analysis", final_analysis_node)
 
-Given the user's question and the conversation so far, write ONE single SELECT
-query that answers it — apply the right WHERE filters, date ranges, JOINs,
-GROUP BY, ORDER BY, and LIMIT as needed.
-
-If the question does not require any database data (e.g. a greeting, or a
-follow-up that can be answered from the conversation alone), respond with
-exactly: NO_QUERY_NEEDED
-
-Respond with ONLY the raw SQL (or NO_QUERY_NEEDED). No explanation, no
-markdown code fences, no trailing semicolon commentary.
-"""
-
-
-def generate_sql_node(state: AgentState) -> dict:
-    llm = get_llm()
-    messages = [SystemMessage(content=SQL_SYSTEM_PROMPT)] + list(state.get("messages", [])) + [
-        HumanMessage(content=state["user_query"])
-    ]
-    response = llm.invoke(messages)
-    raw = response.content.strip().strip("`").strip()
-    if raw.lower().startswith("sql"):
-        raw = raw[3:].strip()
-
-    sql_query = None if raw.upper() == "NO_QUERY_NEEDED" else raw
-    return {"sql_query": sql_query}
-
-
-# ---------------------------------------------------------------------------
-# Node 2 — execute the SQL (read-only) and store rows as JSON
-# ---------------------------------------------------------------------------
-def execute_sql_node(state: AgentState, config: RunnableConfig) -> dict:
-    sql_query = state.get("sql_query")
-    if not sql_query:
-        return {"query_result_json": "[]"}
-
-    db: Session = config["configurable"]["db_session"]
-    try:
-        rows = execute_readonly_query(db, sql_query)
-        return {"query_result_json": rows_to_json(rows)}
-    except (ValueError, PermissionError) as e:
-        return {"query_result_json": json.dumps({"error": str(e)})}
-
-
-# ---------------------------------------------------------------------------
-# Node 3 — decide what math/aggregation operations the question needs
-# ---------------------------------------------------------------------------
-OPERATIONS_SYSTEM_PROMPT = """You decide what math/aggregation operations to run
-on a query result to answer the user's question.
-
-Available ops (respond using EXACTLY these shapes):
-- {"op": "sum", "column": "<col>"}
-- {"op": "average", "column": "<col>"}
-- {"op": "min", "column": "<col>"}
-- {"op": "max", "column": "<col>"}
-- {"op": "count"}
-- {"op": "group_sum", "group_by": "<col>", "value_column": "<col>"}
-- {"op": "margin", "revenue_column": "<col>", "cost_columns": ["<col>", "<col>", ...]}
-- {"op": "percentage_of_total", "column": "<col>"}
-
-Respond with ONLY a JSON array of operation objects. If no calculation is
-needed (the raw rows already answer the question, e.g. "list my invoices"),
-respond with exactly: []
-"""
-
-
-def identify_operations_node(state: AgentState) -> dict:
-    llm = get_llm()
-    context = (
-        f"User question: {state['user_query']}\n\n"
-        f"Query result data:\n{state.get('query_result_json', '[]')}"
+    graph.add_edge(START, "classify_intent")
+    graph.add_conditional_edges(
+        "classify_intent",
+        route_after_classify,
+        {
+            "greeting_response": "greeting_response",
+            "off_topic_response": "off_topic_response",
+            "business_pipeline": "web_search",
+            "direct_answer": "direct_answer",
+        },
     )
-    messages = [SystemMessage(content=OPERATIONS_SYSTEM_PROMPT), HumanMessage(content=context)]
-    response = llm.invoke(messages)
-    raw = response.content.strip().strip("`")
-    if raw.lower().startswith("json"):
-        raw = raw[4:].strip()
+    graph.add_edge("greeting_response", END)
+    graph.add_edge("off_topic_response", END)
 
-    try:
-        operations = json.loads(raw)
-        if not isinstance(operations, list):
-            operations = []
-    except Exception:
-        operations = []
-
-    return {"operations": operations}
-
-
-# ---------------------------------------------------------------------------
-# Node 4 — actually run those operations in Python (deterministic, not LLM)
-# ---------------------------------------------------------------------------
-def apply_operations_node(state: AgentState) -> dict:
-    try:
-        data = json.loads(state.get("query_result_json") or "[]")
-        if not isinstance(data, list):
-            data = []
-    except Exception:
-        data = []
-
-    results = apply_operations(data, state.get("operations") or [])
-    return {"operations_result": results}
-
-
-# ---------------------------------------------------------------------------
-# Node 5 — final concise answer, aware of the frontend's markdown/table/chart support
-# ---------------------------------------------------------------------------
-FINAL_SYSTEM_PROMPT = """You are a financial analyst assistant for a crop-trading
-business (Karma Trading). Answer using ONLY the data and calculated results
-given to you. Be short, direct, and concise — a few sentences unless a table
-or chart is clearly the better format.
-
-The frontend renders your reply as Markdown with these capabilities:
-- Standard markdown tables ( | col | col | ) render natively — use for
-  row-level or comparison data.
-- For a chart, use a fenced code block with language "chart" containing
-  JSON in EXACTLY this shape:
-  ```chart
-  {"type": "bar", "xKey": "name", "series": [{"key": "value", "color": "#2563eb"}], "data": [{"name": "Jan", "value": 30}]}
-  ```
-  "type" can be "bar", "line", or "pie". Only include a chart when it
-  genuinely helps (a trend or comparison across multiple items) — never
-  for a single number.
-- Regular code blocks (other languages) render with syntax highlighting.
-
-Never invent numbers that aren't present in the data below. If the data is
-empty or an error occurred, say so plainly and briefly.
-"""
-
-
-def final_analysis_node(state: AgentState) -> dict:
-    llm = get_llm(temperature=0.2)
-    context = (
-        f"User question: {state['user_query']}\n\n"
-        f"Raw data (JSON): {state.get('query_result_json', '[]')}\n\n"
-        f"Calculated results: {json.dumps(state.get('operations_result') or {}, default=str)}"
+    graph.add_edge("web_search", "generate_sql")
+    graph.add_edge("generate_sql", "execute_sql")
+    graph.add_conditional_edges(
+        "execute_sql",
+        route_after_execute_sql,
+        {"generate_sql": "generate_sql", "plan_math": "plan_math"},
     )
-    messages = [SystemMessage(content=FINAL_SYSTEM_PROMPT)] + list(state.get("messages", [])) + [
-        HumanMessage(content=context)
-    ]
-    response = llm.invoke(messages)
-    answer = response.content.strip()
+    graph.add_edge("plan_math", "execute_math")
+    graph.add_conditional_edges(
+        "execute_math",
+        route_after_execute_math,
+        {"custom_codegen": "custom_codegen", "final_analysis": "final_analysis"},
+    )
+    graph.add_edge("direct_answer", END)
+    graph.add_conditional_edges(
+        "custom_codegen",
+        route_after_codegen,
+        {"custom_codegen": "custom_codegen", "final_analysis": "final_analysis"},
+    )
+    graph.add_edge("final_analysis", END)
 
-    return {
-        "final_answer": answer,
-        "messages": [HumanMessage(content=state["user_query"]), AIMessage(content=answer)],
-    }
-
-
-# ---------------------------------------------------------------------------
-# Build + compile the graph once, reused across requests
-# ---------------------------------------------------------------------------
-def _build_graph():
-    workflow = StateGraph(AgentState)
-    workflow.add_node("generate_sql", generate_sql_node)
-    workflow.add_node("execute_sql", execute_sql_node)
-    workflow.add_node("identify_operations", identify_operations_node)
-    workflow.add_node("apply_operations", apply_operations_node)
-    workflow.add_node("final_analysis", final_analysis_node)
-
-    workflow.set_entry_point("generate_sql")
-    workflow.add_edge("generate_sql", "execute_sql")
-    workflow.add_edge("execute_sql", "identify_operations")
-    workflow.add_edge("identify_operations", "apply_operations")
-    workflow.add_edge("apply_operations", "final_analysis")
-    workflow.add_edge("final_analysis", END)
-
-    checkpointer = MemorySaver()
-    return workflow.compile(checkpointer=checkpointer)
-
-
-_graph = None
-
-
-def get_chat_graph():
-    global _graph
-    if _graph is None:
-        _graph = _build_graph()
-    return _graph
+    return graph.compile(checkpointer=_checkpointer)

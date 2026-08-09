@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Response, Request
-from sqlalchemy.orm import Session as ORMSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.user import LoginRequest
 from app.database.session import get_db
 from app.database.crud.account import authenticate_account
@@ -13,14 +13,14 @@ COOKIE_NAME = "access_token"
 
 
 @router.post("/login")
-def login_user(
+async def login_user(
     payload: LoginRequest,
     response: Response,
-    db: ORMSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    account = authenticate_account(db, payload.user_name, payload.password)
+    account = await db.run_sync(authenticate_account, payload.user_name, payload.password)
 
-    session = create_session(db, user_name=payload.current_session_user_name)
+    session = await db.run_sync(create_session, user_name=payload.current_session_user_name)
     token = create_access_token(session_id=session.id)
 
     response.set_cookie(
@@ -40,16 +40,16 @@ def login_user(
 
 
 @router.post("/logout")
-def logout_user(
+async def logout_user(
     request: Request,
     response: Response,
-    db: ORMSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     token = request.cookies.get(COOKIE_NAME)
     if token:
         try:
             payload = decode_access_token(token)
-            delete_session(db, session_id=payload["session_id"])
+            await db.run_sync(delete_session, session_id=payload["session_id"])
         except Exception:
             pass
 
