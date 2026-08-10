@@ -66,6 +66,10 @@ async function postMessage(
   return res.json();
 }
 
+// ---------- Chart types ----------
+// Must match the backend's `chart` fenced-block contract EXACTLY
+// (see FINAL_SYSTEM_PROMPT in app/agent/nodes.py). If you change this shape,
+// change that prompt too — they're two halves of one contract.
 interface ChartSeries {
   key: string;
   color?: string;
@@ -76,6 +80,39 @@ interface ChartSpec {
   xKey?: string;
   series: ChartSeries[];
   data: Record<string, string | number>[];
+  title?: string; // optional, not required by the backend contract but rendered if present
+}
+
+// Older backend prompt versions emitted {"yKeys": string[]} instead of
+// {"series": [{key}]}. Normalize that shape here too so a stale cached
+// response, or a backend rollback, doesn't just show "Invalid chart spec."
+function normalizeChartSpec(raw: unknown): ChartSpec | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+
+  if (!Array.isArray(obj.data) || obj.data.length === 0) return null;
+  if (obj.type !== "bar" && obj.type !== "line" && obj.type !== "pie") return null;
+
+  let series: ChartSeries[] | undefined = Array.isArray(obj.series)
+    ? (obj.series as ChartSeries[]).filter((s) => s && typeof s.key === "string")
+    : undefined;
+
+  // Backward-compat: {"yKeys": ["revenue", "cost"]} -> [{key: "revenue"}, {key: "cost"}]
+  if ((!series || series.length === 0) && Array.isArray(obj.yKeys)) {
+    series = (obj.yKeys as unknown[])
+      .filter((k): k is string => typeof k === "string")
+      .map((key) => ({ key }));
+  }
+
+  if (!series || series.length === 0) return null;
+
+  return {
+    type: obj.type,
+    xKey: typeof obj.xKey === "string" ? obj.xKey : "name",
+    series,
+    data: obj.data as Record<string, string | number>[],
+    title: typeof obj.title === "string" ? obj.title : undefined,
+  };
 }
 
 const PIE_COLORS = [
@@ -87,27 +124,43 @@ const PIE_COLORS = [
   "#0891b2",
 ];
 
+// Indian numbering (Lakh/Crore) compact format for axis ticks + tooltips —
+// the crop-value figures this chart shows run into the crores, and raw
+// numbers ("104751933") on a Y axis are unreadable at that scale.
+const compactINR = new Intl.NumberFormat("en-IN", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+function formatValue(v: unknown): string {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? compactINR.format(n) : String(v ?? "");
+}
+
 function ChartRenderer({ raw }: { raw: string }) {
-  let spec: ChartSpec | null = null;
+  let parsed: unknown;
   try {
-    spec = JSON.parse(raw);
+    parsed = JSON.parse(raw);
   } catch {
     return <div className="chat-chart-error">Couldn't parse chart data.</div>;
   }
 
-  if (!spec || !spec.data || !spec.series) {
+  const spec = normalizeChartSpec(parsed);
+  if (!spec) {
+    console.error("Invalid chart spec received from backend:", parsed);
     return <div className="chat-chart-error">Invalid chart spec.</div>;
   }
 
   return (
     <div className="chat-chart-wrap">
+      {spec.title && <div className="chat-chart-title">{spec.title}</div>}
       <ResponsiveContainer width="100%" height={240}>
         {spec.type === "line" ? (
           <LineChart data={spec.data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-            <XAxis dataKey={spec.xKey || "name"} fontSize={11} />
-            <YAxis fontSize={11} />
-            <Tooltip />
+            <XAxis dataKey={spec.xKey} fontSize={11} />
+            <YAxis fontSize={11} tickFormatter={formatValue} />
+            <Tooltip formatter={(v) => formatValue(v)} />
             <Legend />
             {spec.series.map((s, i) => (
               <Line
@@ -121,14 +174,14 @@ function ChartRenderer({ raw }: { raw: string }) {
           </LineChart>
         ) : spec.type === "pie" ? (
           <PieChart>
-            <Tooltip />
+            <Tooltip formatter={(v) => formatValue(v)} />
             <Legend />
             <Pie
               data={spec.data}
               dataKey={spec.series[0]?.key}
-              nameKey={spec.xKey || "name"}
+              nameKey={spec.xKey}
               outerRadius={80}
-              label
+              label={(entry) => String((entry as unknown as Record<string, unknown>)[spec.xKey!] ?? "")}
             >
               {spec.data.map((_, i) => (
                 <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -138,9 +191,9 @@ function ChartRenderer({ raw }: { raw: string }) {
         ) : (
           <BarChart data={spec.data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-            <XAxis dataKey={spec.xKey || "name"} fontSize={11} />
-            <YAxis fontSize={11} />
-            <Tooltip />
+            <XAxis dataKey={spec.xKey} fontSize={11} />
+            <YAxis fontSize={11} tickFormatter={formatValue} />
+            <Tooltip formatter={(v) => formatValue(v)} />
             <Legend />
             {spec.series.map((s, i) => (
               <Bar
@@ -199,11 +252,11 @@ export default function Chat() {
 
   const { data: messages = [] } = useQuery<ChatMessage[]>({
     queryKey: chatKey(threadId),
-    queryFn: () => Promise.resolve([]), 
+    queryFn: () => Promise.resolve([]),
     initialData: () =>
       queryClient.getQueryData<ChatMessage[]>(chatKey(threadId)) ?? [],
     staleTime: Infinity,
-    gcTime: Infinity, 
+    gcTime: Infinity,
   });
 
   const scrollToBottom = useCallback(() => {

@@ -1,16 +1,3 @@
-"""
-For questions needing current real-world info (rainfall/weather forecasts,
-market news, government policy changes) that the DB can't answer.
-
-Flow: search -> fetch top result pages -> strip to readable text -> one LLM
-call to summarize into a short, cited context blob -> stored in
-state["web_context"] for the final-analysis node to use.
-
-Swap `_search` for whatever search API you're provisioned for (SerpAPI shown
-here, matching your original code) — nothing else needs to change as long as
-it returns {"title", "snippet", "link"} dicts.
-"""
-
 import os
 import re
 
@@ -21,11 +8,11 @@ from app.chatbot.llmconfig import SUMMARIZER_MODEL, make_llm
 from app.chatbot.state import AgentState
 
 SEARCH_API_KEY = os.getenv("WEB_SEARCH_API_KEY")
-_summarizer_llm = make_llm(SUMMARIZER_MODEL)  # gpt-5.6-luna: summarization/extraction task
+_summarizer_llm = make_llm(SUMMARIZER_MODEL)
 
 REQUEST_TIMEOUT = 8
 MAX_RESULTS = 3
-MAX_FETCH_CHARS = 4000  # per page, before summarization
+MAX_FETCH_CHARS = 4000
 
 
 def _search(query: str, num_results: int = MAX_RESULTS) -> list[dict]:
@@ -52,9 +39,6 @@ def _search(query: str, num_results: int = MAX_RESULTS) -> list[dict]:
 
 
 def _fetch_readable_text(url: str) -> str:
-    """Best-effort fetch + strip HTML tags/scripts down to plain text. Uses a
-    plain regex strip to avoid adding a hard bs4 dependency — swap in
-    BeautifulSoup for cleaner extraction if you already depend on it."""
     try:
         resp = requests.get(
             url,

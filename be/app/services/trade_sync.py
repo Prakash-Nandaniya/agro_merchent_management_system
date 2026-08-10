@@ -1,6 +1,6 @@
-import concurrent.futures
+import asyncio
 from typing import Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.crud.trade import (
     save_trade,
@@ -22,12 +22,8 @@ def _check_file_size(raw_bytes: bytes) -> None:
         raise FileTooLargeError()
 
 
-# ── CREATE ────────────────────────────────────────────────────────────────
-# Unchanged — R2 op here is always a brand-new key, so it's non-destructive
-# on failure. Existing compensation (delete orphaned upload / delete
-# orphaned row) is correct as-is.
-def create_trade_with_receipt(
-    db: Session,
+async def create_trade_with_receipt(
+    db: AsyncSession,
     payload: CreateTradeSchema,
     created_by: str,
     raw_bytes: Optional[bytes],
@@ -36,60 +32,76 @@ def create_trade_with_receipt(
     pdf_buffer = None
     if raw_bytes is not None:
         _check_file_size(raw_bytes)
-        pdf_buffer = convert_to_pdf(raw_bytes, filename)
+        # PDF conversion is CPU-bound / blocking — run in a thread
+        pdf_buffer = await asyncio.to_thread(convert_to_pdf, raw_bytes, filename)
 
     naming_key = payload.invoice_no or "trade"
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        db_future = executor.submit(save_trade, db, payload, created_by, None)
-        r2_future = (
-            executor.submit(upload_bill_to_r2, pdf_buffer, naming_key)
-            if pdf_buffer is not None
-            else None
-        )
+    # Run DB save and R2 upload concurrently where safe
+    db_task = save_trade(db, payload, created_by, None)
+    r2_task = (
+        asyncio.to_thread(upload_bill_to_r2, pdf_buffer, naming_key)
+        if pdf_buffer is not None
+        else None
+    )
 
-        trade, db_error = None, None
-        try:
-            trade = db_future.result()
-        except Exception as e:
+    trade = None
+    db_error = None
+    mill_receipt_key = None
+    r2_error = None
+
+    # Await DB first and R2 concurrently
+    try:
+        if r2_task is not None:
+            trade, mill_receipt_key = await asyncio.gather(db_task, r2_task)
+        else:
+            trade = await db_task
+    except Exception as e:
+        # If either failed, capture
+        if isinstance(e, tuple):
+            # gather with multiple may raise a tuple of exceptions in some setups
+            db_error = e[0]
+        else:
             db_error = e
 
-        mill_receipt_key, r2_error = None, None
-        if r2_future is not None:
-            try:
-                mill_receipt_key = r2_future.result()
-            except Exception as e:
-                r2_error = e
-
+    # If DB failed but R2 succeeded, remove orphan
     if db_error and mill_receipt_key:
-        delete_bill_from_r2(mill_receipt_key)
-    if r2_error and trade:
-        db.delete(trade)
-        db.commit()
+        await asyncio.to_thread(delete_bill_from_r2, mill_receipt_key)
 
     if db_error:
         raise db_error
+
+    # If R2 failed and DB succeeded, rollback the DB side where appropriate
     if r2_error:
+        # best-effort: try to delete created trade
+        try:
+            db.delete(trade)
+            await db.commit()
+        except Exception:
+            pass
         raise r2_error
 
     if mill_receipt_key:
         trade.mill_receipt = mill_receipt_key
-        db.commit()
-        db.refresh(trade)
+        await db.commit()
+        await db.refresh(trade)
 
     return trade
 
 
 # ── EDIT ──────────────────────────────────────────────────────────────────
-def edit_trade_with_receipt(
-    db: Session,
+async def edit_trade_with_receipt(
+    db: AsyncSession,
     payload: EditTradeSchema,
     form_edited: bool,
     mill_receipt_edited: bool,
     raw_bytes: Optional[bytes],
     filename: Optional[str],
 ) -> Trade:
-    existing = get_trade(db, {"id": payload.id})[0]
+    trades = await get_trade(db, {"id": payload.id})
+    if not trades:
+        raise NotFoundError(resource="Trade")
+    existing = trades[0]
 
     if not form_edited and not mill_receipt_edited:
         return existing
@@ -102,75 +114,54 @@ def edit_trade_with_receipt(
     if mill_receipt_edited:
         if raw_bytes is not None:
             _check_file_size(raw_bytes)
-            pdf_buffer = convert_to_pdf(raw_bytes, filename)
+            pdf_buffer = await asyncio.to_thread(convert_to_pdf, raw_bytes, filename)
         else:
             removing_receipt = True  # receipt_edited=true + no file = user removed it
 
-    # ── DESTRUCTIVE PATH: removing an existing receipt ──────────────────────
-    # An R2 delete is irreversible. If we ran it in parallel with a DB write
-    # that could fail and roll back, a failed form-field save would leave the
-    # trade row still pointing at old_key — a key that no longer exists in
-    # R2. So this case is deliberately NOT parallelized: commit the DB side
-    # first (mill_receipt=None baked into the same transaction as any other
-    # form changes), and only delete from R2 once that's safely persisted.
-    # If the R2 delete then fails, the DB is already correct — we just log
-    # it and leave an orphaned object in storage, which is a far safer
-    # failure mode than a broken reference in the database.
+    # DESTRUCTIVE PATH: remove existing receipt — commit DB first
     if removing_receipt and old_key:
         if form_edited:
-            trade = edit_trade(
-                db, payload, None
-            )  # mill_receipt=None, atomic with form fields
+            trade = await edit_trade(db, payload, None)
         else:
             trade = existing
             trade.mill_receipt = None
-            db.commit()
-            db.refresh(trade)
+            await db.commit()
+            await db.refresh(trade)
 
         try:
-            delete_bill_from_r2(old_key)
+            await asyncio.to_thread(delete_bill_from_r2, old_key)
         except Exception as e:
-            # DB is already correct — don't fail the whole edit over cleanup.
             print(
                 f"Warning: DB updated but failed to delete orphaned R2 object {old_key}: {e}"
             )
 
         return trade
 
-    # ── NON-DESTRUCTIVE PATH: no receipt change, brand-new receipt, or an
-    #    in-place replace of an existing one. S3 PUT is atomic — on failure
-    #    the previous object is left untouched — so it's safe to run the DB
-    #    write and the R2 write in parallel. ───────────────────────────────
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        db_future = (
-            executor.submit(edit_trade, db, payload, old_key) if form_edited else None
-        )
+    # NON-DESTRUCTIVE PATH: run DB edit and R2 upload in parallel when safe
+    db_task = edit_trade(db, payload, old_key) if form_edited else None
+    r2_task = (
+        asyncio.to_thread(upload_bill_to_r2, pdf_buffer, naming_key, old_key)
+        if pdf_buffer is not None
+        else None
+    )
 
-        r2_future = None
-        if pdf_buffer is not None:
-            # Replace-in-place if a key already exists (PUT is atomic — old
-            # content survives on failure). Only mints a new key if this
-            # trade never had a receipt before.
-            r2_future = executor.submit(
-                upload_bill_to_r2, pdf_buffer, naming_key, old_key
-            )
+    trade = existing
+    db_error = None
+    r2_result = None
+    r2_error = None
 
-        trade, db_error = existing, None
-        if db_future is not None:
-            try:
-                trade = db_future.result()
-            except Exception as e:
-                db_error = e
-
-        r2_result, r2_error = None, None
-        if r2_future is not None:
-            try:
-                r2_result = r2_future.result()
-            except Exception as e:
-                r2_error = e
+    try:
+        if db_task is not None and r2_task is not None:
+            trade, r2_result = await asyncio.gather(db_task, r2_task)
+        elif db_task is not None:
+            trade = await db_task
+        elif r2_task is not None:
+            r2_result = await r2_task
+    except Exception as e:
+        db_error = e
 
     if db_error and r2_result and old_key is None:
-        delete_bill_from_r2(r2_result)
+        await asyncio.to_thread(delete_bill_from_r2, r2_result)
 
     if db_error:
         raise db_error
@@ -179,8 +170,8 @@ def edit_trade_with_receipt(
 
     if r2_result and old_key is None:
         trade.mill_receipt = r2_result
-        db.commit()
-        db.refresh(trade)
+        await db.commit()
+        await db.refresh(trade)
 
     return trade
 
@@ -191,32 +182,32 @@ def edit_trade_with_receipt(
 #     to the caller since this can break anything holding the old id).
 #   - R2 succeeds, DB fails  -> existing row patched (mill_receipt=None,
 #     same id) so it never points at a deleted object.
-def delete_trade_and_receipt(db: Session, trade_id: int) -> Optional[Trade]:
-    trades = get_trade(db, {"id": trade_id})
+async def delete_trade_and_receipt(db: AsyncSession, trade_id: int) -> Optional[Trade]:
+    trades = await get_trade(db, {"id": trade_id})
     if not trades:
         raise NotFoundError(resource="Trade")
     existing = trades[0]
 
     old_key = existing.mill_receipt
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        db_future = executor.submit(delete_trade_committed, db, trade_id)
-        r2_future = executor.submit(delete_bill_from_r2, old_key) if old_key else None
+    # Run DB delete and R2 delete concurrently
+    db_task = delete_trade_committed(db, trade_id)
+    r2_task = asyncio.to_thread(delete_bill_from_r2, old_key) if old_key else None
 
-        snapshot, db_error = None, None
-        try:
-            snapshot = db_future.result()
-        except Exception as e:
-            db_error = e
+    snapshot = None
+    db_error = None
+    r2_ok = True
+    r2_error = None
 
-        r2_ok, r2_error = (True, None) if old_key is None else (None, None)
-        if r2_future is not None:
-            try:
-                r2_future.result()
-                r2_ok = True
-            except Exception as e:
-                r2_error = e
-                r2_ok = False
+    try:
+        if r2_task is not None:
+            snapshot = await asyncio.gather(db_task, r2_task)
+            # snapshot will be a tuple (db_result, r2_result)
+            snapshot = snapshot[0]
+        else:
+            snapshot = await db_task
+    except Exception as e:
+        db_error = e
 
     if not db_error and r2_ok:
         return None
@@ -227,12 +218,12 @@ def delete_trade_and_receipt(db: Session, trade_id: int) -> Optional[Trade]:
     if not db_error and not r2_ok:
         recreated = Trade(**snapshot)
         db.add(recreated)
-        db.commit()
-        db.refresh(recreated)
+        await db.commit()
+        await db.refresh(recreated)
         return recreated
 
     if db_error and r2_ok:
         existing.mill_receipt = None
-        db.commit()
-        db.refresh(existing)
+        await db.commit()
+        await db.refresh(existing)
         return existing

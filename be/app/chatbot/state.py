@@ -1,14 +1,3 @@
-"""
-Shared state. Grouped by lifecycle:
-
-  - `messages`                 persists across turns (checkpointer memory)
-  - intent/routing fields      set once per turn by classify_intent_node
-  - web search fields          set by web_search_node (skipped if not needed)
-  - sql fields + retry counter used by generate_sql_node <-> execute_sql_node loop
-  - math fields + custom codegen retry counter
-  - `final_answer`             what the router returns to the client
-"""
-
 from typing import Annotated, Any, TypedDict
 
 from langchain_core.messages import AnyMessage

@@ -292,8 +292,15 @@
 /* Fields */
 .at-field {
   display: flex;
-  flex-direction: column;
   gap: 5px;
+  min-width: 0;
+}
+
+.at-field--fullwidth {
+  grid-column: 1 / -1;
+}
+
+.at-underline-input--wide {
   min-width: 0;
 }
 
@@ -413,6 +420,47 @@
   outline: none;
   border-color: var(--at-inflow-accent);
   box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
+}
+
+.at-underline-input {
+  border: none;
+  border-bottom: 2px solid var(--at-line);
+  border-radius: 0;
+  background: transparent;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--at-ink);
+  box-sizing: border-box;
+  width:80%;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.at-underline-input:focus {
+  outline: none;
+  border-bottom-color: var(--at-accent);
+}
+
+.at-note-input {
+  min-height: 42px;
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.at-panel--note {
+  grid-column: 1 / -1;
+  background: var(--at-surface);
+  border-color: var(--at-line);
+  padding: 18px;
+}
+
+.at-panel--note .at-panel-head {
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.at-panel--note .at-section-title {
+  color: var(--at-muted);
 }
 
 .at-spin {

@@ -1,25 +1,3 @@
-"""
-Flow:
-
-  START -> classify_intent --+-> greeting_response -----------------> END
-                              +-> off_topic_response ----------------> END
-                              +-> web_search -> generate_sql <-------+
-                                                      |                |
-                                                      v                | (retry, up to
-                                                 execute_sql ----------+  MAX_SQL_RETRIES)
-                                                      |
-                                                      v
-                                                 plan_math -> execute_math --+-> final_analysis -> END
-                                                                              +-> custom_codegen <-+
-                                                                                    |     (retry)   |
-                                                                                    +----------------+
-                                                                                    -> final_analysis -> END
-
-Memory: InMemorySaver, keyed by thread_id — same mechanism as before (new
-thread_id = blank state, seen thread_id = prior `messages` reloaded
-automatically). See the router in chat.py for how thread_id gets in.
-"""
-
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from sqlalchemy.ext.asyncio import AsyncSession

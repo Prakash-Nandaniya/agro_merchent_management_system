@@ -39,18 +39,6 @@ sync_engine = create_engine(
     },
 )
 
-sync_ai_agent_engine = create_engine(
-    str(settings.AI_AGENT_DATABASE_URL),
-    pool_pre_ping=True,
-    pool_recycle=1800,
-    connect_args={
-        "connect_timeout": 5,
-        "keepalives": 1,
-        "keepalives_idle": 15,
-        "keepalives_interval": 5,
-        "keepalives_count": 3,
-    },
-)
 
 # ---------------------------------------------------------------------------
 # Async engines — asyncpg, used by AsyncSessionLocal / AgentSessionLocal.

@@ -1,6 +1,3 @@
-"""Plain-English schema description fed to the SQL-generation LLM. Edit this,
-and only this, when tables/columns change — nothing else introspects the DB."""
-
 DB_SCHEMA_DESCRIPTION = """
 You have READ-ONLY access to a PostgreSQL database with two tables.
 

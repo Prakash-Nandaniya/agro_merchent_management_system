@@ -1,11 +1,13 @@
 import uuid
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models.account import Account
 from app.schemas.profile_configuration import ProfileConfigSchema
 
 
-def get_configuration(db: Session) -> dict | None:
-    account = db.query(Account).first()
+async def get_configuration(db: AsyncSession) -> dict | None:
+    res = await db.execute(select(Account))
+    account = res.scalars().first()
 
     if not account:
         return {
@@ -21,11 +23,12 @@ def get_configuration(db: Session) -> dict | None:
     return config
 
 
-def update_configuration(db: Session, config_data: dict) -> ProfileConfigSchema | None:
-    account = db.query(Account).first()
+async def update_configuration(db: AsyncSession, config_data: dict) -> ProfileConfigSchema | None:
+    res = await db.execute(select(Account))
+    account = res.scalars().first()
     if not account:
         return None
     account.configuration = config_data.model_dump()
-    db.commit()
-    db.refresh(account)
+    await db.commit()
+    await db.refresh(account)
     return account.configuration

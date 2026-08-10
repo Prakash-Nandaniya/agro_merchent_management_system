@@ -229,6 +229,7 @@ export default function AddTrade(props: {
   const [VehicleNo, setvehicleNo] = useState(existingTrade?.vehicle_no || "");
 
   const [partyName, setpartyName] = useState(existingTrade?.party_name || "");
+  const [note, setNote] = useState(existingTrade?.note || "");
   const [millQty, setMillQty] = useState(existingTrade?.mill_qty || "");
   const [millQtyUnit, setMillQtyUnit] = useState(
     existingTrade?.mill_qty_unit || "",
@@ -372,7 +373,7 @@ export default function AddTrade(props: {
   }, [receiptFileSource]);
 
   async function getReceiptBlob(): Promise<Blob> {
-    if (receiptFile) return receiptFile; 
+    if (receiptFile) return receiptFile;
     if (receiptBlobRef.current) return receiptBlobRef.current;
     const res = await fetch(millReceiptUrl);
     const blob = await res.blob();
@@ -730,11 +731,11 @@ export default function AddTrade(props: {
                 <h2 className="at-section-title">Inflow</h2>
               </div>
               <div className="at-form-grid">
-                <div className="at-field">
+                <div className="at-field at-field--fullwidth">
                   <label className="at-label">Party Name</label>
                   <input
                     type="text"
-                    className="at-millqty-input"
+                    className="at-underline-input at-underline-input--wide"
                     value={partyName}
                     onChange={(e) => setpartyName(e.target.value)}
                     readOnly={isReadOnly}
@@ -878,6 +879,22 @@ export default function AddTrade(props: {
               </div>
             </section>
           </div>
+          <section className="at-panel at-panel--note">
+            <div className="at-panel-head">
+              <FileText size={24} />
+              <h2 className="at-section-title">Note</h2>
+            </div>
+            <div className="at-field">
+              <input
+                type="text"
+                className="at-underline-input at-note-input"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                readOnly={isReadOnly}
+                placeholder="Add a note"
+              />
+            </div>
+          </section>
           <section className="at-summary">
             <div className="at-summary-item">
               <span className="at-summary-label">Inflow</span>
@@ -955,6 +972,7 @@ export default function AddTrade(props: {
       fd.append("labour_cost", labourCost || "");
       fd.append("transport_cost", transportCost || "");
       fd.append("other_cost", otherCost || "");
+      fd.append("note", note || "");
 
       if (isEditMode) {
         fd.append("id", existingTrade!.id);

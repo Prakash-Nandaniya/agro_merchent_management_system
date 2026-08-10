@@ -1,9 +1,3 @@
-"""
-generate_sql_node <-> execute_sql_node form a retry loop: on a DB error, the
-error is fed back to generate_sql_node as feedback and it tries again, up to
-MAX_SQL_RETRIES times (see route_after_execute_sql / graph.py).
-"""
-
 import json
 from datetime import date, datetime
 from decimal import Decimal
@@ -20,12 +14,9 @@ from app.chatbot.schemacontext import COMPANY_CONTEXT, DB_SCHEMA_DESCRIPTION
 from app.chatbot.sqlguard import UnsafeSQLError, validate_select_only
 from app.chatbot.state import MAX_SQL_RETRIES, AgentState
 
-# gpt-5.6-terra for all three: each needs real reasoning (schema/joins, choosing
-# the right analytics op, composing the final answer) — Luna is too weak here,
-# Sol is unnecessary spend for tasks Terra handles fine.
 sql_llm = make_llm(SQL_MODEL)
 math_planner_llm = make_llm(MATH_PLAN_MODEL)
-final_llm = make_llm(FINAL_ANALYSIS_MODEL, temperature=0.2)  # a little warmth for prose; everything else stays 0
+final_llm = make_llm(FINAL_ANALYSIS_MODEL, temperature=0.2)
 
 
 def _json_safe(value: Any) -> Any:
@@ -118,7 +109,7 @@ def make_execute_sql_node(db: AsyncSession):
             rows = result.fetchall()
             data = [{col: _json_safe(v) for col, v in zip(columns, row)} for row in rows]
             return {"raw_rows": data, "sql_error": None, "sql_feedback": None}
-        except (ProgrammingError, Exception) as e:  # noqa: BLE001 — surface to the retry loop, never crash the request
+        except (ProgrammingError, Exception) as e:  # noqa: BLE001
             err = str(getattr(e, "orig", e))
             return {
                 "raw_rows": [],
@@ -132,7 +123,7 @@ def make_execute_sql_node(db: AsyncSession):
 
 def route_after_execute_sql(state: AgentState) -> str:
     if state.get("sql_error") and state.get("sql_retry_count", 0) < MAX_SQL_RETRIES:
-        return "generate_sql"  # loop back with feedback
+        return "generate_sql"
     return "plan_math"
 
 

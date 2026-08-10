@@ -1,13 +1,3 @@
-"""
-Fixed catalog of deterministic math operations. The LLM only ever picks a
-`op` name + args from OPERATIONS_DESCRIPTION — arithmetic itself always runs
-here in plain Python so numbers are exact, never LLM-approximated.
-
-If the LLM needs something NOT in this catalog, it emits {"op": "custom",
-"description": "..."} instead — that gets routed to codegen.py, which asks
-the LLM to write and (sandboxed) run a one-off function. See nodes.py.
-"""
-
 import math
 import statistics
 from collections import defaultdict
@@ -163,8 +153,6 @@ def op_ratio(data: list[Row], numerator_column: str, denominator_column: str, **
 # ---------------------------------------------------------------------------
 
 def op_growth_rate(data: list[Row], column: str, **_: Any) -> float:
-    """% change from the first to the last row, in the order rows arrived
-    (make sure the SQL query ORDER BY the relevant date/period column)."""
     vals = _values(data, column)
     if len(vals) < 2 or vals[0] == 0:
         return 0.0
@@ -172,8 +160,6 @@ def op_growth_rate(data: list[Row], column: str, **_: Any) -> float:
 
 
 def op_cagr(data: list[Row], column: str, periods: float, **_: Any) -> float:
-    """Compound annual growth rate between first and last row's value over
-    `periods` years."""
     vals = _values(data, column)
     if len(vals) < 2 or vals[0] <= 0 or periods <= 0:
         return 0.0
@@ -188,8 +174,6 @@ def op_moving_average(data: list[Row], column: str, window: int = 3, **_: Any) -
 
 
 def op_linear_forecast(data: list[Row], column: str, periods_ahead: int = 3, **_: Any) -> dict[str, Any]:
-    """Simple linear-regression trend over the row sequence (rows = periods,
-    ordered by the SQL query), extrapolated `periods_ahead` steps forward."""
     vals = _values(data, column)
     n = len(vals)
     if n < 3:
@@ -224,8 +208,6 @@ def op_correlation(data: list[Row], column_a: str, column_b: str, **_: Any) -> f
 
 
 def op_outliers(data: list[Row], column: str, z_threshold: float = 2.0, **_: Any) -> list[dict]:
-    """Rows whose value on `column` is more than z_threshold std-devs from
-    the mean — useful for flagging suspect prices/quantities."""
     vals = _values(data, column)
     if len(vals) < 3:
         return []
@@ -300,9 +282,6 @@ custom             {description}                      -- routes to code generati
 
 
 def run_math_plan(data: list[Row], plan: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Runs every standard op in `plan`. Any {"op": "custom", ...} steps are
-    NOT run here — they're returned separately for the codegen node to handle.
-    Returns (results, pending_custom_ops)."""
     results: dict[str, Any] = {}
     pending_custom: list[dict[str, Any]] = []
 

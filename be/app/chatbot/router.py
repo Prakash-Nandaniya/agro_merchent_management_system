@@ -1,13 +1,3 @@
-"""
-The very first thing the graph does. Answers: is this a greeting, off-topic
-chit-chat, or an actual business question — and if business, does it need a
-DB query, a web search, or both, and is it a "give me a report" ask.
-
-A cheap regex catches the obvious greetings (no LLM call needed). Everything
-else goes through one small LLM classification call before any of the
-expensive SQL/web/math machinery runs.
-"""
-
 import json
 import re
 
@@ -26,7 +16,7 @@ _COMPANY_DATA_RE = re.compile(
     re.IGNORECASE,
 )
 
-_classifier_llm = make_llm(CLASSIFIER_MODEL)  # gpt-5.6-luna: pure classification, cheapest tier
+_classifier_llm = make_llm(CLASSIFIER_MODEL)
 
 _GREETING_RE = re.compile(
     r"^\s*(hi+|hello+|hey+|good\s?(morning|afternoon|evening)|how\s?are\s?you|"
@@ -114,7 +104,6 @@ async def classify_intent_node(state: AgentState) -> dict:
 
 
 def route_after_classify(state: AgentState) -> str:
-    """Conditional-edge selector used by graph.py."""
     intent = state.get("intent", "business")
     if intent == "greeting":
         return "greeting_response"

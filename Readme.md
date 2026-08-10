@@ -26,7 +26,21 @@ The application is designed to handle the complete lifecycle of a merchant's bil
 
 ---
 
-## 3. Tech Stack
+## 3. AI Chatbot Assistant
+
+The project includes a business-focused chatbot built with LangGraph and language models to support questions about invoices, trades, agriculture, and business performance.
+
+- **Intent routing** identifies greetings, off-topic requests, and business queries first.
+- **Web search integration** can fetch external sources for broader business or agriculture questions.
+- **Database queries** are generated dynamically for trade and invoice lookups.
+- **Math and analytics** can run built-in operations and custom Python calculations when needed.
+- **Security-aware design** keeps custom code execution restricted and avoids direct system access.
+
+This chatbot is implemented under `be/app/chatbot/` and exposed by the backend at `POST /chat/{thread_id}`.
+
+---
+
+## 4. Tech Stack
 
 The platform is built on a modern, decoupled full-stack architecture designed for speed and reliability:
 

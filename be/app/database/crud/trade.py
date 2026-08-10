@@ -1,6 +1,6 @@
 from typing import List, Optional
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import (
     translate_integrity_error,
     NotFoundError,
@@ -10,11 +10,14 @@ from app.database.models.trade import Trade
 from app.schemas.trade import CreateTradeSchema, EditTradeSchema
 from math import ceil
 from app.core.config import settings
+from sqlalchemy import select
+from datetime import datetime
 
 PAGE_SIZE = settings.BE_PAGE_SIZE
 
-def save_trade(
-    db: Session,
+
+async def save_trade(
+    db: AsyncSession,
     payload: CreateTradeSchema,
     created_by: str,
     mill_receipt_key: Optional[str],
@@ -27,21 +30,22 @@ def save_trade(
     )
     db.add(trade)
     try:
-        db.commit()
+        await db.commit()
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         raise translate_integrity_error(e)
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         raise DatabaseOperationException() from e
-    db.refresh(trade)
+    await db.refresh(trade)
     return trade
 
 
-def edit_trade(
-    db: Session, payload: EditTradeSchema, mill_receipt_key: Optional[str]
+async def edit_trade(
+    db: AsyncSession, payload: EditTradeSchema, mill_receipt_key: Optional[str]
 ) -> Trade:
-    trade = db.query(Trade).filter(Trade.id == payload.id).first()
+    res = await db.execute(select(Trade).where(Trade.id == payload.id))
+    trade = res.scalar_one_or_none()
     if not trade:
         raise NotFoundError(resource="Trade")
 
@@ -51,31 +55,49 @@ def edit_trade(
     trade.mill_receipt = mill_receipt_key
 
     try:
-        db.commit()
+        await db.commit()
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         raise translate_integrity_error(e)
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         raise DatabaseOperationException() from e
-    db.refresh(trade)
+    await db.refresh(trade)
     return trade
 
 
-from typing import List, Optional
-
-def get_trade(db: Session, filters: dict, page: Optional[int] = None) -> List[Trade]:
-    query = db.query(Trade)  
+async def get_trade(db: AsyncSession, filters: dict, page: Optional[int] = None) -> List[Trade]:
+    stmt = select(Trade)
 
     if filters:
         for field, value in filters.items():
             if value in (None, "", []):
                 continue
             if field == "date_from":
-                query = query.filter(Trade.trade_creation_date >= value)
+                parsed = value
+                if isinstance(value, str):
+                    try:
+                        parsed_dt = datetime.fromisoformat(value)
+                        parsed = parsed_dt.date() if isinstance(parsed_dt, datetime) else parsed_dt
+                    except Exception:
+                        try:
+                            parsed = datetime.strptime(value, "%d-%m-%Y").date()
+                        except Exception:
+                            parsed = value
+                stmt = stmt.where(Trade.trade_creation_date >= parsed)
                 continue
             if field == "date_to":
-                query = query.filter(Trade.trade_creation_date <= value)
+                parsed = value
+                if isinstance(value, str):
+                    try:
+                        parsed_dt = datetime.fromisoformat(value)
+                        parsed = parsed_dt.date() if isinstance(parsed_dt, datetime) else parsed_dt
+                    except Exception:
+                        try:
+                            parsed = datetime.strptime(value, "%d-%m-%Y").date()
+                        except Exception:
+                            parsed = value
+                stmt = stmt.where(Trade.trade_creation_date <= parsed)
                 continue
 
             column = getattr(Trade, field, None)
@@ -83,25 +105,28 @@ def get_trade(db: Session, filters: dict, page: Optional[int] = None) -> List[Tr
                 continue
 
             if field in {"party_name", "party_city", "crop_name"} and isinstance(value, str):
-                query = query.filter(column.ilike(f"%{value}%"))
+                stmt = stmt.where(column.ilike(f"%{value}%"))
             else:
-                query = query.filter(column == value)
+                stmt = stmt.where(column == value)
 
-    query = query.order_by(Trade.updated_at.desc())
+    stmt = stmt.order_by(Trade.updated_at.desc())
 
     if page is not None and page > 0:
-        query = query.offset(PAGE_SIZE * (page - 1)).limit(PAGE_SIZE)
+        stmt = stmt.offset(PAGE_SIZE * (page - 1)).limit(PAGE_SIZE)
 
-    return query.all()
+    res = await db.execute(stmt)
+    return res.scalars().all()
 
-def delete_trade_committed(db: Session, trade_id: int) -> dict:
+
+async def delete_trade_committed(db: AsyncSession, trade_id: int) -> dict:
     """
     Deletes AND commits immediately, returning a snapshot of the row's data
     (everything except id/created_at/updated_at) so the caller can recreate
     it if the R2 side of the saga fails. Used only by the parallel delete
     flow in trade_sync.py — never call this directly from a route.
     """
-    trade = db.query(Trade).filter(Trade.id == trade_id).first()
+    res = await db.execute(select(Trade).where(Trade.id == trade_id))
+    trade = res.scalar_one_or_none()
     if not trade:
         raise NotFoundError(resource="Trade")
 
@@ -113,9 +138,9 @@ def delete_trade_committed(db: Session, trade_id: int) -> dict:
 
     db.delete(trade)
     try:
-        db.commit()
+        await db.commit()
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         raise DatabaseOperationException() from e
 
     return snapshot

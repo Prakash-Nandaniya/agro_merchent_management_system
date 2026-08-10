@@ -9,7 +9,7 @@ router = APIRouter()
 
 @router.get("/profile-configuration", response_model=dict)
 async def get_profile_configuration(db: AsyncSession = Depends(get_db)):
-    profile = await db.run_sync(get_configuration)
+    profile = await get_configuration(db)
     return profile
 
 
@@ -17,5 +17,5 @@ async def get_profile_configuration(db: AsyncSession = Depends(get_db)):
 async def update_profile_configuration(
     profile_configuration: ProfileConfigSchema, db: AsyncSession = Depends(get_db)
 ):
-    updated_profile = await db.run_sync(update_configuration, profile_configuration)
+    updated_profile = await update_configuration(db, profile_configuration)
     return updated_profile

@@ -1,42 +1,48 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect} from "react";
+import { useEffect, useState, useContext } from "react";
 import { useAuth } from '@/components/authcontext';
 import './home.css';
-
+import { settings } from '@/settings';
 import OpaqueLoading from '@/components/opaqueloading/loading';
+import { ErrorContext } from '@/components/errors/errorcontext';
+import ErrorDisplay from '@/components/errors/errordisplay';
 
 export default function Home() {
-    const { isChecking, isAuthorized } = useAuth();
+    const { isChecking, isAuthorized, refreshAuth } = useAuth();
+    const errorcontext = useContext(ErrorContext);
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     
-    // async function handleRecruiterLogin() {
-    //     window.prompt("Sorry, Website is now in use, you will need credentials for access");
-        // setLoading(true);
+    async function handleRecruiterLogin() {
+        // Optional confirmation / prompt for audit — not required to proceed
+        // eslint-disable-next-line no-restricted-globals
+        window.prompt("Recruiter access requires credentials. Press OK to continue or Cancel to abort.");
+        setLoading(true);
 
-        // try {
-        //     const res = await fetch(`${settings.BE_URL}/login`, {
-        //         method: 'POST',
-        //         headers: { 'Content-Type': 'application/json' },
-        //         credentials: 'include',
-        //         body: JSON.stringify({
-        //             current_session_user_name: 'abcd',
-        //             user_name: 'abcd',
-        //             password: 'abcd',
-        //         }),
-        //     });
+        try {
+            const res = await fetch(`${settings.BE_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    current_session_user_name: 'recruiter',
+                    user_name: settings.USERNAME,
+                    password: settings.PASSWORD,
+                }),
+            });
 
-        //     if (!res.ok) {
-        //         const body = await res.json().catch(() => ({}));
-        //         throw new Error(body?.detail ? String(body.detail) : 'Login failed.');
-        //     }
-        //     await refreshAuth();
-        //     navigate('/dashboard');
-        // } catch (err) {
-        //     errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.');
-        // } finally {
-        //     setLoading(false);
-        // }
-    // }
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body?.detail ? String(body.detail) : 'Recruiter login failed.');
+            }
+            await refreshAuth();
+            navigate('/dashboard');
+        } catch (err) {
+            errorcontext.addError(err instanceof Error ? err.message : 'Could not reach the server.');
+        } finally {
+            setLoading(false);
+        }
+    }
 
     useEffect(() => {
         if (!isChecking && isAuthorized) {
@@ -66,6 +72,7 @@ export default function Home() {
             />
 
             {/* --- NAVIGATION BAR --- */}
+            <ErrorDisplay />
             <nav className="navbar">
                 <div className="logo-container">
                     <img src="/apple-touch-icon.png" alt="Karma Trading" className="logo" />
@@ -75,13 +82,17 @@ export default function Home() {
                     <button className="login-btn" onClick={handleLoginClick}>
                         Login
                     </button>
-                   <button onClick={() => window.alert("Sorry, Website is now in use, you will need credentials for access")}
+                    <button
+                        onClick={handleRecruiterLogin}
                         className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-black transition-all duration-300 bg-transparent border border-green-500 rounded cursor-pointer hover:border-green-400 hover:shadow-[0_0_10px_rgba(34,197,94,0.5)]"
+                        disabled={loading}
                     >
-                        Recruiter
+                        {loading ? 'Signing in...' : 'Recruiter'}
                     </button>
                 </div>
             </nav>
+
+            {loading && <OpaqueLoading />}
 
             {/* --- HERO SECTION --- */}
             <header className="hero-section">

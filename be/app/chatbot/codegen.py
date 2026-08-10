@@ -1,26 +1,3 @@
-"""
-Handles {"op": "custom", "description": "..."} steps from the math plan: asks
-the LLM to write ONE python function, then runs it against the real data.
-
-SECURITY MODEL (read this before shipping):
-  1. AST allowlist — rejects the function before it ever runs if it contains
-     import, exec/eval, dunder attribute access, file/network calls, class
-     definitions, or anything not in the allowed node list.
-  2. Restricted builtins — the exec namespace only exposes a short safe list
-     (len, sum, min, max, sorted, range, ...) plus the `math` and `statistics`
-     modules pre-injected as objects (so the function never needs `import`
-     itself, closing that hole entirely).
-  3. Thread-level timeout — runs in a worker thread with a hard wall-clock
-     limit; a runaway loop gets abandoned rather than hanging the request.
-
-WHAT THIS DOES NOT DO: this is in-process exec with an allowlist, not a real
-security boundary. It's reasonable for a small internal tool talking to a
-trusted model provider, but if this ever needs to hold up against adversarial
-input, move execution to a separate subprocess/container with OS-level
-resource limits (cgroups, seccomp, or a tool like nsjail) instead of trusting
-the AST check alone as your only line of defense.
-"""
-
 import ast
 import concurrent.futures
 import json
@@ -33,9 +10,6 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.chatbot.llmconfig import CODEGEN_ESCALATION_MODEL, CODEGEN_MODEL, make_llm
 from app.chatbot.state import AgentState
 
-# gpt-5.6-terra by default — writing correct code needs more reasoning than
-# Luna offers. Escalates to gpt-5.6-sol only on retry, i.e. only after Terra
-# has already failed once on this exact task — keeps the expensive tier rare.
 _codegen_llm = make_llm(CODEGEN_MODEL)
 _codegen_llm_escalated = make_llm(CODEGEN_ESCALATION_MODEL)
 
@@ -57,7 +31,6 @@ _ALLOWED_NODES = (
     ast.Constant, ast.keyword, ast.Starred, ast.IfExp, ast.Try, ast.ExceptHandler, ast.Raise,
 )
 
-# Names that must never be referenced, regardless of node type.
 _FORBIDDEN_NAMES = {
     "__import__", "eval", "exec", "compile", "open", "input",
     "getattr", "setattr", "delattr", "globals", "locals", "vars",
@@ -89,7 +62,6 @@ def _validate_ast(tree: ast.AST) -> None:
         if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
             raise UnsafeCodeError(f"Disallowed dunder attribute access: {node.attr}")
 
-    # Must define exactly one top-level function with the expected name.
     top_level_funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
     if len(top_level_funcs) != 1 or top_level_funcs[0].name != FUNCTION_NAME:
         raise UnsafeCodeError(f"Code must define exactly one function named `{FUNCTION_NAME}`.")
@@ -104,7 +76,7 @@ def _compile_function(code: str):
         "math": math,
         "statistics": statistics,
     }
-    exec(compile(tree, "<custom_op>", "exec"), namespace)  # noqa: S102 - guarded by _validate_ast above
+    exec(compile(tree, "<custom_op>", "exec"), namespace)  # noqa: S102
     func = namespace.get(FUNCTION_NAME)
     if func is None:
         raise UnsafeCodeError(f"No `{FUNCTION_NAME}` function found after compiling.")
@@ -151,9 +123,6 @@ async def _generate_code(
 
 
 async def custom_codegen_node(state: AgentState) -> dict:
-    """Handles ALL pending custom ops in one pass (one function per op),
-    accumulating results. On failure, sets custom_code_error + increments the
-    retry counter — graph.py routes back here (see route_after_codegen)."""
     pending = state.get("pending_custom_ops", [])
     if not pending:
         return {"custom_code_error": None}
@@ -163,9 +132,6 @@ async def custom_codegen_node(state: AgentState) -> dict:
     results = dict(state.get("math_results", {}))
     last_error: str | None = None
 
-    # First pass uses Terra. If we're back here via the retry loop (Terra
-    # already failed once on this exact task), escalate to Sol rather than
-    # retrying Terra again with the same feedback.
     escalate = state.get("custom_code_retry_count", 0) > 0
 
     for i, step in enumerate(pending):
@@ -177,7 +143,7 @@ async def custom_codegen_node(state: AgentState) -> dict:
             code = await _generate_code(description, columns, feedback, escalate=escalate)
             func = _compile_function(code)
             result = _run_with_timeout(func, data)
-            json.dumps(result, default=str)  # confirm it's serializable before storing
+            json.dumps(result, default=str)
             results[label] = result
         except concurrent.futures.TimeoutError:
             last_error = f"'{description}' timed out after {EXEC_TIMEOUT_SECONDS}s"
