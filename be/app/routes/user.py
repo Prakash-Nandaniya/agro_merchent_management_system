@@ -19,8 +19,10 @@ async def login_user(
     db: AsyncSession = Depends(get_db),
 ):
     account = await authenticate_account(db, payload.user_name, payload.password)
+    
 
     session = await create_session(db, user_name=payload.current_session_user_name)
+    
     token = create_access_token(session_id=session.id)
 
     response.set_cookie(

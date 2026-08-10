@@ -14,9 +14,7 @@ export default function Home() {
     const navigate = useNavigate();
     
     async function handleRecruiterLogin() {
-        // Optional confirmation / prompt for audit — not required to proceed
-        // eslint-disable-next-line no-restricted-globals
-        window.prompt("Recruiter access requires credentials. Press OK to continue or Cancel to abort.");
+        // window.prompt("Recruiter access requires credentials. Press OK to continue or Cancel to abort.");
         setLoading(true);
 
         try {

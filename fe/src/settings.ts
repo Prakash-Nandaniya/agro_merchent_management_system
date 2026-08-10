@@ -6,6 +6,6 @@ interface Settings {
 
 export const settings: Settings = {
     BE_URL: import.meta.env.VITE_BE_URL,
-    USERNAME: import.meta.env.USERNAME,
-    PASSWORD: import.meta.env.PASSWORD,
+    USERNAME: import.meta.env.VITE_USERNAME,
+    PASSWORD: import.meta.env.VITE_PASSWORD,
 };
