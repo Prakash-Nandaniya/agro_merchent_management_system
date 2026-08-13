@@ -8,6 +8,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from weasyprint import HTML, CSS
 
 from app.schemas.invoice import Invoice
+from app.chatbot.history_store import purge_old_threads
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
@@ -184,5 +185,29 @@ pdf_renderer = PdfRenderer()
 @asynccontextmanager
 async def lifespan(app):
     await pdf_renderer.start()
-    yield
-    await pdf_renderer.stop()
+
+    # Start a background asyncio task to purge old chat threads every 7 days.
+    purge_task = None
+
+    async def _purge_worker():
+        try:
+            loop = asyncio.get_event_loop()
+            while True:
+                # run the synchronous purge in a thread to avoid blocking
+                await loop.run_in_executor(None, purge_old_threads, 7)
+                await asyncio.sleep(7 * 24 * 3600)
+        except asyncio.CancelledError:
+            return
+
+    purge_task = asyncio.create_task(_purge_worker())
+
+    try:
+        yield
+    finally:
+        if purge_task:
+            purge_task.cancel()
+            try:
+                await purge_task
+            except Exception:
+                pass
+        await pdf_renderer.stop()

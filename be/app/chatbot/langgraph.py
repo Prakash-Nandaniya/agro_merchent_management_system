@@ -12,6 +12,7 @@ from app.chatbot.nodes import (
     plan_math_node,
     route_after_execute_math,
     route_after_execute_sql,
+    summarize_results_node,
 )
 from app.chatbot.router import (
     classify_intent_node,
@@ -37,6 +38,7 @@ def build_graph(db: AsyncSession):
     graph.add_node("plan_math", plan_math_node)
     graph.add_node("execute_math", execute_math_node)
     graph.add_node("custom_codegen", custom_codegen_node)
+    graph.add_node("summarize_results", summarize_results_node)
     graph.add_node("direct_answer", direct_answer_node)
     graph.add_node("final_analysis", final_analysis_node)
 
@@ -65,14 +67,15 @@ def build_graph(db: AsyncSession):
     graph.add_conditional_edges(
         "execute_math",
         route_after_execute_math,
-        {"custom_codegen": "custom_codegen", "final_analysis": "final_analysis"},
+        {"custom_codegen": "custom_codegen", "summarize_results": "summarize_results"},
     )
     graph.add_edge("direct_answer", END)
     graph.add_conditional_edges(
         "custom_codegen",
         route_after_codegen,
-        {"custom_codegen": "custom_codegen", "final_analysis": "final_analysis"},
+        {"custom_codegen": "custom_codegen", "summarize_results": "summarize_results"},
     )
+    graph.add_edge("summarize_results", "final_analysis")
     graph.add_edge("final_analysis", END)
 
     return graph.compile(checkpointer=_checkpointer)

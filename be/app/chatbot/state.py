@@ -16,9 +16,15 @@ class AgentState(TypedDict):
     needs_web_search: bool
     needs_db: bool
     is_report: bool
+    # raw classifier response and parsed result
+    classification_raw: str
+    classification_result: dict
 
     # --- web_search_node ---
     web_context: str
+
+    # --- summarize_results_node ---
+    results_summary: str
 
     # --- generate_sql_node <-> execute_sql_node retry loop ---
     sql_query: str | None
@@ -38,3 +44,7 @@ class AgentState(TypedDict):
     custom_code_retry_count: int
 
     final_answer: str
+    output_type: str  # "text" | "table" | "chart" | "report"
+
+    conversation_summary: str
+    qa_count: int

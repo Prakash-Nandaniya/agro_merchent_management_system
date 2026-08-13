@@ -163,5 +163,5 @@ def route_after_codegen(state: AgentState) -> str:
     error = state.get("custom_code_error")
     retries = state.get("custom_code_retry_count", 0)
     if error and retries < 2:
-        return "custom_codegen"  # loop back and retry with the error as feedback
-    return "final_analysis"
+        return "custom_codegen"
+    return "summarize_results"

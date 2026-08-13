@@ -52,11 +52,12 @@ function getOrCreateThreadId(): string {
 async function postMessage(
   threadId: string,
   message: string,
+  chatDeleted = false,
 ): Promise<ChatResponse> {
-  const res = await apiFetch(`${settings.BE_URL}/chat/${threadId}`, {
+  const res = await apiFetch(`${settings.BE_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, chat_deleted: chatDeleted }),
   });
 
   if (!res.ok) {
@@ -67,9 +68,6 @@ async function postMessage(
 }
 
 // ---------- Chart types ----------
-// Must match the backend's `chart` fenced-block contract EXACTLY
-// (see FINAL_SYSTEM_PROMPT in app/agent/nodes.py). If you change this shape,
-// change that prompt too — they're two halves of one contract.
 interface ChartSeries {
   key: string;
   color?: string;
@@ -80,12 +78,9 @@ interface ChartSpec {
   xKey?: string;
   series: ChartSeries[];
   data: Record<string, string | number>[];
-  title?: string; // optional, not required by the backend contract but rendered if present
+  title?: string; 
 }
 
-// Older backend prompt versions emitted {"yKeys": string[]} instead of
-// {"series": [{key}]}. Normalize that shape here too so a stale cached
-// response, or a backend rollback, doesn't just show "Invalid chart spec."
 function normalizeChartSpec(raw: unknown): ChartSpec | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
@@ -245,6 +240,7 @@ function CodeBlock({
 // ---------- Main component ----------
 export default function Chat() {
   const [threadId, setThreadId] = useState<string>(() => getOrCreateThreadId());
+  const [chatDeleted, setChatDeleted] = useState<boolean>(false);
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -256,7 +252,7 @@ export default function Chat() {
     initialData: () =>
       queryClient.getQueryData<ChatMessage[]>(chatKey(threadId)) ?? [],
     staleTime: Infinity,
-    gcTime: Infinity,
+    gcTime: Infinity, 
   });
 
   const scrollToBottom = useCallback(() => {
@@ -269,7 +265,7 @@ export default function Chat() {
   }, []);
 
   const sendMutation = useMutation({
-    mutationFn: (message: string) => postMessage(threadId, message),
+    mutationFn: (message: string) => postMessage(threadId, message, chatDeleted),
     onMutate: async (message: string) => {
       const userMsg: ChatMessage = {
         id: genId(),
@@ -328,6 +324,7 @@ export default function Chat() {
     localStorage.setItem(THREAD_STORAGE_KEY, fresh);
     setThreadId(fresh);
     setInput("");
+    setChatDeleted(true);
   };
 
   return (
