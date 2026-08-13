@@ -50,7 +50,6 @@ function getOrCreateThreadId(): string {
 }
 
 async function postMessage(
-  threadId: string,
   message: string,
   chatDeleted = false,
 ): Promise<ChatResponse> {
@@ -265,7 +264,7 @@ export default function Chat() {
   }, []);
 
   const sendMutation = useMutation({
-    mutationFn: (message: string) => postMessage(threadId, message, chatDeleted),
+    mutationFn: (message: string) => postMessage(message, chatDeleted),
     onMutate: async (message: string) => {
       const userMsg: ChatMessage = {
         id: genId(),
