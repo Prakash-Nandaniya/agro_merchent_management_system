@@ -30,9 +30,10 @@ function formatDateDMY(isoDate: string | undefined | null): string {
 type Props = {
   id: number;
   queryKey: QueryKey;
+  viewPath?: string;
 };
 
-function BillRowInner({ id, queryKey }: Props) {
+function BillRowInner({ id, queryKey, viewPath = "/view-invoice" }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -51,7 +52,12 @@ function BillRowInner({ id, queryKey }: Props) {
   if (!bill) return null;
 
   function goToBill() {
-    navigate("/view-invoice", { state: { id: bill!.id } });
+    navigate(viewPath, {
+      state: {
+        id: bill!.id,
+        kind: viewPath === "/view-farmer-purchase" ? "farmer-purchase" : "invoice",
+      },
+    });
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTableRowElement>) {

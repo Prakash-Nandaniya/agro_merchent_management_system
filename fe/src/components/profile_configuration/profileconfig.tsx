@@ -30,7 +30,10 @@ export interface ProfileConfig {
   bank_accounts: Bank[];
   crops: Record<string, Crop>;
   terms_and_conditions: string;
-  last_millbill_invoiceNo: string;
+  farmer_bill_terms: string;
+  millbill_last_invoiceNo: string;
+  purchase_bill_last_invoiceNo: string;
+  rcm_purchase_bill_last_invoiceNo: string;
 }
 
 const EMPTY_CONFIG: ProfileConfig = {
@@ -38,7 +41,10 @@ const EMPTY_CONFIG: ProfileConfig = {
   bank_accounts: [],
   crops: {},
   terms_and_conditions: "",
-  last_millbill_invoiceNo: "",
+  farmer_bill_terms: "",
+  millbill_last_invoiceNo: "",
+  purchase_bill_last_invoiceNo: "",
+  rcm_purchase_bill_last_invoiceNo: "",
 };
 const EMPTY_BANK: Bank = { bank: "", account: "", ifsc: "" };
 const EMPTY_CROP: CropForm = { name: "", hsn: "", cgst: "", sgst: "" };
@@ -218,7 +224,19 @@ export default function ProfileConfig() {
           <div className="pc-invoiceNo-banner">
             <span className="pc-invoiceNo-label">Last Invoice No - </span>
             <span className="pc-invoiceNo-value">
-              {config.last_millbill_invoiceNo || "—"}
+              {config.millbill_last_invoiceNo || "—"}
+            </span>
+          </div>
+          <div className="pc-invoiceNo-banner">
+            <span className="pc-invoiceNo-label">Last Purchase Bill Invoice No - </span>
+            <span className="pc-invoiceNo-value">
+              {config.purchase_bill_last_invoiceNo || "—"}
+            </span>
+          </div>
+          <div className="pc-invoiceNo-banner">
+            <span className="pc-invoiceNo-label">Last RCM Purchase Bill Invoice No - </span>
+            <span className="pc-invoiceNo-value">
+              {config.rcm_purchase_bill_last_invoiceNo || "—"}
             </span>
           </div>{" "}
           {/* SELLER */}
@@ -632,18 +650,40 @@ export default function ProfileConfig() {
           <section className="pc-card pc-card--terms pc-col-full">
             <div className="pc-card-accent" />
             <h2 className="pc-card-title">Terms & Conditions</h2>
-            <textarea
-              className="pc-terms-textarea"
-              value={config.terms_and_conditions}
-              onChange={(e) =>
-                setConfig((p) => ({
-                  ...p,
-                  terms_and_conditions: e.target.value,
-                }))
-              }
-              placeholder="Default terms printed on every invoice..."
-              rows={4}
-            />
+
+            <div className="pc-form-grid" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="pc-field pc-field--full">
+                <label>Mill / Standard Invoice Terms</label>
+                <textarea
+                  className="pc-terms-textarea"
+                  value={config.terms_and_conditions}
+                  onChange={(e) =>
+                    setConfig((p) => ({
+                      ...p,
+                      terms_and_conditions: e.target.value,
+                    }))
+                  }
+                  placeholder="Default terms printed on every mill invoice..."
+                  rows={4}
+                />
+              </div>
+
+              <div className="pc-field pc-field--full">
+                <label>Farmer Bill Terms</label>
+                <textarea
+                  className="pc-terms-textarea"
+                  value={config.farmer_bill_terms}
+                  onChange={(e) =>
+                    setConfig((p) => ({
+                      ...p,
+                      farmer_bill_terms: e.target.value,
+                    }))
+                  }
+                  placeholder="Default terms printed on every farmer bill..."
+                  rows={4}
+                />
+              </div>
+            </div>
           </section>
         </div>
 

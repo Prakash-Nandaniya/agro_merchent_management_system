@@ -15,11 +15,26 @@ async def get_configuration(db: AsyncSession) -> dict | None:
             "bank_accounts": [],
             "crops": {},
             "terms_and_conditions": "As per provided in the Quotation and Order Form.",
-            "last_millbill_invoiceNo": "0",
+            "farmer_bill_terms": "As per provided in the Quotation and Order Form.",
+            "millbill_last_invoiceNo": "0",
+            "purchase_bill_last_invoiceNo": "0",
+            "rcm_purchase_bill_last_invoiceNo": "0",
         }
 
     config = account.configuration if isinstance(account.configuration, dict) else {}
-    config["last_millbill_invoiceNo"] = account.last_millbill_invoiceNo
+    config.setdefault("terms_and_conditions", "As per provided in the Quotation and Order Form.")
+    config.setdefault("farmer_bill_terms", config.get("terms_and_conditions") or "As per provided in the Quotation and Order Form.")
+    config["millbill_last_invoiceNo"] = account.millbill_last_invoice_no or "0"
+    config["purchase_bill_last_invoiceNo"] = (
+        config.get("purchase_bill_last_invoiceNo")
+        or getattr(account, "purchase_bill_last_invoice_no", None)
+        or "0"
+    )
+    config["rcm_purchase_bill_last_invoiceNo"] = (
+        config.get("rcm_purchase_bill_last_invoiceNo")
+        or getattr(account, "rcm_purchase_bill_last_invoice_no", None)
+        or "0"
+    )
     return config
 
 
@@ -28,7 +43,17 @@ async def update_configuration(db: AsyncSession, config_data: dict) -> ProfileCo
     account = res.scalars().first()
     if not account:
         return None
-    account.configuration = config_data.model_dump()
+
+    payload = config_data.model_dump()
+    account.configuration = payload
+
+    if payload.get("millbill_last_invoiceNo") is not None:
+        account.millbill_last_invoice_no = str(payload["millbill_last_invoiceNo"])
+    if payload.get("purchase_bill_last_invoiceNo") is not None:
+        account.purchase_bill_last_invoice_no = str(payload["purchase_bill_last_invoiceNo"])
+    if payload.get("rcm_purchase_bill_last_invoiceNo") is not None:
+        account.rcm_purchase_bill_last_invoice_no = str(payload["rcm_purchase_bill_last_invoiceNo"])
+
     await db.commit()
     await db.refresh(account)
     return account.configuration

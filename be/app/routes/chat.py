@@ -28,8 +28,8 @@ async def chat(
     db: AsyncSession = Depends(get_agent_db),
 ) -> ChatResponse:
     graph = build_graph(db)
-
-    session_key = request_obj.cookies.get("session_key")
+    
+    session_key = request_obj.cookies.get("access_token")
     if not session_key:
         raise NotAuthenticatedException()
 

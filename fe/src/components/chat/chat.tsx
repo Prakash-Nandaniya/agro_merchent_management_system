@@ -330,6 +330,7 @@ export default function Chat() {
     <div className="chat-widget">
       <div className="chat-header">
         <button
+          type="button"
           className="chat-clear-btn"
           onClick={handleClear}
           title="Clear chat"
@@ -398,6 +399,7 @@ export default function Chat() {
           disabled={sendMutation.isPending}
         />
         <button
+          type="button"
           className="chat-send-btn"
           onClick={handleSend}
           disabled={sendMutation.isPending || !input.trim()}

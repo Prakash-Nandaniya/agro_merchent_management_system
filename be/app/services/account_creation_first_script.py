@@ -15,8 +15,14 @@ account = Account(
         "bank_accounts": [],
         "crops": {},
         "terms_and_conditions": "As per provided in the Quotation and Order Form.",
+        "farmer_bill_terms": "As per provided in the Quotation and Order Form.",
+        "millbill_last_invoiceNo": "0",
+        "purchase_bill_last_invoiceNo": "0",
+        "rcm_purchase_bill_last_invoiceNo": "0",
     },
-    last_millbill_invoiceNo="0",
+    millbill_last_invoice_no="0",
+    purchase_bill_last_invoice_no="0",
+    rcm_purchase_bill_last_invoice_no="0",
 )
 
 db.add(account)

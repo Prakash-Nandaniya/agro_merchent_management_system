@@ -2,6 +2,7 @@ import asyncio
 import base64
 from pathlib import Path
 from contextlib import asynccontextmanager
+from decimal import Decimal, InvalidOperation
 from typing import List
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -13,6 +14,12 @@ from app.chatbot.history_store import purge_old_threads
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
 MIN_ROWS = 6
+
+# Farmer purchase templates:
+#   both GST rates zero      -> purchase_bill.html
+#   any GST rate above zero  -> rc_purchase_bill.html
+PURCHASE_TEMPLATE = "purchase_bill.html"
+RCM_PURCHASE_TEMPLATE = "rcm_purchase_bill.html"
 
 jinja_env = Environment(
     loader=FileSystemLoader(str(TEMPLATES_DIR)),
@@ -57,19 +64,21 @@ def _fmt(val) -> str:
     """Format a numeric value in Indian digit grouping with 2 decimals,
     e.g. 34736211 -> '3,47,36,211.00'
     """
-    if not val:
-        return "0.0"
+    if val is None or val == "":
+        return "0.00"
     try:
-        n = float(val)
-    except (TypeError, ValueError):
-        return "0.0"
+        n = Decimal(str(val))
+    except (TypeError, ValueError, InvalidOperation):
+        return "0.00"
+
     if n == 0:
-        return "0.0"
+        return "0.00"
+
     negative = n < 0
-    n = abs(n)
-    integer_part, _, decimal_part = f"{n:.2f}".partition(".")
+    n = abs(n).quantize(Decimal("0.01"))
+    integer_part, _, decimal_part = format(n, "f").partition(".")
     grouped = _indian_grouping(integer_part)
-    result = f"{grouped}.{decimal_part}"
+    result = f"{grouped}.{decimal_part.zfill(2)}"
     return f"-{result}" if negative else result
 
 
@@ -95,6 +104,16 @@ def _split_crop_name(name: str) -> tuple[str, str]:
     return name[:idx].strip(), name[idx:].strip()
 
 
+def _to_decimal(val) -> Decimal:
+    """Safely convert '', None, or junk strings to Decimal(0)."""
+    if val is None or val == "":
+        return Decimal(0)
+    try:
+        return Decimal(str(val))
+    except (InvalidOperation, ValueError):
+        return Decimal(0)
+
+
 def _build_display_rows(bill: Invoice) -> list:
     """One invoice row now holds exactly one crop's worth of data (the
     merged table), so there's a single populated row plus blank padding
@@ -106,9 +125,9 @@ def _build_display_rows(bill: Invoice) -> list:
             "crop_line1": crop_line1,
             "crop_line2": crop_line2,
             "hsn_code": bill.hsn_code,
-            "qty": bill.qty,
+            "qty": _fmt(bill.qty),
             "uqc": bill.uqc,
-            "rate": bill.rate,
+            "rate": _fmt(bill.rate),
             "taxable_value": _fmt(bill.taxable_amount),
             "cgst_rate": bill.cgst_rate,
             "cgst_amount": _fmt(bill.cgst_amount) or "0.00",
@@ -120,6 +139,12 @@ def _build_display_rows(bill: Invoice) -> list:
     while len(rows) < MIN_ROWS:
         rows.append(None)
     return rows
+
+
+def _terms_lines(raw_terms: object) -> list[str]:
+    if raw_terms is None:
+        return []
+    return [line.strip() for line in str(raw_terms).splitlines() if line.strip()]
 
 
 def _build_bill_context(bill: Invoice) -> dict:
@@ -142,6 +167,139 @@ def _build_bill_context(bill: Invoice) -> dict:
 def render_invoice_html(bill: Invoice) -> str:
     template = jinja_env.get_template("invoice.html")
     return template.render(**_build_bill_context(bill))
+
+
+def _first_present(mapping: dict, *keys):
+    for key in keys:
+        if mapping.get(key) not in (None, ""):
+            return mapping.get(key)
+    return ""
+
+
+def _normalize_farmer_purchase_bill(raw_bill: dict) -> dict:
+    payload = raw_bill or {}
+    invoice_date = (
+        payload.get("voucher_date")
+        or payload.get("voucherDate")
+        or payload.get("invoice_date")
+        or payload.get("invoiceDate")
+        or ""
+    )
+    return {
+        "seller_name": _first_present(payload, "merchant_name", "seller_name"),
+        "seller_address": _first_present(payload, "merchant_address", "seller_address"),
+        "seller_pan": _first_present(payload, "merchantPAN", "merchant_pan", "seller_pan"),
+        "seller_gstin": _first_present(payload, "merchantGSTIN", "merchant_gstin", "seller_gstin"),
+        "invoice_no": _first_present(payload, "voucher_no", "invoice_no"),
+        "invoice_date": _format_date(invoice_date),
+        "party_name": _first_present(payload, "farmer_name", "party_name"),
+        "party_address": _first_present(payload, "farmer_address", "party_address"),
+        "party_city": _first_present(payload, "farmer_village", "party_city"),
+        "party_state": _first_present(payload, "farmer_state", "party_state"),
+        "party_gstin": _first_present(payload, "party_gstin", ""),
+        "party_pan": _first_present(payload, "farmerPAN", "farmer_pan", "party_pan"),
+        "crop": _first_present(payload, "crop", ""),
+        "hsn_code": _first_present(payload, "hsnCode", "hsn_code"),
+        "qty": _first_present(payload, "qty", "0"),
+        "uqc": _first_present(payload, "uqc", ""),
+        "rate": _first_present(payload, "rate", "0"),
+        "taxable_amount": _first_present(payload, "taxable_amount", "taxableAmt", "0"),
+        "cgst_rate": _first_present(payload, "cgst_rate", "cgstRate", "0"),
+        "cgst_amount": _first_present(payload, "cgst_amount", "cgstAmt", "0"),
+        "sgst_rate": _first_present(payload, "sgst_rate", "sgstRate", "0"),
+        "sgst_amount": _first_present(payload, "sgst_amount", "sgstAmt", "0"),
+        "final_amount": _first_present(payload, "payable_amount", "payableAmt", "final_amount", "finalAmt", "0"),
+        "final_amount_in_words": _first_present(payload, "final_amount_in_words", "finalAmountInWords", "amount_in_words", "amountInWords", ""),
+        "terms": _first_present(payload, "terms", ""),
+        "seller_bank": _first_present(payload, "seller_bank", ""),
+        "seller_account": _first_present(payload, "seller_account", ""),
+        "seller_ifsc": _first_present(payload, "seller_ifsc", ""),
+        "payment_method": _first_present(payload, "payment_method", "paymentMethod") or "Cash",
+        "payment_reference": _first_present(payload, "payment_reference", "paymentReference"),
+        "document_type": _first_present(payload, "document_type", "documentType") or "Purchase Bill",
+    }
+
+
+def _is_farmer_purchase_rcm(normalized_bill: dict) -> bool:
+    """RCM when either GST rate is above zero. Rates are checked (not
+    document_type) so the template can never disagree with the tax figures.
+    Works on the normalized dict, so both camelCase and snake_case
+    payloads are handled."""
+    return (
+        _to_decimal(normalized_bill.get("cgst_rate")) > 0
+        or _to_decimal(normalized_bill.get("sgst_rate")) > 0
+    )
+
+
+def _build_farmer_purchase_context(raw_bill: dict) -> dict:
+    normalized = _normalize_farmer_purchase_bill(raw_bill)
+    display_bill = {
+        **normalized,
+        "qty": _fmt(normalized.get("qty") or "0"),
+        "rate": _fmt(normalized.get("rate") or "0"),
+        "taxable_amount": _fmt(normalized.get("taxable_amount") or "0"),
+        "cgst_amount": _fmt(normalized.get("cgst_amount") or "0"),
+        "sgst_amount": _fmt(normalized.get("sgst_amount") or "0"),
+        "final_amount": _fmt(normalized.get("final_amount") or "0"),
+    }
+    rcm_total_tax = _to_decimal(normalized.get("cgst_amount") or "0") + _to_decimal(normalized.get("sgst_amount") or "0")
+    return {
+        "bill": display_bill,
+        "rows": _build_farmer_purchase_display_rows(display_bill),
+        "invoice_date": _format_date(normalized.get("invoice_date")),
+        "final_taxable_amount": _fmt(normalized.get("taxable_amount") or "0"),
+        "final_cgst_amount": _fmt(normalized.get("cgst_amount") or "0"),
+        "final_sgst_amount": _fmt(normalized.get("sgst_amount") or "0"),
+        "final_amount": _fmt(normalized.get("final_amount") or "0"),
+        "rcm_total_tax": _fmt(rcm_total_tax),
+        "watermark_data_uri": _watermark_data_uri,
+        "is_rcm": _is_farmer_purchase_rcm(normalized),
+        "terms_lines": _terms_lines(normalized.get("terms") or ""),
+    }
+
+
+def _build_farmer_purchase_display_rows(bill: dict) -> list:
+    crop_name = str(bill.get("crop") or "")
+    if "(" in crop_name:
+        crop_part, crop_sub = crop_name.split("(", 1)
+        crop_line1 = crop_part.strip()
+        crop_line2 = f"({crop_sub.strip()}"
+    else:
+        crop_line1 = crop_name.strip()
+        crop_line2 = ""
+
+    rows = [{
+        "crop_line1": crop_line1,
+        "crop_line2": crop_line2,
+        "hsn_code": bill.get("hsn_code") or "",
+        "qty": _fmt(bill.get("qty") or "0"),
+        "uqc": bill.get("uqc") or "",
+        "rate": _fmt(bill.get("rate") or "0"),
+        "taxable_value": _fmt(bill.get("taxable_amount") or "0"),
+        "cgst_rate": bill.get("cgst_rate") or "0",
+        "cgst_amount": _fmt(bill.get("cgst_amount") or "0") or "0.00",
+        "sgst_rate": bill.get("sgst_rate") or "0",
+        "sgst_amount": _fmt(bill.get("sgst_amount") or "0") or "0.00",
+        "final_amount": _fmt(bill.get("final_amount") or "0"),
+    }]
+    while len(rows) < MIN_ROWS:
+        rows.append(None)
+    return rows
+
+
+def render_farmer_purchase_html(bill: dict) -> str:
+    """Zero GST rates        -> purchase_bill.html
+    Any GST rate above zero -> rc_purchase_bill.html
+    """
+    context = _build_farmer_purchase_context(bill)
+    template_name = RCM_PURCHASE_TEMPLATE if context["is_rcm"] else PURCHASE_TEMPLATE
+    template = jinja_env.get_template(template_name)
+    return template.render(**context)
+
+
+def render_farmer_purchase_book_html(bills: List[dict]) -> str:
+    template = jinja_env.get_template("farmer_purchase_book.html")
+    return template.render(bills=[_build_farmer_purchase_context(b) for b in bills])
 
 
 def render_bill_book_html(bills: List[Invoice]) -> str:
@@ -170,6 +328,16 @@ class PdfRenderer:
 
     async def render_pdf(self, bill: Invoice) -> bytes:
         html = render_invoice_html(bill)
+        return await asyncio.to_thread(_render_pdf_sync, html)
+
+    async def render_farmer_purchase_pdf(self, bill: dict) -> bytes:
+        html = render_farmer_purchase_html(bill)
+        return await asyncio.to_thread(_render_pdf_sync, html)
+
+    async def render_farmer_purchase_book_pdf(self, bills: List[dict]) -> bytes:
+        if not bills:
+            raise ValueError("At least one bill is required to build a book.")
+        html = render_farmer_purchase_book_html(bills)
         return await asyncio.to_thread(_render_pdf_sync, html)
 
     async def render_pdf_book(self, bills: List[Invoice]) -> bytes:

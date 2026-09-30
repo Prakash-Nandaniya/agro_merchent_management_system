@@ -1,5 +1,7 @@
 import BillButton from "@/components/invoice/bill_button/billbutton";
 import BillBookButton from "@/components/invoice/view_bill_book_button/billbookbutton";
+import FarmerBillButton from "@/components/farmer_invoice/bill_button/billbutton";
+import FarmerBillBookButton from "@/components/farmer_invoice/view_bill_book_button/billbookbutton";
 import AddTradeButton from "@/components/trade/addtrade_button/button";
 import TradeBookButton from "@/components/trade/tradebook_button/button";
 import Navbar from "@/components/navbar/navbar";
@@ -14,6 +16,8 @@ export default function Dashboard() {
       <div className="buttons-container">
         <BillButton />
         <BillBookButton />
+        <FarmerBillButton />
+        <FarmerBillBookButton />
         <AddTradeButton />
         <TradeBookButton />
       </div>

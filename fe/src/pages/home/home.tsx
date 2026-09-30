@@ -104,7 +104,7 @@ export default function Home() {
                     Digitize your daily ledger, generate instant PDF invoices, and manage your commercial trading operations from a single, high-performance dashboard.
                 </p>
                 <button className="cta-btn" onClick={handleLoginClick}>
-                    Access Billbook
+                    Access Invoice Book
                 </button>
             </header>
 

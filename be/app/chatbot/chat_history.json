@@ -1,18 +1,1 @@
-{
-  "c1fe4821-f2ba-4971-919e-97fb6b7c3b07": {
-    "summary": "",
-    "full_messages": [
-      {
-        "role": "user",
-        "content": "who is agriculture minister of india"
-      },
-      {
-        "role": "assistant",
-        "content": "India’s Union Minister of Agriculture and Farmers Welfare is Shivraj Singh Chouhan. He assumed the role in June 2024 and also serves as Minister of Rural Development. For the latest confirmation, check the Government of India’s official ministry website."
-      }
-    ],
-    "qa_count": 1,
-    "created_at": "2026-08-13T00:00:00",
-    "update_time": "2026-08-13T00:00:00"
-  }
-}
+{}

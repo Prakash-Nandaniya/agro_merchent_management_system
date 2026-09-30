@@ -34,7 +34,7 @@ async def save_invoice(db: AsyncSession, payload: InvoiceSchema, created_by: str
 
     raw_invoice = payload.invoice_no
     if not raw_invoice or not raw_invoice.strip():
-        new_invoice_no = str(int(account.last_millbill_invoiceNo) + 1)
+        new_invoice_no = str(int(account.millbill_last_invoice_no or "0") + 1)
     else:
         new_invoice_no = raw_invoice.strip()
 
@@ -44,7 +44,7 @@ async def save_invoice(db: AsyncSession, payload: InvoiceSchema, created_by: str
 
     invoice = Invoice(**data)
 
-    account.last_millbill_invoiceNo = new_invoice_no
+    account.millbill_last_invoice_no = new_invoice_no
 
     db.add(invoice)
     db.add(account)

@@ -16,5 +16,6 @@ class Settings(BaseSettings):
     R2_BUCKET_NAME: str
     R2_ENDPOINT: str
     OPENAI_API_KEY: str
+    LANGSMITH_API_KEY: str = ""
 
 settings = Settings()

@@ -22,7 +22,7 @@ export default function BillBookButton() {
   return (
     <button onClick={handleClick} className="bill-book-button">
       <span className="bill-book-icon"><BookIcon /></span>
-      <span className="bill-book-label">Bill Book</span>
+      <span className="bill-book-label">Invoice Book</span>
     </button>
   );
 }

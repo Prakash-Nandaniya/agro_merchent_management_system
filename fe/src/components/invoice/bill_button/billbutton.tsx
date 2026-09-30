@@ -22,7 +22,7 @@ export default function BillButton() {
   return (
     <button onClick={handleClick} className="make-bill-button">
       <span className="make-bill-icon"><BillIcon /></span>
-      <span className="make-bill-label">Make Bill</span>
+      <span className="make-bill-label">Generate Invoice</span>
     </button>
   );
 }

@@ -1,0 +1,36 @@
+.make-bill-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1vw;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1.5px solid #185FA5;
+  border-radius: 14px;
+  cursor: pointer;
+  background: #d5e8f9;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+
+  .make-bill-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #185FA5;
+  }
+
+  .make-bill-label {
+    font-size: 18px;
+    font-weight: 600;
+    color: #185FA5;
+  }
+
+  &:hover {
+    background: #d5e8f9;
+    box-shadow: 0 0 0 6px rgba(24, 95, 165, 0.18);
+  }
+
+  &:active {
+    background: #c2ddf5;
+    transform: scale(0.98);
+  }
+}

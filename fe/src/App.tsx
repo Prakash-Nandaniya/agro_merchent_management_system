@@ -1,9 +1,12 @@
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import InvoicePage from "./pages/invoice_page/invoice_page";
+import FarmerInvoicePage from "./pages/farmer_invoice_page/invoice_page";
 import Dashboard from "./pages/dashboard/dashboard";
 import ProfileConfigurationPage from "./pages/profileconfig_page/profileconfig_page";
 import InvoiceBookPage from "./pages/invoice_book_page/invoice_book_page";
+import FarmerInvoiceBookPage from "./pages/farmer_invoice_book_page/invoice_book_page";
 import ViewInvoiceFromBookPage from "./pages/view_invoice_from_book_page/view_invoice_page";
+import ViewFarmerPurchaseFromBookPage from "./pages/view_farmer_invoice_from_book_page/view_invoice_page";
 import Home from "./pages/home/home";
 import Login from "./pages/login/login";
 import AddTradePage from "./pages/addtradePage/addtrade";
@@ -41,7 +44,9 @@ export default function App() {
               <Route element={<ProtectedLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/new-invoice" element={<InvoicePage />} />
+                <Route path="/new-farmer-purchase" element={<FarmerInvoicePage />} />
                 <Route path="/invoice-book" element={<InvoiceBookPage />} />
+                <Route path="/farmer-invoice-book" element={<FarmerInvoiceBookPage />} />
                 <Route
                   path="/profile-configuration"
                   element={<ProfileConfigurationPage />}
@@ -49,6 +54,10 @@ export default function App() {
                 <Route
                   path="/view-invoice"
                   element={<ViewInvoiceFromBookPage />}
+                />
+                <Route
+                  path="/view-farmer-purchase"
+                  element={<ViewFarmerPurchaseFromBookPage />}
                 />
                 <Route path="/trade-book" element={<TradeBookPage />} />
                 <Route path="/add-trade" element={<AddTradePage />} />

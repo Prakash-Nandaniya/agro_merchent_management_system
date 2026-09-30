@@ -548,8 +548,12 @@
         <table class="terms-signatory">
           <tr>
             <td class="terms">
-              <h4>Terms &amp; Condition</h4>
-              <p>{{ item.bill.terms }}</p>
+              <h4>Terms &amp; Conditions</h4>
+              <ul>
+                {% if item.bill.terms and item.bill.terms.strip() %}
+                  {% for line in item.bill.terms.split('\n') if line.strip() %}<li>{{ line.strip() }}</li>{% endfor %}
+                {% endif %}
+              </ul>
             </td>
             <td class="signatory">
               <div class="for-name">For, {{ item.bill.seller_name }}</div>

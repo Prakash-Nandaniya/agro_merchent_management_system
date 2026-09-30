@@ -20,5 +20,9 @@ class CropSchema(BaseModel):
 class ProfileConfigSchema(BaseModel):
     seller: SellerSchema
     bank_accounts: List[BankSchema]
-    crops: Dict[str, CropSchema] 
+    crops: Dict[str, CropSchema]
     terms_and_conditions: str
+    farmer_bill_terms: str = ""
+    millbill_last_invoiceNo: str | None = None
+    purchase_bill_last_invoiceNo: str | None = None
+    rcm_purchase_bill_last_invoiceNo: str | None = None

@@ -1,18 +1,17 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.chatbot.context import format_conversation_context
-from app.chatbot.llmconfig import SUMMARIZER_MODEL, make_llm
+from app.chatbot.llmconfig import WEB_SEARCH_MODEL, make_llm
 from app.chatbot.state import AgentState
 
-_summarizer_llm = make_llm(SUMMARIZER_MODEL)
+_web_search_llm = make_llm(WEB_SEARCH_MODEL)
 
 WEB_CONTEXT_PROMPT = """You are helping an agricultural trading business assistant.
 The user's question needs current real-world information (weather, market prices,
 government policy, commodity trends) that is not stored in the company database.
 
 Using your general knowledge, provide a brief factual briefing (4-8 sentences)
-relevant to the question. Clearly note this is general knowledge guidance, not
-live web data. Focus on crops, trading, rainfall, and agri policy when relevant."""
+relevant to the question. Focus on crops, trading, rainfall, and agri policy when relevant."""
 
 
 async def web_search_node(state: AgentState) -> dict:
@@ -20,7 +19,7 @@ async def web_search_node(state: AgentState) -> dict:
         return {"web_context": ""}
 
     context = format_conversation_context(state)
-    response = await _summarizer_llm.ainvoke([
+    response = await _web_search_llm.ainvoke([
         SystemMessage(content=WEB_CONTEXT_PROMPT),
         HumanMessage(content=context),
     ])

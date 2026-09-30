@@ -1,7 +1,7 @@
 import uuid
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
-from app.database.base import Base  
+from app.database.base import Base
 from datetime import datetime
 from sqlalchemy.sql import func
 from sqlalchemy import DateTime, String
@@ -9,6 +9,7 @@ from sqlalchemy import DateTime, String
 
 class Account(Base):
     __tablename__ = "account"
+
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
@@ -25,8 +26,15 @@ class Account(Base):
         nullable=False,
     )
 
-    last_millbill_invoiceNo:Mapped[str] = mapped_column(String(50), unique=True, nullable=True)
+    millbill_last_invoice_no: Mapped[str] = mapped_column(
+        String(50), nullable=True
+    )
+    purchase_bill_last_invoice_no: Mapped[str] = mapped_column(
+        String(50), nullable=True
+    )
+    rcm_purchase_bill_last_invoice_no: Mapped[str] = mapped_column(
+        String(50), nullable=True
+    )
 
-    
     def __repr__(self) -> str:
         return f"<UserName(id={self.user_name})>"

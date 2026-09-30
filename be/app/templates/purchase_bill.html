@@ -1,0 +1,218 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, Helvetica, sans-serif; color: #111; }
+      .invoice-page { position: relative; width: 690px; background: #fff; overflow: hidden; }
+      .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95%; opacity: 0.08; z-index: 0; pointer-events: none; }
+      .content { position: relative; z-index: 1; }
+
+      /* HEADER */
+      .header { text-align: center; border-bottom: 1px solid #4b5563; padding: 20px; position: relative; }
+      .seller-name { font-size: 27px; font-weight: bold; letter-spacing: 0.5px; }
+      .seller-address { font-size: 12px; margin-top: 6px; line-height: 1.6; white-space: pre-line; }
+      .seller-ids { display: flex; justify-content: center; gap: 32px; margin-top: 10px; font-size: 12px; }
+      .seller-ids b { font-weight: 600; }
+      .original-badge { position: absolute; top: 16px; right: 16px; border: 1px solid #374151; padding: 2px 8px; font-size: 12px; font-weight: bold; letter-spacing: 1px; }
+
+      /* TITLE BAR */
+      .title-bar { text-align: center; background: #e5e7eb; border: 1px solid #4b5563; border-top: none; padding: 8px; font-size: 15px; font-weight: bold; letter-spacing: 1px; }
+
+      /* SUPPLIER + INVOICE DETAILS ROW */
+      table.details-row { width: 100%; table-layout: fixed; border-collapse: collapse; border: 1px solid #4b5563; border-top: none; }
+      td.col-left { padding: 10px 7px 10px 14px; font-size: 11px; vertical-align: top; width: 50%; border-right: 1px solid #4b5563; }
+      td.col-right { padding: 10px 14px 10px 14px; font-size: 11px; vertical-align: top; width: 50%; }
+      .section-heading { font-size: 10px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; }
+      table.grid-left, table.grid-right { width: 100%; border-collapse: collapse; }
+      table.grid-left td, table.grid-right td { padding: 0; padding-bottom: 4px; vertical-align: top; }
+      table.grid-left td.label { width: 78px; font-weight: 600; white-space: nowrap; line-height: 1.5; }
+      table.grid-right td.label { width: 128px; font-weight: 600; white-space: nowrap; line-height: 1.5; font-size: 10.5px; }
+      table.grid-left td.colon, table.grid-right td.colon { width: 1%; padding: 0 6px 2px 6px; line-height: 1.5; text-align: center; }
+      table.grid-left td.value, table.grid-right td.value { padding-right: 10px; padding-left: 2px; text-transform: uppercase; word-break: break-word; line-height: 1.5; text-align: left; }
+      .party-name { font-weight: bold; font-size: 12px; text-transform: uppercase; overflow-wrap: break-word; word-break: break-word; }
+
+      /* ITEMS TABLE */
+      table.items { width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #4b5563; border-top: none; }
+      table.items th { background: #d1d5db; border-bottom: 1px solid #4b5563; border-right: 1px solid #9ca3af; padding: 6px 4px; font-weight: 600; white-space: pre-line; line-height: 1.3; }
+      table.items th:last-child { border-right: none; }
+      table.items td { border-right: 1px solid #9ca3af; border-bottom: 1px solid #d1d5db; padding: 6px 4px; height: 42px; vertical-align: middle; line-height: 1.35; font-size: 11px; }
+      table.items td:last-child { border-right: none; }
+      .crop-cell { text-transform: uppercase; font-weight: 500; white-space: normal; word-break: break-word; text-align: center; }
+      .ta-c { text-align: center; }
+      .ta-r { text-align: right; }
+      .totals-row td { background: #e5e7eb; font-weight: bold; border-top: 2px solid #4b5563; }
+
+      /* FOOTER — thick top border here does the job of separating the totals
+         row from the words box, so the items table itself carries no
+         bottom border (avoids a doubled/faint line at this seam). */
+      .footer-block { border: 1px solid #4b5563; border-top: none; font-size: 13px; }
+      .words-row { border-top: 2px solid #4b5563; border-bottom: 1px solid #4b5563; padding: 10px 12px; }
+      .words-row .label { font-weight: 600; }
+      .words-row .value { font-style: italic; font-weight: 700; margin-left: 8px; }
+      .bank-row { padding: 10px 12px; }
+
+      table.bank-grid { width: 60%; border-collapse: collapse; }
+      table.bank-grid td { padding: 0; padding-bottom: 3px; vertical-align: baseline; }
+      table.bank-grid td.label { font-weight: 600; white-space: nowrap; line-height: 1.3; width: 110px; }
+      table.bank-grid td.colon { width: 10px; }
+      table.bank-grid td.value { text-transform: uppercase; line-height: 1.5; }
+
+      /* DECLARATION + SIGNATURES */
+      .declaration { padding: 10px 14px 0; }
+      .declaration h4 { font-size: 12px; margin-bottom: 4px; }
+      .declaration .terms-box { word-break: break-word; font-size: 10.5px; line-height: 1.4; color: #374151; }
+      .declaration .terms-box .terms-list { margin-left: 16px; list-style: disc; }
+      .declaration .terms-box .terms-list li { margin: 2px 0; }
+      table.sign-row { width: 100%; table-layout: fixed; margin-top: 18px; }
+      table.sign-row td { padding: 0 14px 8px; vertical-align: bottom; }
+      .sign-block { display: flex; flex-direction: column; justify-content: flex-end; height: 96px; }
+      .sign-line { margin-top: auto; border-top: 1px solid #6b7280; width: 220px; }
+      .sign-label, .for-name { font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 600; line-height: 1.35; color: #111; }
+      .sign-label { margin-top: 4px; }
+      .signatory { text-align: right; }
+      .signatory .sign-block { align-items: flex-end; }
+      .signatory .sign-line { margin-left: auto; }
+      .signatory .for-name { text-align: right; margin-bottom: 4px; }
+      .signatory .sign-label { text-align: right; }
+    </style>
+  </head>
+
+  <body>
+    <div class="invoice-page">
+      {% if watermark_data_uri %}
+      <img class="watermark" src="{{ watermark_data_uri }}" alt="" />
+      {% endif %}
+
+      <div class="content">
+        <div class="header">
+          <div class="seller-name">{{ bill.seller_name }}</div>
+          <div class="seller-address">{{ bill.seller_address }}</div>
+          <div class="seller-ids">
+            <span><b>PAN No.:</b> {{ bill.seller_pan|upper }}</span>
+            <span><b>GSTIN No.:</b> {{ bill.seller_gstin|upper }}</span>
+          </div>
+          <div class="original-badge">ORIGINAL</div>
+        </div>
+
+        <div class="title-bar">PURCHASE BILL</div>
+
+        <table class="details-row">
+          <tr>
+            <td class="col-left">
+              <div class="section-heading">Supplier (Farmer) Details</div>
+              <table class="grid-left">
+                <tr><td class="label">Name</td><td class="colon">:</td><td class="party-name">{{ bill.party_name }}</td></tr>
+                <tr><td class="label">Address</td><td class="colon">:</td><td class="value" style="white-space: pre-wrap; line-height: 1.3">{{ bill.party_address }}</td></tr>
+                <tr><td class="label">PAN No.</td><td class="colon">:</td><td class="value">{{ bill.party_pan or '-' }}</td></tr>
+              </table>
+            </td>
+            <td class="col-right">
+              <table class="grid-right">
+                <tr><td class="label">Invoice No.</td><td class="colon">:</td><td class="value" style="font-weight: bold; padding-left: 0;">{{ bill.invoice_no }}</td></tr>
+                <tr><td class="label">Invoice Date</td><td class="colon">:</td><td class="value" style="padding-left: 0;">{{ invoice_date }}</td></tr>
+                <tr><td class="label">Place of Supply (State)</td><td class="colon">:</td><td class="value" style="padding-left: 0;">{{ bill.place_of_supply or bill.party_state }}</td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <table class="items">
+          <thead>
+            <tr>
+              <th class="ta-c">Sr.<br />No.</th>
+              <th class="ta-c">Crop</th>
+              <th class="ta-c">HSN / SAC</th>
+              <th class="ta-c">Qty.</th>
+              <th class="ta-c">UQC</th>
+              <th class="ta-c">Rate</th>
+              <th class="ta-r">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="ta-c">1</td>
+              <td class="crop-cell">{{ bill.crop }}</td>
+              <td class="ta-c">{{ bill.hsn_code }}</td>
+              <td class="ta-c">{{ bill.qty }}</td>
+              <td class="ta-c">{{ bill.uqc }}</td>
+              <td class="ta-c">{{ bill.rate }}</td>
+              <td class="ta-r" style="font-weight: 600">{{ bill.taxable_amount }}</td>
+            </tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr class="totals-row">
+              <td colspan="6" class="ta-c">Amount Payable to Supplier</td>
+              <td class="ta-r">{{ final_amount }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="footer-block">
+          <div class="words-row">
+            <span class="label">Amount Payable (in Words):</span>
+            <span class="value" style="font-weight: 700;">{{ bill.final_amount_in_words }}</span>
+          </div>
+          <div class="bank-row">
+            <table class="bank-grid">
+              <tr><td class="label">Payment Method</td><td class="colon">:</td><td class="value">{{ bill.payment_method or '-' }}</td></tr>
+              {# Reference row: same show/hide + relabeling rule as the on-screen form —
+                 Cash and Pending have nothing to reference, so the row is skipped
+                 entirely rather than printing "Reference : -" #}
+              {% if bill.payment_method not in ['Cash', 'Pending'] %}
+              <tr>
+                <td class="label">
+                  {% if bill.payment_method == 'NEFT' %}NEFT UTR No.
+                  {% elif bill.payment_method == 'RTGS' %}RTGS UTR No.
+                  {% elif bill.payment_method == 'UPI' %}UPI Ref. No.
+                  {% elif bill.payment_method == 'Cheque' %}Cheque No.
+                  {% else %}Reference
+                  {% endif %}
+                </td>
+                <td class="colon">:</td>
+                <td class="value">{{ bill.payment_reference or '-' }}</td>
+              </tr>
+              {% endif %}
+            </table>
+          </div>
+        </div>
+
+        <div class="declaration">
+          <h4>Terms &amp; Conditions</h4>
+          <div class="terms-box">
+            {% if terms_lines %}
+            <ul class="terms-list">
+              {% for line in terms_lines %}
+              <li>{{ line }}</li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            {{ bill.terms or '' }}
+            {% endif %}
+          </div>
+        </div>
+
+        <table class="sign-row">
+          <tr>
+            <td>
+              <div class="sign-block">
+                <div class="sign-line"></div>
+                <div class="sign-label">Supplier Signature / Thumbprint</div>
+              </div>
+            </td>
+            <td class="signatory">
+              <div class="sign-block">
+                <div class="for-name">For, {{ bill.seller_name }}</div>
+                <div class="sign-line"></div>
+                <div class="sign-label">Authorised Signatory</div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>

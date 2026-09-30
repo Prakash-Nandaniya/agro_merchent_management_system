@@ -399,17 +399,24 @@ function InvoiceDocument({
         </div>
       </div>
 
-      {/* Terms & Signatory */}
-      <div className="grid grid-cols-2 p-3 gap-0 min-h-[120px]">
-        <div className="flex flex-col pr-4">
-          <div className="font-bold text-base mb-1">Terms &amp; Condition</div>
-          <div className="w-full bg-transparent text-sm p-1 whitespace-pre-wrap break-words">
-            {bill.terms}
-          </div>
-        </div>
-        <div className="flex flex-col justify-between text-right">
+      <div className="px-3 pt-3">
+        <div className="font-bold text-base mb-1">Terms &amp; Conditions</div>
+        <ul className="list-disc pl-4 text-[10px] leading-snug text-gray-700 space-y-0.5">
+          {(bill.terms || "")
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+        </ul>
+      </div>
+
+      <div className="flex justify-end px-3 pt-2 pb-4">
+        <div className="flex flex-col items-end text-right">
           <div className="font-bold text-base">For, {bill.seller_name}</div>
-          <div className="mt-12 text-gray-900">Authorised Signatory</div>
+          <div className="mt-8 border-t border-gray-500 w-52"></div>
+          <div className="text-gray-900 text-sm mt-1">Authorised Signatory</div>
         </div>
       </div>
     </div>

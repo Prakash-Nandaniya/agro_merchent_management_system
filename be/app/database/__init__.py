@@ -4,3 +4,4 @@ from app.database.models.invoice import Invoice
 from app.database.models.account import Account
 from app.database.models.session import Session
 from app.database.models.trade import Trade
+from app.database.models.farmer_purchase import FarmerPurchase

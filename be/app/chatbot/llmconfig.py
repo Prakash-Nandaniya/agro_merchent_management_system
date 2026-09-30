@@ -10,6 +10,7 @@ CODEGEN_ESCALATION_MODEL = "gpt-5.6-sol"
 RESULTS_SUMMARY_MODEL = "gpt-5.6-luna"
 FINAL_ANALYSIS_MODEL = "gpt-5.6-terra"
 CHAT_HISTORY_SUMMARY_MODEL = "gpt-5.6-luna"
+WEB_SEARCH_MODEL = "gpt-5.6-luna"
 
 
 def make_llm(model_name: str, temperature: float = 0) -> ChatOpenAI:

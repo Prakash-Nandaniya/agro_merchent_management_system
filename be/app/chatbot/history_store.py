@@ -45,7 +45,6 @@ def get_thread(thread_id: str) -> Dict[str, Any]:
     thread = data.get(thread_id)
     if not thread:
         thread = {"summary": "", "full_messages": [], "qa_count": 0, "created_at": _last_midnight_iso(), "update_time": _last_midnight_iso()}
-    # migrate legacy interaction_count (counted individual messages)
     if "qa_count" not in thread and "interaction_count" in thread:
         thread["qa_count"] = thread["interaction_count"] // 2
     if "created_at" not in thread:
@@ -68,10 +67,8 @@ def append_qa_pair(thread_id: str, user_content: str, assistant_content: str) ->
         {"role": "assistant", "content": assistant_content},
     ])
     t["qa_count"] = t.get("qa_count", 0) + 1
-    # ensure created_at exists (use last midnight timestamp when creating)
     if "created_at" not in t:
         t["created_at"] = _last_midnight_iso()
-    # update the update_time to last midnight (per your requirement)
     t["update_time"] = _last_midnight_iso()
     save_thread(thread_id, t)
 
