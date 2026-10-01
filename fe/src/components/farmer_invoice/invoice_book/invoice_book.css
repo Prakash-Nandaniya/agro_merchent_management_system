@@ -9,19 +9,18 @@
   --mbr-error: #b3432b;
   --mbr-error-soft: #f7e9e5;
 }
+
 .mbr-filter-apply-reset-buttons-raw {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
 }
+
 .mbr-page {
   background: var(--mbr-paper);
   min-height: 100%;
   padding: 24px;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 .mbr-header {
@@ -165,6 +164,7 @@
   border-radius: 10px;
 }
 
+/* ── Table ── */
 .mbr-table-wrap {
   background: var(--mbr-surface);
   border: 1px solid var(--mbr-line);
@@ -191,11 +191,6 @@
   background: var(--mbr-paper);
 }
 
-.mbr-table thead th.invoice_column {
-  text-align: left;
-  padding-left: 5vw;
-}
-
 .mbr-table tbody td {
   padding: 10px 14px;
   border-bottom: 1px solid var(--mbr-line);
@@ -219,6 +214,7 @@
   font-weight: 700;
 }
 
+/* ── Pagination ── */
 .mbr-pagination {
   display: flex;
   justify-content: center;
@@ -246,68 +242,6 @@
   background: var(--mbr-accent-soft);
 }
 
-.mbr-page {
-  .mbr-export-bar {
-    display: flex;
-    flex-direction: row;
-    gap: 12px;
-    justify-content: flex-end;
-    margin-top: 16px;
-    flex-wrap: wrap;
-  }
-
-  .mbr-btn-export {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 6px;
-    border: 1px solid transparent;
-    font-size: 13px;
-    font-weight: 600;
-    color: #fff;
-    cursor: pointer;
-    transition:
-      background-color 0.15s ease,
-      opacity 0.15s ease;
-  }
-
-  .mbr-btn-export:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-  }
-
-  .mbr-btn-export--excel {
-    background-color: #16a34a;
-    border-color: #16a34a;
-  }
-
-  .mbr-btn-export--excel:hover:not(:disabled) {
-    background-color: #15803d;
-  }
-
-  .mbr-btn-export--book {
-    background-color: #2563eb;
-    border-color: #2563eb;
-  }
-
-  .mbr-btn-export--book:hover:not(:disabled) {
-    background-color: #1d4ed8;
-  }
-
-  @media (max-width: 640px) {
-    .mbr-export-bar {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .mbr-btn-export {
-      width: 100%;
-    }
-  }
-}
-
 .mbr-page-btn:disabled {
   color: var(--mbr-line);
   cursor: not-allowed;
@@ -324,6 +258,68 @@
   padding: 0 4px;
 }
 
+/* ── Export buttons ── */
+.mbr-export-bar {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.mbr-btn-export {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.mbr-btn-export:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.mbr-btn-export--excel {
+  background-color: #16a34a;
+  border-color: #16a34a;
+}
+
+.mbr-btn-export--excel:hover:not(:disabled) {
+  background-color: #15803d;
+}
+
+.mbr-btn-export--book {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.mbr-btn-export--book:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+@media (max-width: 640px) {
+  .mbr-export-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mbr-btn-export {
+    width: 100%;
+  }
+}
+
+/* ── Totals ── */
 .mbr-totals {
   display: flex;
   gap: 20px;
@@ -365,37 +361,24 @@
   color: #6fe0c4;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   Filter bar.
-   .mbr-filter-top-row is unwrapped (display:contents) so the filter icon
-   and the Apply button become direct flex children of .mbr-filter-bar,
-   letting us freely reorder them around .mbr-date-row with `order` —
-   no JSX changes required.
-
-   Mobile:  [ filter icon ]              <- own line
-            [ date box ][ Apply ]        <- share a line
-            [ Clear ]                    <- own line
-   Desktop: [ filter icon ][ date box ][ Apply ] ......... [ Clear ]
-═══════════════════════════════════════════════════════════════════════ */
-
+/* ── Filter bar ── */
 .mbr-filter-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   width: 100%;
-  position: relative; /* dropdown anchors to the full bar, not just the icon */
+  position: relative;
 }
 
 .mbr-filter-top-row {
   display: contents;
 }
 
-/* --- Filter dropdown trigger --- */
 .mbr-filter-actions {
   position: relative;
   order: 1;
-  flex: 1 1 100%; /* own line on mobile; overridden on desktop below */
+  flex: 1 1 100%;
 }
 
 .mbr-btn-filter {
@@ -441,7 +424,7 @@
   flex: 0 0 auto;
 }
 
-/* --- Advanced filters dropdown --- */
+/* ── Advanced filters dropdown ── */
 .mbr-advanced-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -486,21 +469,7 @@
   width: 100%;
 }
 
-/* --- Date row: boxed, light grey border + light surface background --- */
-.mbr-date-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--mbr-line);
-  background: var(--mbr-paper);
-  border-radius: 6px;
-  padding: 6px 14px;
-  margin-bottom: 14px;
-}
-
+/* ── Date fields ── */
 .mbr-date-field {
   display: flex;
   align-items: center;
@@ -536,12 +505,7 @@
   box-shadow: none;
 }
 
-.mbr-date-separator {
-  color: var(--mbr-line);
-  flex-shrink: 0;
-}
-
-/* --- Clear button, standalone --- */
+/* ── Clear button ── */
 .mbr-btn-clear {
   order: 4;
   display: inline-flex;
@@ -567,14 +531,9 @@
   border-color: var(--mbr-muted);
 }
 
-/* --- Desktop: everything in one row, plain flex sizing --- */
 @media (min-width: 769px) {
   .mbr-filter-actions {
     flex: 0 0 auto;
-  }
-
-  .mbr-date-row {
-    flex: 0 1 360px;
   }
 
   .mbr-btn-clear {
@@ -584,14 +543,14 @@
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   RESPONSIVE — below ~700px the plain table gets crushed (columns eaten on
-   the right). Convert each row into a stacked card instead:
-     row 1: Invoice no.  |  Date        (side by side)
-     row 2: Party name                  (full width)
-     row 3: Crops                       (full width)
-     row 4: Total amount                (full width, emphasized)
-═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════
+   MOBILE — table rows become stacked cards:
+     row 1: Bill no.  |  Date      (side by side)
+     row 2: Farmer                 (full width)
+     row 3: Crop                   (full width)
+     row 4: Amount                 (full width, emphasized)
+   Each <td> in BillRow needs a data-label attribute for the small labels.
+═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 700px) {
   .mbr-page {
     padding: 12px;
@@ -615,7 +574,6 @@
     padding: 14px;
   }
 
-  /* ── Table → stacked cards ── */
   .mbr-table-wrap {
     border: none;
     background: transparent;
@@ -628,7 +586,6 @@
 
   .mbr-table thead {
     display: none;
-    /* labels come from data-label on each field instead */
   }
 
   .mbr-table tbody {
@@ -658,7 +615,6 @@
     min-width: 0;
   }
 
-  /* label shown above each value since the header row is hidden */
   .mbr-table tbody td::before {
     content: attr(data-label);
     display: block;
@@ -670,12 +626,13 @@
     margin-bottom: 1px;
   }
 
-  /* Row 1: Invoice no. + Date side by side (falls back to stacked if too narrow) */
+  /* Bill no. */
   .mbr-table tbody td:nth-child(1) {
     flex: 1 1 55%;
     order: 1;
   }
 
+  /* Date */
   .mbr-table tbody td:nth-child(2) {
     flex: 1 1 40%;
     order: 2;
@@ -686,25 +643,21 @@
     text-align: right;
   }
 
-  /* Row 2: Party name — full width */
+  /* Farmer */
   .mbr-table tbody td:nth-child(3) {
     flex: 1 1 100%;
     order: 3;
     text-align: left;
   }
 
-  /* Row 3: Crops — full width */
+  /* Crop */
   .mbr-table tbody td:nth-child(4) {
     flex: 1 1 100%;
     order: 4;
     text-align: left;
   }
 
-  .mbr-table tbody td:nth-child(4)::before {
-    text-align: left;
-  }
-
-  /* Row 4: Total amount — full width, emphasized */
+  /* Amount */
   .mbr-table tbody td:nth-child(5) {
     flex: 1 1 100%;
     order: 5;
@@ -713,10 +666,6 @@
     margin-top: 4px;
     border-top: 1px dashed var(--mbr-line);
     font-size: 15px;
-  }
-
-  .mbr-table tbody td:nth-child(5)::before {
-    text-align: left;
   }
 
   .mbr-totals {

@@ -1,10 +1,9 @@
 @import "tailwindcss";
 
-.view_invoice_from_book {
-
-  /* ── Invoice paper container ────────────────────────────────────────────────*/
+.view_farmer_bill {
+  /* ── Invoice paper container ───────────────────────────────────────────── */
   .invoice-container {
-    font-family: 'Arial', sans-serif;
+    font-family: "Arial", sans-serif;
     position: relative;
     isolation: isolate;
   }
@@ -23,7 +22,7 @@
     z-index: -1;
   }
 
-  /* ── Scoped desktop-mode zoom: only the invoice box scales, page untouched ──*/
+  /* ── Scoped desktop-mode zoom: only the bill scales, page untouched ───── */
   .invoice-zoom-outer {
     width: 100%;
   }
@@ -32,7 +31,7 @@
     margin: 0 auto;
   }
 
-  /* ── Table helpers ──────────────────────────────────────────────────────────*/
+  /* ── Table helpers ─────────────────────────────────────────────────────── */
   .table-collapse {
     border-collapse: collapse;
   }
@@ -50,26 +49,12 @@
     box-sizing: border-box;
   }
 
-  /* ── Remove number input spin buttons ───────────────────────────────────────*/
-  input[type='number']::-webkit-inner-spin-button,
-  input[type='number']::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+  /* ── RCM tax box — keep its border visible when printed ────────────────── */
+  .rcm-tax-box {
+    break-inside: avoid;
   }
 
-  input[type='number'] {
-    -moz-appearance: textfield;
-  }
-
-  /* ── Screen-hide: hidden on screen, shown on print ──────────────────────────*/
-  .screen-hide {
-    display: none;
-  }
-
-
-
- 
-
+  /* ── Send retry banner ─────────────────────────────────────────────────── */
   .send-retry-banner {
     position: fixed;
     top: 0;
@@ -119,69 +104,14 @@
     border-radius: 0.375rem;
   }
 
-  /* ── Loading spinner ─────────────────────────────────────────────────────────*/
-  .mb-spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid rgba(99, 102, 241, 0.2);
-    border-top-color: #6366f1;
-    border-radius: 50%;
-    animation: mb-spin 0.7s linear infinite;
-  }
-
-  &.preview-mode,
-  .preview-mode {
-    .print-hide {
-      display: none !important;
-    }
-
-    .screen-hide {
-      display: inline !important;
-    }
-
-    select {
-      display: none !important;
-    }
-
-    input,
-    textarea {
-      border-color: transparent !important;
-      outline: none !important;
-      background: transparent !important;
-      pointer-events: none !important;
-      box-shadow: none !important;
-    }
-
-    input::placeholder,
-    textarea::placeholder {
-      color: transparent !important;
-    }
-
-    .my-2 {
-      margin-top: 0.25rem !important;
-      margin-bottom: 0.25rem !important;
-    }
-
-    input[type='date']::-webkit-calendar-picker-indicator {
-      display: none !important;
-    }
-
-    input[type='date'] {
-      -webkit-appearance: none;
-      appearance: none;
-    }
-
-    textarea {
-      resize: none !important;
-    }
-  }
-
+  /* ── Mobile: smooth horizontal scroll for the items table ──────────────── */
   @media (max-width: 640px) {
     .table-collapse {
       -webkit-overflow-scrolling: touch;
     }
   }
 
+  /* ── Print ─────────────────────────────────────────────────────────────── */
   @media print {
     .max-w-4xl {
       max-width: 92% !important;
@@ -197,50 +127,17 @@
       display: none !important;
     }
 
-    .screen-hide {
-      display: inline !important;
-    }
-
-    input,
-    textarea {
-      border-color: transparent !important;
-      outline: none !important;
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-
-    input::placeholder,
-    textarea::placeholder {
-      color: transparent !important;
-    }
-
-    select {
-      display: none !important;
-    }
-
-    input[type='date']::-webkit-calendar-picker-indicator {
-      display: none !important;
-    }
-
-    input[type='date'] {
-      -webkit-appearance: none;
-      appearance: none;
-    }
-
-    textarea {
-      resize: none !important;
+    .rcm-tax-box {
+      border: 1px solid #6b7280 !important;
+      background: #f9fafb !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
   }
 }
 
-@keyframes mb-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
+/* ── Global print rules (cannot be scoped) ───────────────────────────────── */
 @media print {
-
   html {
     font-size: 12px !important;
   }

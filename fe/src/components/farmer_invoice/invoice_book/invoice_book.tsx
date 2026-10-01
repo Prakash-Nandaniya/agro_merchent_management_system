@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useContext } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { create, all } from "mathjs";
 import * as XLSX from "xlsx";
-import { FetchInvoices } from "@/utils/cachestorage";
+import { FetchFarmerPurchases } from "@/utils/cachestorage";
 import {
   Search,
   RotateCcw,
@@ -17,7 +17,7 @@ import "./invoice_book.css";
 import { settings } from "@/settings";
 import { apiFetch } from "@/utils/apifetch";
 import { ErrorContext } from "@/components/errors/errorcontext";
-import BillRow from "../invoiceRaw/raw";
+import BillRow from "../invoiceRaw/row";
 import Decimal from "decimal.js";
 const math = create(all);
 math.config({ number: "BigNumber", precision: 64 });
@@ -32,11 +32,11 @@ export interface FarmerPurchaseRecord {
   merchant_name: string;
   merchant_address: string;
   merchant_gstin: string;
+  merchant_pan?: string | null;
   voucher_no: string;
   voucher_date: string;
   farmer_name: string;
   farmer_address: string;
-  farmer_village?: string | null;
   farmer_state: string;
   farmer_pan?: string | null;
   crop: string;
@@ -44,13 +44,13 @@ export interface FarmerPurchaseRecord {
   qty: string;
   uqc: string;
   rate: string;
-  taxable_amount: string;
+  payable_amount: string;
   cgst_rate: string;
   sgst_rate: string;
   cgst_amount: string;
   sgst_amount: string;
   final_amount: string;
-  final_amount_in_words: string;
+  payable_amount_in_words: string;
   payment_method: string;
   payment_reference?: string | null;
   terms: string;
@@ -61,7 +61,6 @@ interface Filters {
   farmer_name: string;
   merchant_gstin: string;
   farmer_pan: string;
-  farmer_village: string;
   voucher_date_from: string;
   voucher_date_to: string;
   created_by: string;
@@ -79,7 +78,6 @@ const EMPTY_FILTERS: Filters = {
   farmer_name: "",
   merchant_gstin: "",
   farmer_pan: "",
-  farmer_village: "",
   voucher_date_from: "",
   voucher_date_to: getTodayString(),
   created_by: "",
@@ -110,8 +108,9 @@ type SelectFilterField = FilterFieldBase & {
 
 type FilterField = TextFilterField | SelectFilterField;
 
-const FILTER_STORAGE_KEY = ["FarmerPurchaseBookFilter"] as const;
+const FILTER_STORAGE_KEY = ["FarmerBillBookFilter"] as const;
 const SEARCH_QUERY_BASE_KEY = "FarmerPurchases_Search" as const;
+const ALL_QUERY_KEY = ["FarmerPurchases"] as const;
 
 function toIndianAmount(decimalString: string): string {
   const bn = math.bignumber(decimalString || "0");
@@ -125,7 +124,7 @@ function toIndianAmount(decimalString: string): string {
   return `${negative ? "-" : ""}${grouped}.${decPart}`;
 }
 
-function comparePurchaseBillsDesc(a: FarmerPurchaseRecord, b: FarmerPurchaseRecord): number {
+function compareBillsDesc(a: FarmerPurchaseRecord, b: FarmerPurchaseRecord): number {
   if (a.voucher_date !== b.voucher_date) {
     return a.voucher_date < b.voucher_date ? 1 : -1;
   }
@@ -151,7 +150,9 @@ function getPageNumbers(
   return withGaps;
 }
 
-async function fetchPurchaseBills(filters: Filters): Promise<FarmerPurchaseRecord[]> {
+async function fetchFarmerPurchases(
+  filters: Filters,
+): Promise<FarmerPurchaseRecord[]> {
   const payload: Record<string, string> = {};
   Object.entries(filters).forEach(([key, value]) => {
     if (value) payload[key] = value;
@@ -171,10 +172,10 @@ async function fetchPurchaseBills(filters: Filters): Promise<FarmerPurchaseRecor
     throw new Error(body.detail || `Request failed with status ${res.status}`);
   }
   const data: FarmerPurchaseRecord[] = await res.json();
-  return [...data].sort(comparePurchaseBillsDesc);
+  return [...data].sort(compareBillsDesc);
 }
 
-export default function InvoiceBook() {
+export default function FarmerBillBook() {
   const errorcontext = useContext(ErrorContext);
   const queryClient = useQueryClient();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -198,9 +199,10 @@ export default function InvoiceBook() {
   const [pageSize, setPageSize] = useState(window.innerWidth < 640 ? 10 : 20);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  const { data: allPurchaseBills } = useQuery<FarmerPurchaseRecord[]>({
-    queryKey: ["FarmerPurchases"],
-    queryFn: () => fetchPurchaseBills(EMPTY_FILTERS),
+  // All bills come from the cache (same pattern as the invoice book)
+  const { data: allBills } = useQuery<FarmerPurchaseRecord[]>({
+    queryKey: [...ALL_QUERY_KEY],
+    queryFn: FetchFarmerPurchases,
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
@@ -210,24 +212,23 @@ export default function InvoiceBook() {
   });
 
   const {
-    data: searchPurchaseBills,
+    data: searchBills,
     isFetching: isSearching,
     error: searchError,
   } = useQuery<FarmerPurchaseRecord[]>({
     queryKey: [SEARCH_QUERY_BASE_KEY, appliedFilters],
-    queryFn: () => fetchPurchaseBills(appliedFilters as Filters),
+    queryFn: () => fetchFarmerPurchases(appliedFilters as Filters),
     enabled: appliedFilters !== null,
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
 
   const isSearchActive = appliedFilters !== null;
-  const purchaseBills = isSearchActive ? searchPurchaseBills : allPurchaseBills;
-  const invoices = purchaseBills;
+  const bills = isSearchActive ? searchBills : allBills;
 
   const activeQueryKey = isSearchActive
     ? ([SEARCH_QUERY_BASE_KEY, appliedFilters] as const)
-    : (["FarmerPurchases"] as const);
+    : ALL_QUERY_KEY;
 
   useEffect(() => {
     if (searchError) {
@@ -332,19 +333,19 @@ export default function InvoiceBook() {
   }
 
   function handleDownloadExcel() {
-    if (!invoices || invoices.length === 0) return;
+    if (!bills || bills.length === 0) return;
 
     setIsExporting(true);
     try {
-      const rows = invoices.map((bill) => ({
+      const rows = bills.map((bill) => ({
         "Voucher No.": bill.voucher_no,
         "Voucher Date": bill.voucher_date,
         "Merchant Name": bill.merchant_name,
         "Merchant Address": bill.merchant_address,
         "Merchant GSTIN": bill.merchant_gstin,
+        "Merchant PAN": bill.merchant_pan || "",
         "Farmer Name": bill.farmer_name,
         "Farmer Address": bill.farmer_address,
-        "Farmer Village": bill.farmer_village || "",
         "Farmer State": bill.farmer_state,
         "Farmer PAN": bill.farmer_pan || "",
         Crop: bill.crop,
@@ -352,23 +353,23 @@ export default function InvoiceBook() {
         Qty: bill.qty,
         UQC: bill.uqc,
         Rate: bill.rate,
-        "Taxable Amount": toIndianAmount(bill.taxable_amount),
+        "Payable Amount": toIndianAmount(bill.payable_amount),
         "CGST %": bill.cgst_rate,
         "CGST Amount": toIndianAmount(bill.cgst_amount),
         "SGST %": bill.sgst_rate,
         "SGST Amount": toIndianAmount(bill.sgst_amount),
         "Final Amount": toIndianAmount(bill.final_amount),
-        "Amount In Words": bill.final_amount_in_words,
+        "Amount In Words": bill.payable_amount_in_words,
         "Payment Method": bill.payment_method,
-        "Reference": bill.payment_reference || "",
+        Reference: bill.payment_reference || "",
         "Created By": bill.created_by,
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Purchase Bills");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Farmer Bills");
 
-      const fileName = `purchase_bills_export_${new Date().toISOString().split("T")[0]}.xlsx`;
+      const fileName = `farmer_bills_export_${new Date().toISOString().split("T")[0]}.xlsx`;
       XLSX.writeFile(workbook, fileName);
     } catch (err) {
       console.error("Error exporting bills to Excel:", err);
@@ -381,7 +382,7 @@ export default function InvoiceBook() {
   }
 
   async function handleDownloadBook() {
-    if (!invoices || invoices.length === 0) return;
+    if (!bills || bills.length === 0) return;
 
     setIsDownloadingBook(true);
     try {
@@ -390,7 +391,7 @@ export default function InvoiceBook() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(invoices),
+          body: JSON.stringify(bills),
         },
       );
 
@@ -402,7 +403,7 @@ export default function InvoiceBook() {
       }
 
       const blob = await res.blob();
-      const fileName = `purchase_bill_book_${new Date().toISOString().split("T")[0]}.pdf`;
+      const fileName = `farmer_bill_book_${new Date().toISOString().split("T")[0]}.pdf`;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -425,7 +426,7 @@ export default function InvoiceBook() {
   }
 
   const totals: Totals | null = useMemo(() => {
-    if (!invoices || invoices.length === 0) return null;
+    if (!bills || bills.length === 0) return null;
 
     const safeBignumber = (val: unknown) => {
       if (val === null || val === undefined || val === "")
@@ -438,30 +439,30 @@ export default function InvoiceBook() {
     };
 
     const sumField = (field: keyof FarmerPurchaseRecord) =>
-      invoices.reduce(
+      bills.reduce(
         (acc, bill) => math.add(acc, safeBignumber(bill[field])),
         math.bignumber(0),
       );
 
     return {
-      taxable: sumField("taxable_amount").toString(),
+      taxable: sumField("payable_amount").toString(),
       cgst: sumField("cgst_amount").toString(),
       sgst: sumField("sgst_amount").toString(),
       final: sumField("final_amount").toString(),
     };
-  }, [invoices]);
+  }, [bills]);
 
-  const totalPages = invoices
-    ? Math.max(1, Math.ceil(invoices.length / pageSize))
+  const totalPages = bills
+    ? Math.max(1, Math.ceil(bills.length / pageSize))
     : 1;
-  const pageBills = invoices
-    ? invoices.slice((page - 1) * pageSize, page * pageSize)
+  const pageBills = bills
+    ? bills.slice((page - 1) * pageSize, page * pageSize)
     : [];
 
   const advancedFields: FilterField[] = [
     {
       key: "voucher_no",
-      label: "Voucher no.",
+      label: "Bill no.",
       type: "text",
       placeholder: "BILL-2026-0142",
     },
@@ -486,12 +487,6 @@ export default function InvoiceBook() {
       mono: true,
     },
     {
-      key: "farmer_village",
-      label: "Farmer village",
-      type: "text",
-      placeholder: "Contains...",
-    },
-    {
       key: "created_by",
       label: "Created By",
       type: "text",
@@ -507,15 +502,13 @@ export default function InvoiceBook() {
     <div className="mbr-page">
       <div className="mbr-header">
         <div>
-          <h1 className="mbr-title">Purchase Bill Book</h1>
+          <h1 className="mbr-title">Farmer Bill Book</h1>
           <p className="mbr-subtitle">
-            Search, filter and reconcile farmer purchase vouchers
+            Search, filter and reconcile farmer purchase bills
           </p>
         </div>
         <div className="mbr-seal">
-          <span className="mbr-seal-count">
-            {invoices ? invoices.length : "—"}
-          </span>
+          <span className="mbr-seal-count">{bills ? bills.length : "—"}</span>
           <span className="mbr-seal-label">bills</span>
         </div>
       </div>
@@ -548,11 +541,11 @@ export default function InvoiceBook() {
                     <span className="mbr-date-label">From :</span>
                     <input
                       ref={fromDateRef}
-                      id="invoice_date_from"
+                      id="voucher_date_from"
                       type="date"
-                      value={filters.invoice_date_from}
+                      value={filters.voucher_date_from}
                       onChange={(e) =>
-                        updateFilter("invoice_date_from", e.target.value)
+                        updateFilter("voucher_date_from", e.target.value)
                       }
                       onClick={() => openDatePicker(fromDateRef)}
                     />
@@ -564,11 +557,11 @@ export default function InvoiceBook() {
                     <span className="mbr-date-label">To :</span>
                     <input
                       ref={toDateRef}
-                      id="invoice_date_to"
+                      id="voucher_date_to"
                       type="date"
-                      value={filters.invoice_date_to}
+                      value={filters.voucher_date_to}
                       onChange={(e) =>
-                        updateFilter("invoice_date_to", e.target.value)
+                        updateFilter("voucher_date_to", e.target.value)
                       }
                       onClick={() => openDatePicker(toDateRef)}
                     />
@@ -642,23 +635,23 @@ export default function InvoiceBook() {
         </div>
       </div>
 
-      {!isSearching && invoices && invoices.length === 0 && (
+      {!isSearching && bills && bills.length === 0 && (
         <div className="mbr-empty">
           No bills match these filters. Try widening your search.
         </div>
       )}
 
-      {invoices && invoices.length > 0 && (
+      {bills && bills.length > 0 && (
         <>
           <div className="mbr-table-wrap">
             <table className="mbr-table">
               <thead>
                 <tr>
-                  <th>Voucher No.</th>
+                  <th>Bill No.</th>
                   <th>Date</th>
-                  <th>Farmer Name</th>
+                  <th>Farmer</th>
                   <th className="mbr-num">Crop</th>
-                  <th className="mbr-num">Final Amt.</th>
+                  <th className="mbr-num">Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -667,7 +660,6 @@ export default function InvoiceBook() {
                     key={bill.id}
                     id={bill.id}
                     queryKey={activeQueryKey}
-                    viewPath="/view-farmer-purchase"
                   />
                 ))}
               </tbody>
@@ -724,7 +716,12 @@ export default function InvoiceBook() {
               <div className="mbr-total-item">
                 <span className="mbr-total-label">GST</span>
                 <span className="mbr-total-value" title={totals.cgst}>
-                  ₹ {toIndianAmount(Decimal(totals.cgst).plus(Decimal(totals.sgst)).toFixed(2))}
+                  ₹{" "}
+                  {toIndianAmount(
+                    new Decimal(totals.cgst)
+                      .plus(new Decimal(totals.sgst))
+                      .toFixed(2),
+                  )}
                 </span>
               </div>
               <div className="mbr-total-item mbr-total-grand">

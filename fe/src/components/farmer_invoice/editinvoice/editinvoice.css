@@ -4,38 +4,25 @@ body {
   overscroll-behavior-y: contain;
 }
 
-/* ── Scoped desktop-mode zoom: only the invoice paper scales, page untouched ──*/
-.invoice-zoom-outer {
-  width: 100%;
-}
+/* Everything is scoped under .edit-farmer-bill (the page wrapper), so the
+   retry banner and action bar — which sit outside the paper — are styled too. */
+.edit-farmer-bill {
+  /* ── Scoped desktop-mode zoom: only the paper scales, page untouched ───── */
+  .invoice-zoom-outer {
+    width: 100%;
+  }
 
-.invoice-zoom-inner {
-  margin: 0 auto;
-}
+  .invoice-zoom-inner {
+    margin: 0 auto;
+  }
 
-
-.invoice-form {
-  &.invoice-container,
+  /* ── Paper container ───────────────────────────────────────────────────── */
   .invoice-container {
     font-family: "Arial", sans-serif;
     position: relative;
     isolation: isolate;
   }
-  .items-filler-row {
-    border-bottom: 1px solid #d1d5db;
-  }
 
-  .items-filler-cell {
-    height: 220px; 
-    padding: 0;
-  }
-
-  @media print {
-    .items-filler-row,
-    .items-filler-cell {
-      height: 220px;
-    }
-  }
   .watermark-img {
     position: absolute;
     top: 50%;
@@ -50,7 +37,7 @@ body {
     z-index: -1;
   }
 
-  /* ── Table helpers ──────────────────────────────────────────────────────────*/
+  /* ── Table helpers ─────────────────────────────────────────────────────── */
   .table-collapse {
     border-collapse: collapse;
   }
@@ -63,7 +50,12 @@ body {
     height: 44px;
   }
 
-  /* ── Remove number input spin buttons ───────────────────────────────────────*/
+  /* ── RCM tax box — must survive printing (legal disclosure) ────────────── */
+  .rcm-tax-box {
+    break-inside: avoid;
+  }
+
+  /* ── Remove number input spin buttons ──────────────────────────────────── */
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
@@ -75,7 +67,7 @@ body {
     appearance: textfield;
   }
 
-  /* ── Remove native OS icons from <select> dropdowns (Select Crop / Select UQC) ─*/
+  /* ── Remove native OS icons from <select> dropdowns ────────────────────── */
   select {
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -87,21 +79,12 @@ body {
     display: none;
   }
 
-  /* ── Screen-hide: hidden on screen, shown on print ──────────────────────────*/
+  /* ── Screen-hide: hidden while editing, shown in preview / print ───────── */
   .screen-hide {
     display: none;
   }
 
-  /* ── Loading spinner ─────────────────────────────────────────────────────────*/
-  .mb-spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid rgba(99, 102, 241, 0.2);
-    border-top-color: #6366f1;
-    border-radius: 50%;
-    animation: mb-spin 0.7s linear infinite;
-  }
-
+  /* ── Send retry banner ─────────────────────────────────────────────────── */
   .send-retry-banner {
     position: fixed;
     top: 0;
@@ -152,9 +135,8 @@ body {
   }
 
   /* ═════════════════════════════════════════════════════════════════════════
-     PREVIEW MODE (on-screen)
+     PREVIEW MODE (on-screen) — inputs turn into plain text
   ═════════════════════════════════════════════════════════════════════════ */
-  &.preview-mode,
   .preview-mode {
     .print-hide {
       display: none !important;
@@ -182,12 +164,6 @@ body {
       color: transparent !important;
     }
 
-    /* Fix #3: Force the exact same spacing as Tailwind's print:my-1 class */
-    .my-2 {
-      margin-top: 0.25rem !important;
-      margin-bottom: 0.25rem !important;
-    }
-
     input[type="date"]::-webkit-calendar-picker-indicator {
       display: none !important;
     }
@@ -202,15 +178,14 @@ body {
     }
   }
 
-  /* ═════════════════════════════════════════════════════════════════════════
-     MOBILE — small polish for the horizontally-scrollable items table
-  ═════════════════════════════════════════════════════════════════════════ */
+  /* ── Mobile: smooth horizontal scroll for the items table ──────────────── */
   @media (max-width: 640px) {
     .table-collapse {
       -webkit-overflow-scrolling: touch;
     }
   }
 
+  /* ── Print ─────────────────────────────────────────────────────────────── */
   @media print {
     .max-w-4xl {
       max-width: 92% !important;
@@ -228,6 +203,13 @@ body {
 
     .screen-hide {
       display: inline !important;
+    }
+
+    .rcm-tax-box {
+      border: 1px solid #6b7280 !important;
+      background: #f9fafb !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     input,
@@ -262,16 +244,7 @@ body {
   }
 }
 
-/* ── Loading spinner keyframes (must stay global — @keyframes cannot be nested) ─*/
-@keyframes mb-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   NOT SCOPABLE — applies globally whenever this page prints, regardless of class
-═══════════════════════════════════════════════════════════════════════════ */
+/* ── Global print rules (cannot be scoped) ───────────────────────────────── */
 @media print {
   html {
     font-size: 12px !important;

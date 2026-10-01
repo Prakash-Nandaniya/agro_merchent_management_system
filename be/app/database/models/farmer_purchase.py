@@ -30,11 +30,10 @@ class FarmerPurchase(Base):
     merchant_name: Mapped[str] = mapped_column(String(100), nullable=False)
     merchant_address: Mapped[str] = mapped_column(Text, nullable=False)
     merchant_gstin: Mapped[str] = mapped_column(String(15), nullable=False)
-
+    merchant_pan: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     farmer_name: Mapped[str] = mapped_column(String(150), nullable=False)
     farmer_address: Mapped[str] = mapped_column(Text, nullable=False)
-    farmer_village: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    farmer_state: Mapped[str] = mapped_column(String(50), default="Gujarat", nullable=False)
+    farmer_state: Mapped[str] = mapped_column(String(50), default="Gujarat(24)", nullable=False)
     farmer_pan: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
 
     crop: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -42,13 +41,13 @@ class FarmerPurchase(Base):
     qty: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
     uqc: Mapped[str] = mapped_column(String(10), nullable=False)
     rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
-    taxable_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    payable_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     cgst_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0.00"))
     sgst_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0.00"))
     cgst_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
     sgst_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
     final_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    final_amount_in_words: Mapped[str] = mapped_column(String(500), nullable=False)
+    payable_amount_in_words: Mapped[str] = mapped_column(String(500), nullable=False)
 
     payment_method: Mapped[str] = mapped_column(String(20), default="Cash", nullable=False)
     payment_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -66,8 +65,8 @@ class FarmerPurchase(Base):
         CheckConstraint("trim(crop) <> ''", name="ck_farmer_purchases_crop_not_blank"),
         CheckConstraint("qty IS NOT NULL AND qty > 0", name="ck_farmer_purchases_qty_positive"),
         CheckConstraint("rate IS NOT NULL AND rate > 0", name="ck_farmer_purchases_rate_positive"),
-        CheckConstraint("final_amount IS NOT NULL", name="ck_farmer_purchases_final_amount_not_null"),
-        CheckConstraint("trim(final_amount_in_words) <> ''", name="ck_farmer_purchases_final_amount_in_words_not_blank"),
+        CheckConstraint("payable_amount IS NOT NULL", name="ck_farmer_purchases_payable_amount_not_null"),
+        CheckConstraint("trim(payable_amount_in_words) <> ''", name="ck_farmer_purchases_payable_amount_in_words_not_blank"),
     )
 
     def __repr__(self) -> str:

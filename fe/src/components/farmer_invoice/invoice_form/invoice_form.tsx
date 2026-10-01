@@ -55,13 +55,13 @@ interface SavedInvoice {
   qty: string;
   uqc: string;
   rate: string;
-  taxable_amount: string;
+  payable_amount: string;
   cgst_rate: string;
   cgst_amount: string;
   sgst_rate: string;
   sgst_amount: string;
   final_amount: string;
-  final_amount_in_words: string;
+  payable_amount_in_words: string;
   terms: string;
 }
 
@@ -461,12 +461,12 @@ export default function InvoiceForm() {
       documentType,
       merchantName: s.merchantName,
       merchantAddress: s.merchantAddress,
+      merchantPAN: s.merchantPAN,
       merchantGSTIN: s.merchantGSTIN,
       voucherDate: s.invoiceDate,
       voucherNo: s.invoiceNo,
       farmerName: s.farmerName,
       farmerAddress: s.farmerAddress,
-      farmerVillage: s.farmerVillage,
       farmerState: s.farmerState,
       farmerPAN: s.farmerPAN,
       crop: s.crop,
@@ -474,13 +474,13 @@ export default function InvoiceForm() {
       qty: s.qty,
       uqc: s.uqc,
       rate: s.rate,
-      taxableAmt: taxableDec.toString(),
+      payableAmt: taxableDec.toString(),
       cgstRate: s.cgstRate,
       cgstAmt: cgstDec.toString(),
       sgstRate: s.sgstRate,
       sgstAmt: sgstDec.toString(),
       finalAmt: finalDec.toString(),
-      final_amount_in_words: finalAmountInWords,
+      payableAmtInWords: finalAmountInWords,
       paymentMethod: s.paymentMethod,
       paymentReference: s.paymentReference,
       terms: s.terms,
@@ -501,7 +501,7 @@ export default function InvoiceForm() {
       delivery_through: "",
       party_name: s.farmerName,
       party_address: s.farmerAddress,
-      party_city: s.farmerVillage || null,
+      party_city: null,
       party_state: s.farmerState,
       party_pan: s.farmerPAN || "",
       party_gstin: "",
@@ -517,13 +517,13 @@ export default function InvoiceForm() {
       qty: s.qty,
       uqc: s.uqc,
       rate: s.rate,
-      taxable_amount: taxableDec.toString(),
+      payable_amount: taxableDec.toString(),
       cgst_rate: s.cgstRate,
       cgst_amount: cgstDec.toString(),
       sgst_rate: s.sgstRate,
       sgst_amount: sgstDec.toString(),
       final_amount: finalDec.toString(),
-      final_amount_in_words: finalAmountInWords,
+      payable_amount_in_words: finalAmountInWords,
       terms: s.terms,
     };
   }

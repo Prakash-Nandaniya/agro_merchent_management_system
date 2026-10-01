@@ -30,3 +30,4 @@ async function fetchJson(url: string, method: string, body: object | null, notFo
 export const FetchInvoices = () => fetchJson(`${settings.BE_URL}/get-invoice`, 'POST', {}, 'No Invoices Found');
 export const FetchTrades = () => fetchJson(`${settings.BE_URL}/tradebook`, 'POST', {}, 'No Trades Found');
 export const FetchProfile = () => fetchJson(`${settings.BE_URL}/profile-configuration`, 'GET', null, 'No Profile Found');
+export const FetchFarmerPurchases = () => fetchJson(`${settings.BE_URL}/get-farmer-purchase`, 'POST', {}, 'No Farmers Found');

@@ -18,7 +18,7 @@ import { ErrorContextProvider } from "./components/errors/errorcontext.tsx";
 import EditInvoicePage from "./pages/editinvoice/invoice.tsx";
 import GlobalDataLoader from "./utils/DataLoader";
 import ViewTrade from "./pages/viewtradePage/viewtrade.tsx";
-
+import EditFarmerBill from "./pages/edit_farmer_invoice/editinvoice/invoice.tsx";
 const queryClient = new QueryClient();
 
 function ProtectedLayout() {
@@ -62,6 +62,7 @@ export default function App() {
                 <Route path="/trade-book" element={<TradeBookPage />} />
                 <Route path="/add-trade" element={<AddTradePage />} />
                 <Route path="/edit-invoice" element={<EditInvoicePage />} />
+                <Route path="/edit-farmer-purchase" element={<EditFarmerBill />} />
                 <Route path="/view-trade" element={<ViewTrade />} />
               </Route>
             </Routes>

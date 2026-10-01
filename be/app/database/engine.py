@@ -49,12 +49,12 @@ engine = create_async_engine(
     _to_asyncpg_url(str(settings.DATABASE_URL)),
     pool_pre_ping=True,
     pool_recycle=1800,
-    connect_args={"timeout": 5},
+    connect_args={"timeout": 30},
 )
 
 ai_agent_engine = create_async_engine(
     _to_asyncpg_url(str(settings.AI_AGENT_DATABASE_URL)),
     pool_pre_ping=True,
     pool_recycle=1800,
-    connect_args={"timeout": 5},
+    connect_args={"timeout": 30},
 )

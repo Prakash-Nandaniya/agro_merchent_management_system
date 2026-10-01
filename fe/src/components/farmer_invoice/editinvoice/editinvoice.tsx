@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Printer,
@@ -12,34 +12,52 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import "./editinvoice.css";
-import React from "react";
 import { settings } from "@/settings";
 import Decimal from "decimal.js";
 import karmaLogo from "@/assets/karma_trading_logo.png";
 import { apiFetch } from "@/utils/apifetch";
-import { useContext } from "react";
 import { ErrorContext } from "@/components/errors/errorcontext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Invoice as InvoiceListItem } from "../invoice_book/invoice_book";
+import type { FarmerPurchaseRecord } from "../invoice_book/invoice_book";
 import BlurLoading from "@/components/blurloading/animation";
 
-// ─── Profile config shapes (matches backend ProfileConfigSchema) ──────────────
-interface ProfileBank {
-  bank: string;
-  account: string;
-  ifsc: string;
-}
-
-// ─── Crop option shape: array of dict, "crop" as key ───────────────────────────
+// ─── Profile config shapes ────────────────────────────────────────────────────
 interface CropOption {
   crop: string;
   hsn: string;
   cgst: string;
   sgst: string;
 }
+interface Crop {
+  hsn: string;
+  sgst: string;
+  cgst: string;
+}
+interface Bank {
+  bank: string;
+  account: string;
+  ifsc: string;
+}
+interface ProfileConfig {
+  seller: { name: string; address: string; pan: string; gstin: string };
+  bank_accounts: Bank[];
+  crops: Record<string, Crop>;
+  terms_and_conditions: string;
+  farmer_bill_terms?: string;
+}
 
-// ─── Saved invoice shape sent to the PDF generator — one flat crop row now ────
-interface SavedInvoice {
+const EMPTY_CONFIG: ProfileConfig = {
+  seller: { name: "", address: "", pan: "", gstin: "" },
+  bank_accounts: [],
+  crops: {},
+  terms_and_conditions: "",
+  farmer_bill_terms: "",
+};
+
+const uqcOptions = ["KGS", "TONS", "MTN", "NOS"];
+
+// ─── Shape sent to the PDF generator (same as the farmer form) ───────────────
+interface SavedBillForPdf {
   seller_name: string;
   seller_address: string;
   seller_pan: string;
@@ -54,60 +72,38 @@ interface SavedInvoice {
   party_address: string;
   party_city?: string | null;
   party_state: string;
-  party_gstin: string;
   party_pan: string | "";
+  party_gstin: string;
+  place_of_supply?: string | null;
   seller_bank?: string | null;
   seller_account?: string | null;
   seller_ifsc?: string | null;
+  payment_method: string;
+  payment_reference: string;
+  document_type: string;
   crop: string;
   hsn_code: string;
   qty: string;
   uqc: string;
   rate: string;
-  taxable_amount: string;
+  payable_amount: string;
   cgst_rate: string;
   cgst_amount: string;
   sgst_rate: string;
   sgst_amount: string;
   final_amount: string;
-  final_amount_in_words: string;
+  payable_amount_in_words: string;
   terms: string;
 }
 
-// ─── Number → Indian words ─────────────────────────────────────────────────────
+// ─── Number → Indian words ───────────────────────────────────────────────────
 const ONES = [
-  "",
-  "One",
-  "Two",
-  "Three",
-  "Four",
-  "Five",
-  "Six",
-  "Seven",
-  "Eight",
-  "Nine",
-  "Ten",
-  "Eleven",
-  "Twelve",
-  "Thirteen",
-  "Fourteen",
-  "Fifteen",
-  "Sixteen",
-  "Seventeen",
-  "Eighteen",
-  "Nineteen",
+  "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+  "Seventeen", "Eighteen", "Nineteen",
 ];
 const TENS = [
-  "",
-  "",
-  "Twenty",
-  "Thirty",
-  "Forty",
-  "Fifty",
-  "Sixty",
-  "Seventy",
-  "Eighty",
-  "Ninety",
+  "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety",
 ];
 
 function toWords(n: number): string {
@@ -141,15 +137,11 @@ function toWords(n: number): string {
 }
 
 function amountInWords(amount: Decimal | null | undefined): string {
-  if (!amount || amount.lte(0)) {
-    return "";
-  }
-  const safeAmount = amount.toDecimalPlaces(2);
-  const rupees = safeAmount.floor().toNumber();
+  if (!amount || amount.lte(0)) return "";
+  const rupees = amount.toDecimalPlaces(2).floor().toNumber();
   return toWords(rupees) + " Rupees" + " Only.";
 }
 
-// ─── Safely convert any string/number/undefined into a Decimal ────────────────
 const parseDecimal = (val: string | number | undefined | null): Decimal => {
   if (val === undefined || val === null || val === "") return new Decimal(0);
   try {
@@ -159,7 +151,6 @@ const parseDecimal = (val: string | number | undefined | null): Decimal => {
   }
 };
 
-// ─── Format a Decimal to 2-decimal Indian-format string for display only ──────
 function fmt(x: Decimal): string {
   const n = x.toNumber();
   if (!n || n === 0) return "0.00";
@@ -175,7 +166,43 @@ function formatDateForPrint(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-// ─── Field component ───────────────────────────────────────────────────────────
+function hasNonZeroGstRate(cgstRate: string, sgstRate: string): boolean {
+  return parseDecimal(cgstRate).gt(0) || parseDecimal(sgstRate).gt(0);
+}
+
+// ─── Payment reference helpers (same as the farmer form) ─────────────────────
+function getReferenceLabel(method: string): string {
+  switch (method) {
+    case "NEFT":
+      return "NEFT UTR No.";
+    case "RTGS":
+      return "RTGS UTR No.";
+    case "UPI":
+      return "UPI Ref. No.";
+    case "Cheque":
+      return "Cheque No.";
+    default:
+      return "Reference";
+  }
+}
+function showReferenceField(method: string): boolean {
+  return method !== "Cash" && method !== "Pending";
+}
+function getReferencePlaceholder(method: string): string {
+  switch (method) {
+    case "NEFT":
+    case "RTGS":
+      return "UTR number";
+    case "UPI":
+      return "UPI transaction ID";
+    case "Cheque":
+      return "Cheque number";
+    default:
+      return "";
+  }
+}
+
+// ─── Field component ─────────────────────────────────────────────────────────
 interface FieldProps {
   value: string;
   onChange: (v: string) => void;
@@ -237,77 +264,34 @@ function Field({
   );
 }
 
-// ─── Central form state — every field is a plain string, including the single
-//     crop row and the invoice_no (editable-record identity) ─────────────────
+// ─── Central form state — every field is a plain string ──────────────────────
 const buildInit = () => ({
-  sellerName: "",
-  sellerAddress: "",
-  sellerPAN: "",
-  sellerGSTIN: "",
-  sellerBank: "",
-  sellerAccount: "",
-  sellerIFSC: "",
-  invoiceNo: "",
-  invoiceDate: "",
-  eway_bill_no: "",
-  docketNo: "",
-  transportName: "",
-  deliveryThrough: "",
-  partyName: "",
-  partyAddress: "",
-  partyGSTIN: "",
-  partyPAN: "",
-  partyState: "24-Gujarat",
-  partyCity: "",
-
+  merchantName: "",
+  merchantAddress: "",
+  merchantPAN: "",
+  merchantGSTIN: "",
+  voucherNo: "",
+  voucherDate: "",
+  farmerName: "",
+  farmerAddress: "",
+  farmerState: "",
+  farmerPAN: "",
   crop: "",
   hsnCode: "",
   qty: "",
   uqc: "",
   rate: "",
-  taxableAmt: "",
-  cgstRate: "",
-  cgstAmt: "",
-  sgstRate: "",
-  sgstAmt: "",
-  finalAmt: "",
-
-  final_amount_in_words: "",
+  cgstRate: "0",
+  sgstRate: "0",
+  paymentMethod: "Cash",
+  paymentReference: "",
   terms: "",
   createdBy: "",
 });
 
 type FormState = ReturnType<typeof buildInit>;
 
-interface Crop {
-  hsn: string;
-  sgst: string;
-  cgst: string;
-}
-interface Bank {
-  bank: string;
-  account: string;
-  ifsc: string;
-}
-interface ProfileConfig {
-  seller: { name: string; address: string; pan: string; gstin: string };
-  bank_accounts: Bank[];
-  crops: Record<string, Crop>;
-  terms_and_conditions: string;
-  farmer_bill_terms?: string;
-}
-
-const EMPTY_CONFIG: ProfileConfig = {
-  seller: { name: "", address: "", pan: "", gstin: "" },
-  bank_accounts: [],
-  crops: {},
-  terms_and_conditions: "",
-  farmer_bill_terms: "",
-};
-// UQC options
-const uqcOptions = ["KGS", "TONS", "MTN", "NOS"];
-
-// ─── Validation error popup ────────────────────────────────────────────────────
+// ─── Validation error popup ──────────────────────────────────────────────────
 function ErrorPopup({
   errors,
   onClose,
@@ -351,27 +335,24 @@ function ErrorPopup({
   );
 }
 
-// ─── Main component ────────────────────────────────────────────────────────────
-export default function EditInvoiceForm() {
+// ─── Main component ──────────────────────────────────────────────────────────
+export default function EditFarmerBill() {
   const errorcontext = useContext(ErrorContext);
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // ── The bill to edit is looked up from the same cache the book page reads,
-  //    via the id passed through router state — identical pattern to
-  //    view_invoice.tsx's ViewInvoiceFromBook ─────────────────────────────────
+  // The bill to edit comes from the same cache the book reads, via router state
   const editId = location.state?.id as number | undefined;
 
-  const { data: invoices } = useQuery<InvoiceListItem[]>({
-    queryKey: ["Invoices"],
+  const { data: bills } = useQuery<FarmerPurchaseRecord[]>({
+    queryKey: ["FarmerPurchases"],
     queryFn: () => Promise.resolve([]),
     enabled: false,
   });
 
-  const existingBill = invoices?.find((b) => b.id === editId);
+  const existingBill = bills?.find((b) => b.id === editId);
 
-  // ── Central state — all bill fields as strings ───────────────────────────────
   const [s, setS] = useState<FormState>(buildInit());
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -379,25 +360,19 @@ export default function EditInvoiceForm() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [showRetryBanner, setShowRetryBanner] = useState(false);
-
   const [errors, setErrors] = useState<string[]>([]);
 
-  const [viewMode, setViewMode] = useState<"edit" | "preview" | "saved">(
-    "edit",
-  );
+  const [viewMode, setViewMode] = useState<"edit" | "preview" | "saved">("edit");
   const [isSaving, setIsSaving] = useState(false);
   const isReadOnly = viewMode !== "edit";
 
-  // ── Profile-driven state ──────────────────────────────────────────────────────
   const [cropOptions, setCropOptions] = useState<CropOption[]>([]);
-  const [bankAccountOptions, setBankAccountOptions] = useState<ProfileBank[]>(
-    [],
-  );
-  const [selectedBankIndex, setSelectedBankIndex] = useState(0);
-
   const pdfBlobRef = useRef<Blob | null>(null);
-
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const itemsTableWrapRef = useRef<HTMLDivElement | null>(null);
+  const itemsTableRef = useRef<HTMLTableElement | null>(null);
+  const [rowFontScale, setRowFontScale] = useState(1);
 
   const zoomOuterRef = useRef<HTMLDivElement | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -407,53 +382,38 @@ export default function EditInvoiceForm() {
   const profile =
     queryClient.getQueryData<ProfileConfig>(["Profile"]) || EMPTY_CONFIG;
 
-  // ── Hydrate form state from the existing bill (once it's available) ──────────
+  // ── Hydrate the form from the existing bill (once) ──────────────────────────
   useEffect(() => {
     if (!existingBill || isHydrated) return;
 
     setS((prev) => ({
       ...prev,
-      sellerName: existingBill.seller_name,
-      sellerAddress: existingBill.seller_address,
-      sellerPAN: existingBill.seller_pan,
-      sellerGSTIN: existingBill.seller_gstin,
-      sellerBank: existingBill.seller_bank || "",
-      sellerAccount: existingBill.seller_account || "",
-      sellerIFSC: existingBill.seller_ifsc || "",
-      invoiceNo: existingBill.invoice_no,
-      invoiceDate: existingBill.invoice_date,
-      eway_bill_no: existingBill.eway_bill_no || "",
-      docketNo: existingBill.docket_no || "",
-      transportName: existingBill.transport_name || "",
-      deliveryThrough: existingBill.delivery_through,
-      partyName: existingBill.party_name,
-      partyAddress: existingBill.party_address,
-      partyGSTIN: existingBill.party_gstin,
-      partyPAN: existingBill.party_pan || "",
-      partyState: existingBill.party_state,
-      partyCity: existingBill.party_city || "",
-
+      merchantName: existingBill.merchant_name,
+      merchantAddress: existingBill.merchant_address,
+      merchantPAN: existingBill.merchant_pan || "",
+      merchantGSTIN: existingBill.merchant_gstin,
+      voucherNo: existingBill.voucher_no,
+      voucherDate: existingBill.voucher_date,
+      farmerName: existingBill.farmer_name,
+      farmerAddress: existingBill.farmer_address,
+      farmerState: existingBill.farmer_state,
+      farmerPAN: existingBill.farmer_pan || "",
       crop: existingBill.crop,
       hsnCode: existingBill.hsn_code,
       qty: existingBill.qty,
       uqc: existingBill.uqc,
       rate: existingBill.rate,
-      taxableAmt: existingBill.taxable_amount,
       cgstRate: existingBill.cgst_rate,
-      cgstAmt: existingBill.cgst_amount,
       sgstRate: existingBill.sgst_rate,
-      sgstAmt: existingBill.sgst_amount,
-      finalAmt: existingBill.final_amount,
-
-      final_amount_in_words: existingBill.final_amount_in_words,
+      paymentMethod: existingBill.payment_method || "Cash",
+      paymentReference: existingBill.payment_reference || "",
       terms: existingBill.terms,
       createdBy: existingBill.created_by,
     }));
     setIsHydrated(true);
   }, [existingBill, isHydrated]);
 
-  // ── Fetch profile config on mount — only used for crop/bank dropdown
-  //    OPTIONS; does not overwrite the hydrated bill values above ─────────────
+  // ── Profile is only used for the crop dropdown OPTIONS ──────────────────────
   useEffect(() => {
     const cropsFromProfile: CropOption[] = Object.entries(
       profile.crops || {},
@@ -464,37 +424,7 @@ export default function EditInvoiceForm() {
       sgst: c.sgst,
     }));
     if (cropsFromProfile.length > 0) setCropOptions(cropsFromProfile);
-
-    const banks = profile.bank_accounts || [];
-    setBankAccountOptions(banks);
   }, []);
-
-  // ── Derive taxable/cgst/sgst/final + words whenever qty/rate/rates change ────
-  const calcInputsKey = `${s.qty}|${s.rate}|${s.cgstRate}|${s.sgstRate}`;
-
-  useEffect(() => {
-    if (!isHydrated) return; // don't recompute against blank pre-hydration state
-
-    const qty = parseDecimal(s.qty);
-    const rate = parseDecimal(s.rate);
-    const cgstRate = parseDecimal(s.cgstRate);
-    const sgstRate = parseDecimal(s.sgstRate);
-
-    const taxableAmt = qty.mul(rate);
-    const cgstAmt = taxableAmt.mul(cgstRate).div(100);
-    const sgstAmt = taxableAmt.mul(sgstRate).div(100);
-    const finalAmt = taxableAmt.plus(cgstAmt).plus(sgstAmt);
-
-    setS((prev) => ({
-      ...prev,
-      taxableAmt: taxableAmt.toString(),
-      cgstAmt: cgstAmt.toString(),
-      sgstAmt: sgstAmt.toString(),
-      finalAmt: finalAmt.toString(),
-      final_amount_in_words: amountInWords(finalAmt),
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calcInputsKey, isHydrated]);
 
   useLayoutEffect(() => {
     const computeZoom = () => {
@@ -516,7 +446,47 @@ export default function EditInvoiceForm() {
     };
   }, []);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────────
+  // ── Derived amounts (same maths as the farmer form: amount = qty × rate,
+  //    GST is reverse-charge and NOT added to the supplier's payment) ─────────
+  const payableDec = parseDecimal(s.qty).mul(parseDecimal(s.rate));
+  const cgstDec = payableDec.mul(parseDecimal(s.cgstRate)).div(100);
+  const sgstDec = payableDec.mul(parseDecimal(s.sgstRate)).div(100);
+  const finalDec = payableDec;
+  const rcmTaxTotal = cgstDec.plus(sgstDec);
+  const isRCM = hasNonZeroGstRate(s.cgstRate, s.sgstRate);
+  const documentType = isRCM ? "RCM Purchase Bill" : "Purchase Bill";
+  const finalAmountInWords = amountInWords(finalDec);
+
+  const termLines = (s.terms || "")
+    .split("\n")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  // ── Shrink items-table font if the row overflows ────────────────────────────
+  useLayoutEffect(() => {
+    const wrap = itemsTableWrapRef.current;
+    const table = itemsTableRef.current;
+    if (!wrap || !table) return;
+
+    table.style.fontSize = "";
+    const availableWidth = wrap.clientWidth;
+    const naturalWidth = table.scrollWidth;
+
+    if (naturalWidth > availableWidth && availableWidth > 0) {
+      const ratio = availableWidth / naturalWidth;
+      setRowFontScale(Math.max(0.55, Math.min(1, ratio)));
+    } else {
+      setRowFontScale(1);
+    }
+  }, [s.crop, s.hsnCode, s.qty, s.uqc, s.rate, payableDec.toString(), zoomLevel]);
+
+  useLayoutEffect(() => {
+    const table = itemsTableRef.current;
+    if (!table) return;
+    table.style.fontSize = `${12 * rowFontScale}px`;
+  }, [rowFontScale]);
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
   const f = (key: keyof FormState) => (v: string) =>
     setS((p) => ({ ...p, [key]: v }));
 
@@ -531,113 +501,104 @@ export default function EditInvoiceForm() {
     }));
   };
 
-  const handleBankSelect = (idx: number) => {
-    const b = bankAccountOptions[idx];
-    if (b) {
-      setSelectedBankIndex(idx);
-      setS((prev) => ({
-        ...prev,
-        sellerBank: b.bank,
-        sellerAccount: b.account,
-        sellerIFSC: b.ifsc,
-      }));
-    }
+  // Clears a stale reference when the new method has no reference field
+  const handlePaymentMethodChange = (method: string) => {
+    setS((prev) => ({
+      ...prev,
+      paymentMethod: method,
+      paymentReference: showReferenceField(method) ? prev.paymentReference : "",
+    }));
   };
 
-  const getDynamicFileName = () => {
-    const safePartyName = s.partyName.trim().replace(/\s+/g, "_");
-    return `${safePartyName}_${s.invoiceNo}.pdf`;
-  };
+  const safeFarmerName = s.farmerName.trim().replace(/\s+/g, "_");
+  const fileName = `${safeFarmerName}_${s.voucherNo || "purchase"}.pdf`;
 
-  const handleuqcChange = (uqc: string) => {
-    setS((prev) => ({ ...prev, uqc }));
-  };
-
-  // ── Build plain JSON payload for the /edit-invoice endpoint — same shape as
-  //    /save-invoice's payload, plus invoiceNo so the backend knows which
-  //    existing row to update ───────────────────────────────────────────────────
+  // ── Payload for /edit-farmer-purchase — same shape as the create payload;
+  //    voucherNo tells the backend which existing row to update ───────────────
   function buildPayload() {
     return {
-      invoiceNo: s.invoiceNo,
-      sellerName: s.sellerName,
-      sellerAddress: s.sellerAddress,
-      sellerPAN: s.sellerPAN,
-      sellerGSTIN: s.sellerGSTIN,
-      sellerBank: s.sellerBank,
-      sellerAccount: s.sellerAccount,
-      sellerIFSC: s.sellerIFSC,
-      invoiceDate: s.invoiceDate,
-      eway_bill_no: s.eway_bill_no,
-      docketNo: s.docketNo,
-      transportName: s.transportName,
-      deliveryThrough: s.deliveryThrough,
-      partyName: s.partyName,
-      partyAddress: s.partyAddress,
-      partyCity: s.partyCity,
-      partyState: s.partyState,
-      partyGSTIN: s.partyGSTIN,
-      partyPAN: s.partyPAN,
+      documentType,
+      merchantName: s.merchantName,
+      merchantAddress: s.merchantAddress,
+      merchantPAN: s.merchantPAN,
+      merchantGSTIN: s.merchantGSTIN,
+      voucherDate: s.voucherDate,
+      voucherNo: s.voucherNo,
+      farmerName: s.farmerName,
+      farmerAddress: s.farmerAddress,
+      farmerState: s.farmerState,
+      farmerPAN: s.farmerPAN,
       crop: s.crop,
       hsnCode: s.hsnCode,
       qty: s.qty,
       uqc: s.uqc,
       rate: s.rate,
-      taxableAmt: s.taxableAmt,
+      payableAmt: payableDec.toString(),
       cgstRate: s.cgstRate,
-      cgstAmt: s.cgstAmt,
+      cgstAmt: cgstDec.toString(),
       sgstRate: s.sgstRate,
-      sgstAmt: s.sgstAmt,
-      finalAmt: s.finalAmt,
-      final_amount_in_words: s.final_amount_in_words,
+      sgstAmt: sgstDec.toString(),
+      finalAmt: finalDec.toString(),
+      payableAmtInWords: finalAmountInWords,
+      paymentMethod: s.paymentMethod,
+      paymentReference: s.paymentReference,
       terms: s.terms,
     };
   }
 
-  function buildBillForPdf(): SavedInvoice {
+  function buildBillForPdf(): SavedBillForPdf {
     return {
-      seller_name: s.sellerName,
-      seller_address: s.sellerAddress,
-      seller_pan: s.sellerPAN,
-      seller_gstin: s.sellerGSTIN,
-      invoice_no: s.invoiceNo,
-      invoice_date: s.invoiceDate,
-      eway_bill_no: s.eway_bill_no || null,
-      docket_no: s.docketNo || null,
-      transport_name: s.transportName || null,
-      delivery_through: s.deliveryThrough,
-      party_name: s.partyName,
-      party_address: s.partyAddress,
-      party_city: s.partyCity || null,
-      party_state: s.partyState,
-      party_gstin: s.partyGSTIN,
-      party_pan: s.partyPAN || "",
-      seller_bank: s.sellerBank || null,
-      seller_account: s.sellerAccount || null,
-      seller_ifsc: s.sellerIFSC || null,
+      seller_name: s.merchantName,
+      seller_address: s.merchantAddress,
+      seller_pan: s.merchantPAN || "",
+      seller_gstin: s.merchantGSTIN,
+      invoice_no: s.voucherNo || "",
+      invoice_date: s.voucherDate,
+      eway_bill_no: null,
+      docket_no: null,
+      transport_name: null,
+      delivery_through: "",
+      party_name: s.farmerName,
+      party_address: s.farmerAddress,
+      party_city: null,
+      party_state: s.farmerState,
+      party_pan: s.farmerPAN || "",
+      party_gstin: "",
+      place_of_supply: s.farmerState || null,
+      seller_bank: null,
+      seller_account: null,
+      seller_ifsc: null,
+      payment_method: s.paymentMethod,
+      payment_reference: s.paymentReference,
+      document_type: documentType,
       crop: s.crop,
       hsn_code: s.hsnCode,
       qty: s.qty,
       uqc: s.uqc,
       rate: s.rate,
-      taxable_amount: s.taxableAmt,
+      payable_amount: payableDec.toString(),
       cgst_rate: s.cgstRate,
-      cgst_amount: s.cgstAmt,
+      cgst_amount: cgstDec.toString(),
       sgst_rate: s.sgstRate,
-      sgst_amount: s.sgstAmt,
-      final_amount: s.finalAmt,
-      final_amount_in_words: s.final_amount_in_words,
+      sgst_amount: sgstDec.toString(),
+      final_amount: finalDec.toString(),
+      payable_amount_in_words: finalAmountInWords,
       terms: s.terms,
     };
   }
 
-  // ── Shared validation, reused by the Preview flow ─────────────────────────────
+  function getDocumentTitle(): string {
+    return isRCM ? "RCM PURCHASE BILL" : "PURCHASE BILL";
+  }
+
   function validateBill(): string[] {
     const errs: string[] = [];
-    if (!s.partyName.trim()) errs.push("Party / Buyer name is required.");
-    if (!s.partyGSTIN.trim()) errs.push("Party / Buyer GSTIN is required.");
-    if (!s.sellerGSTIN.trim()) errs.push("Seller GSTIN is required.");
-    if (!s.sellerPAN.trim()) errs.push("Seller PAN is required.");
-    if (!s.deliveryThrough) errs.push("Delivery through is required.");
+    if (!s.merchantName.trim()) errs.push("Merchant name is required.");
+    if (!s.merchantAddress.trim()) errs.push("Merchant address is required.");
+    if (!s.merchantGSTIN.trim()) errs.push("Merchant GSTIN is required.");
+    if (!s.farmerName.trim()) errs.push("Supplier name is required.");
+    if (!s.farmerAddress.trim()) errs.push("Supplier address is required.");
+    if (!s.voucherDate) errs.push("Invoice date is required.");
     if (!s.crop) errs.push("Select a crop before printing.");
     if (s.crop) {
       if (!s.qty || parseFloat(s.qty) <= 0)
@@ -645,6 +606,8 @@ export default function EditInvoiceForm() {
       if (!s.rate || parseFloat(s.rate) <= 0)
         errs.push(`${s.crop}: Rate is missing or zero.`);
       if (!s.uqc) errs.push(`${s.crop}: UQC is required.`);
+      if (payableDec.lte(0))
+        errs.push(`${s.crop}: Amount could not be calculated.`);
     }
     return errs;
   }
@@ -655,6 +618,7 @@ export default function EditInvoiceForm() {
       setErrors(errs);
       return;
     }
+    setErrors([]);
     setViewMode("preview");
   }
 
@@ -662,17 +626,16 @@ export default function EditInvoiceForm() {
     setViewMode("edit");
   }
 
-  // ── Save button (from preview): POST to /edit-invoice, show saving overlay,
-  //    then update the "Invoices" cache IN PLACE by invoice_no — replacing the
-  //    old row with the freshly saved one rather than appending a duplicate ──
+  // ── Save (from preview): POST to /edit-farmer-purchase, then update the
+  //    "FarmerPurchases" cache IN PLACE by voucher_no — the old row is replaced
+  //    by the freshly saved one (no duplicate) ────────────────────────────────
   async function handleSaveBill() {
     setIsSaving(true);
     try {
-      const payload = buildPayload();
-      const res = await apiFetch(`${settings.BE_URL}/edit-invoice`, {
+      const res = await apiFetch(`${settings.BE_URL}/edit-farmer-purchase`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildPayload()),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -685,59 +648,68 @@ export default function EditInvoiceForm() {
 
       setS((prev) => ({
         ...prev,
-        invoiceNo: savedBillResp.invoice_no,
+        voucherNo: savedBillResp.voucher_no ?? prev.voucherNo,
         createdBy: savedBillResp.created_by ?? prev.createdBy,
       }));
 
-      // ── Build the full row from local state, same reasoning as the
-      //    create flow: don't rely on the backend echoing every field back.
-      //    Only id/timestamps/created_by/invoice_no come from the response. ──
-      const fullInvoiceForCache = {
-        seller_name: s.sellerName,
-        seller_address: s.sellerAddress,
-        seller_pan: s.sellerPAN,
-        seller_gstin: s.sellerGSTIN,
-        invoice_date: s.invoiceDate,
-        eway_bill_no: s.eway_bill_no || null,
-        docket_no: s.docketNo || null,
-        transport_name: s.transportName || null,
-        delivery_through: s.deliveryThrough,
-        party_name: s.partyName,
-        party_address: s.partyAddress,
-        party_city: s.partyCity || null,
-        party_state: s.partyState,
-        party_gstin: s.partyGSTIN,
-        party_pan: s.partyPAN || "",
-        seller_bank: s.sellerBank || null,
-        seller_account: s.sellerAccount || null,
-        seller_ifsc: s.sellerIFSC || null,
+      // Build the full row from local state (don't rely on the backend echoing
+      // every field). Only id / timestamps / created_by / voucher_no come from
+      // the response.
+      const fullRecordForCache: FarmerPurchaseRecord = {
+        id: savedBillResp.id ?? existingBill?.id ?? (editId as number),
+        created_at: savedBillResp.created_at ?? existingBill?.created_at ?? "",
+        updated_at:
+          savedBillResp.updated_at ?? new Date().toISOString(),
+        created_by: savedBillResp.created_by ?? s.createdBy,
+        document_type: documentType,
+        merchant_name: s.merchantName,
+        merchant_address: s.merchantAddress,
+        merchant_gstin: s.merchantGSTIN,
+        merchant_pan: s.merchantPAN || null,
+        voucher_no: savedBillResp.voucher_no ?? s.voucherNo,
+        voucher_date: s.voucherDate,
+        farmer_name: s.farmerName,
+        farmer_address: s.farmerAddress,
+        farmer_state: s.farmerState,
+        farmer_pan: s.farmerPAN || null,
         crop: s.crop,
         hsn_code: s.hsnCode,
         qty: s.qty,
         uqc: s.uqc,
         rate: s.rate,
-        taxable_amount: s.taxableAmt,
+        payable_amount: payableDec.toString(),
         cgst_rate: s.cgstRate,
         sgst_rate: s.sgstRate,
-        cgst_amount: s.cgstAmt,
-        sgst_amount: s.sgstAmt,
-        final_amount: s.finalAmt,
-        final_amount_in_words: s.final_amount_in_words,
+        cgst_amount: cgstDec.toString(),
+        sgst_amount: sgstDec.toString(),
+        final_amount: finalDec.toString(),
+        payable_amount_in_words: finalAmountInWords,
+        payment_method: s.paymentMethod,
+        payment_reference: s.paymentReference || null,
         terms: s.terms,
-        id: savedBillResp.id,
-        created_at: savedBillResp.created_at,
-        updated_at: savedBillResp.updated_at,
-        created_by: savedBillResp.created_by,
-        invoice_no: savedBillResp.invoice_no,
       };
 
-      queryClient.setQueryData(["Invoices"], (old: unknown) => {
-        if (!Array.isArray(old)) return [fullInvoiceForCache];
+      queryClient.setQueryData(["FarmerPurchases"], (old: unknown) => {
+        if (!Array.isArray(old)) return [fullRecordForCache];
         const withoutOld = old.filter(
-          (inv: any) => inv.invoice_no !== fullInvoiceForCache.invoice_no,
+          (r: FarmerPurchaseRecord) =>
+            r.voucher_no !== fullRecordForCache.voucher_no,
         );
-        return [fullInvoiceForCache, ...withoutOld];
+        return [fullRecordForCache, ...withoutOld];
       });
+
+      // Keep any cached filtered searches in sync too (replace in place)
+      queryClient.setQueriesData<FarmerPurchaseRecord[]>(
+        { queryKey: ["FarmerPurchases_Search"] },
+        (old) =>
+          Array.isArray(old)
+            ? old.map((r) =>
+                r.voucher_no === fullRecordForCache.voucher_no
+                  ? fullRecordForCache
+                  : r,
+              )
+            : old,
+      );
 
       pdfBlobRef.current = null;
       setViewMode("saved");
@@ -752,20 +724,23 @@ export default function EditInvoiceForm() {
     }
   }
 
-  async function fetchInvoicePdf(): Promise<Blob> {
+  async function fetchBillPdf(): Promise<Blob> {
     if (pdfBlobRef.current) return pdfBlobRef.current;
 
     setIsGeneratingPdf(true);
     try {
-      const res = await apiFetch(`${settings.BE_URL}/generate-farmer-purchase-pdf`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildBillForPdf()),
-      });
+      const res = await apiFetch(
+        `${settings.BE_URL}/generate-farmer-purchase-pdf`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildBillForPdf()),
+        },
+      );
 
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
-        errorcontext.addError(
+        throw new Error(
           `Server returned ${res.status}${detail ? `: ${detail}` : ""}`,
         );
       }
@@ -781,9 +756,7 @@ export default function EditInvoiceForm() {
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      const pdfBlob = await fetchInvoicePdf();
-      const fileName = getDynamicFileName();
-
+      const pdfBlob = await fetchBillPdf();
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement("a");
       a.href = url;
@@ -806,7 +779,7 @@ export default function EditInvoiceForm() {
     let printFrame: HTMLIFrameElement | null = null;
     let url: string | null = null;
     try {
-      const blob = await fetchInvoicePdf();
+      const blob = await fetchBillPdf();
       url = URL.createObjectURL(blob);
 
       printFrame = document.createElement("iframe");
@@ -829,12 +802,12 @@ export default function EditInvoiceForm() {
       } catch (err) {
         window.open(url!, "_blank");
         errorcontext.addError(
-          "The invoice has opened in a new tab — use the print icon there.",
+          "The bill has opened in a new tab — use the print icon there.",
         );
       }
     } catch (error) {
       errorcontext.addError(
-        "Something went wrong while preparing the invoice for printing. Please try other ways.",
+        "Something went wrong while preparing the bill for printing. Please try other ways.",
       );
     } finally {
       setIsPrinting(false);
@@ -848,17 +821,14 @@ export default function EditInvoiceForm() {
   const handleSend = async () => {
     setIsSending(true);
     try {
-      const pdfBlob = await fetchInvoicePdf();
-      const safePartyName = s.partyName.trim().replace(/\s+/g, "_");
-      const file = new File([pdfBlob], `${safePartyName}_${s.invoiceNo}.pdf`, {
-        type: "application/pdf",
-      });
+      const pdfBlob = await fetchBillPdf();
+      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: `Invoice ${s.invoiceNo}`,
-          text: `Hello ${s.partyName}, please find your invoice attached.`,
+          title: `Purchase Bill ${s.voucherNo}`,
+          text: `Hello ${s.farmerName}, please find your purchase bill attached.`,
         });
       } else {
         errorcontext.addError(
@@ -867,16 +837,14 @@ export default function EditInvoiceForm() {
         const url2 = URL.createObjectURL(pdfBlob);
         const a = document.createElement("a");
         a.href = url2;
-        a.download = `${safePartyName}_${s.invoiceNo}.pdf`;
+        a.download = fileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url2);
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
+      if (error instanceof DOMException && error.name === "AbortError") return;
       if (error instanceof DOMException && error.name === "NotAllowedError") {
         setShowRetryBanner(true);
         return;
@@ -894,16 +862,13 @@ export default function EditInvoiceForm() {
     if (!pdfBlobRef.current) return;
     setIsSending(true);
     try {
-      const safePartyName = s.partyPAN.trim().replace(/\s+/g, "_");
-      const file = new File(
-        [pdfBlobRef.current],
-        `${safePartyName}_${s.invoiceNo}.pdf`,
-        { type: "application/pdf" },
-      );
+      const file = new File([pdfBlobRef.current], fileName, {
+        type: "application/pdf",
+      });
       await navigator.share({
         files: [file],
-        title: `Invoice ${s.invoiceNo}`,
-        text: `Hello ${s.partyName}, please find your invoice attached.`,
+        title: `Purchase Bill ${s.voucherNo}`,
+        text: `Hello ${s.farmerName}, please find your purchase bill attached.`,
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
@@ -919,26 +884,21 @@ export default function EditInvoiceForm() {
     }
   };
 
-  const taxableDec = parseDecimal(s.taxableAmt);
-  const cgstDec = parseDecimal(s.cgstAmt);
-  const sgstDec = parseDecimal(s.sgstAmt);
-  const finalDec = parseDecimal(s.finalAmt);
-  const isCropEmpty = s.crop === "";
-
-  // ── Guard: no matching bill found in cache (e.g. direct link, stale cache) ──
-  if (!existingBill) {
+  // ── Guard: no matching bill in cache (direct link, stale cache). Once the
+  //    form has hydrated we keep rendering even if the cache row changes. ─────
+  if (!existingBill && !isHydrated) {
     return (
       <div className="min-h-screen bg-gray-300 flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-gray-700 font-medium text-lg text-center">
           No bill found to edit.
         </div>
         <button
-          onClick={() => navigate("/invoice-book")}
+          onClick={() => navigate(-1)}
           className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-400
                text-sm font-medium px-4 py-2 rounded shadow-sm transition-colors"
         >
           <ArrowLeft size={16} />
-          Back to Book
+          Go Back
         </button>
       </div>
     );
@@ -949,10 +909,11 @@ export default function EditInvoiceForm() {
       message={isSaving ? "Saving" : isGeneratingPdf ? "Generating PDF" : ""}
       loading={isSaving || isGeneratingPdf}
     >
-      <div className="min-h-screen edit-invoice-container bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-20">
+      <div className="edit-farmer-bill min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-20">
         {errors.length > 0 && (
           <ErrorPopup errors={errors} onClose={() => setErrors([])} />
         )}
+
         {showRetryBanner && (
           <div className="send-retry-banner print-hide">
             <div className="send-retry-banner-text">
@@ -975,7 +936,7 @@ export default function EditInvoiceForm() {
         {/* ── Top Navigation Bar ── */}
         <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print-hide">
           <button
-            onClick={() => navigate("/invoice-book")}
+            onClick={() => navigate("/farmer-invoice-book")}
             className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-400
                      text-sm font-medium px-4 py-2 rounded shadow-sm transition-colors"
           >
@@ -996,62 +957,72 @@ export default function EditInvoiceForm() {
             <div
               className={`invoice-form invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none ${isReadOnly ? "preview-mode" : ""}`}
             >
-              {/* ── HEADER ── */}
               <img
                 src={karmaLogo}
                 alt=""
                 aria-hidden="true"
                 className="watermark-img"
               />
+
+              {/* ── HEADER ── */}
               <div className="relative border-b border-gray-600 p-5">
                 <div className="text-center">
-                  <div className="text-3xl font-bold tracking-wide break-words">
-                    {s.sellerName}
+                  <div className="text-3xl font-bold tracking-wide wrap-break-word">
+                    {s.merchantName}
                   </div>
-                  <div className="mt-1 text-sm">{s.sellerAddress}</div>
+                  <div className="mt-1 text-sm whitespace-pre-line">
+                    {s.merchantAddress}
+                  </div>
                   <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
-                    <span className="flex items-baseline gap-1">
-                      <span className="font-semibold">PAN No.:</span>
-                      <Field
-                        value={s.sellerPAN}
-                        onChange={f("sellerPAN")}
-                        upper
-                        width="w-32"
-                      />
-                    </span>
+                    {s.merchantPAN ? (
+                      <span className="flex items-baseline gap-1">
+                        <span className="font-semibold">PAN No.:</span>
+                        <span className="uppercase font-medium">
+                          {s.merchantPAN}
+                        </span>
+                      </span>
+                    ) : null}
                     <span className="flex items-baseline gap-1">
                       <span className="font-semibold">GSTIN No.:</span>
                       <Field
-                        value={s.sellerGSTIN}
-                        onChange={f("sellerGSTIN")}
+                        value={s.merchantGSTIN}
+                        onChange={f("merchantGSTIN")}
                         upper
                         width="w-44"
                       />
                     </span>
                   </div>
                 </div>
-                <div className="absolute top-4 right-4 border border-gray-700 px-2 py-0.5 text-sm font-bold tracking-widest">
+                <div className="absolute top-4 right-4 text-sm font-bold tracking-widest print:hidden">
                   ORIGINAL
                 </div>
               </div>
 
               {/* ── TITLE BAR ── */}
               <div className="border border-gray-600">
-                <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
+                <div className="flex flex-col items-center justify-center text-center border-b border-gray-600 py-1.5 bg-gray-200 px-3">
                   <span className="text-base font-bold tracking-widest">
-                    TAX INVOICE
+                    {getDocumentTitle()}
                   </span>
+                  {isRCM && (
+                    <span className="text-[10px] text-gray-600 tracking-normal font-normal mt-0.5">
+                      (Self-Invoice cum Payment Voucher — Tax Payable on Reverse
+                      Charge)
+                    </span>
+                  )}
                 </div>
 
-                {/* ── PARTY + INVOICE DETAILS ── */}
-                <div className="border-b border-gray-600 grid grid-cols-[55%_45%]">
-                  {/* LEFT — party details */}
+                {/* ── SUPPLIER + VOUCHER DETAILS ── */}
+                <div className="border-b border-gray-600 grid grid-cols-2">
                   <div className="border-r border-gray-600 p-4">
-                    <div className="grid grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-sm">
+                    <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+                      Supplier (Farmer) Details
+                    </div>
+                    <div className="grid grid-cols-[90px_10px_1fr] items-start gap-y-1 gap-x-1 text-sm leading-tight">
                       <span className="font-bold whitespace-nowrap text-base">
-                        M/s.
+                        Name
                       </span>
-                      <span></span>
+                      <span>:</span>
                       <textarea
                         ref={(el) => {
                           if (el) {
@@ -1060,21 +1031,19 @@ export default function EditInvoiceForm() {
                           }
                         }}
                         rows={1}
-                        value={s.partyName}
+                        value={s.farmerName}
                         onChange={(e) =>
-                          f("partyName")(e.target.value.toUpperCase())
+                          f("farmerName")(e.target.value.toUpperCase())
                         }
-                        placeholder="PARTY / BUYER NAME"
+                        placeholder="SUPPLIER NAME"
                         spellCheck={false}
-                        className="bg-transparent outline-none border-b border-dashed border-gray-400
-                         hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
-                         text-gray-900 transition-colors font-bold text-base w-full resize-none overflow-hidden"
+                        className="bg-transparent outline-none border-b border-dashed border-gray-400 hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300 text-gray-900 transition-colors font-bold text-base w-full resize-none overflow-hidden"
                       />
 
-                      <span></span>
-                      <span></span>
-
-                      {/* Added auto-resize ref and fixed rows to 1 */}
+                      <span className="whitespace-nowrap font-medium">
+                        Address
+                      </span>
+                      <span>:</span>
                       <textarea
                         ref={(el) => {
                           if (el) {
@@ -1082,58 +1051,45 @@ export default function EditInvoiceForm() {
                             el.style.height = el.scrollHeight + "px";
                           }
                         }}
-                        rows={1}
-                        value={s.partyAddress}
+                        rows={2}
+                        value={s.farmerAddress}
                         onChange={(e) =>
-                          f("partyAddress")(e.target.value.toUpperCase())
+                          f("farmerAddress")(e.target.value.toUpperCase())
                         }
-                        placeholder="ADDRESS..."
+                        placeholder="FULL ADDRESS INCL. VILLAGE, TALUKA, STATE"
                         spellCheck={false}
-                        className="bg-transparent outline-none border-b border-dashed border-gray-400
-                         hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300
-                         text-gray-900 transition-colors w-full resize-none overflow-hidden
-                         leading-tight text-sm"
+                        className="bg-transparent outline-none border-b border-dashed border-gray-400 hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300 text-gray-900 transition-colors w-full resize-none overflow-hidden leading-tight text-sm"
                       />
-
-                      {(
-                        [
-                          ["City", "partyCity", false],
-                          ["State", "partyState", false],
-                          ["Party GSTIN", "partyGSTIN", true],
-                          ["Party PAN", "partyPAN", true],
-                        ] as [string, keyof FormState, boolean][]
-                      ).map(([label, key, up]) => (
-                        <React.Fragment key={key}>
-                          <span className="whitespace-nowrap font-medium">
-                            {label}
-                          </span>
-                          <span>:</span>
-                          <Field
-                            value={s[key]}
-                            onChange={f(key)}
-                            upper={up}
-                            className="text-sm w-full"
-                          />
-                        </React.Fragment>
-                      ))}
+                      <span className="whitespace-nowrap font-medium">
+                        PAN No.
+                      </span>
+                      <span>:</span>
+                      <div className="pt-0.5">
+                        <Field
+                          value={s.farmerPAN}
+                          onChange={f("farmerPAN")}
+                          upper
+                          className="text-sm w-full"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* RIGHT — invoice info */}
-                  <div className="p-4 space-y-1 text-sm">
-                    <div className="grid grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
+                  <div className="p-4">
+                    <div className="grid grid-cols-[145px_10px_1fr] items-baseline gap-y-2 text-sm">
                       <span className="whitespace-nowrap font-semibold">
                         Invoice No.
                       </span>
                       <span>:</span>
-                      {/* invoice_no is the record identity for /edit-invoice —
-                        kept read-only so it can't be accidentally changed */}
+                      {/* voucher_no identifies the row being edited — read-only */}
                       <Field
-                        value={s.invoiceNo}
-                        onChange={f("invoiceNo")}
+                        value={s.voucherNo}
+                        onChange={f("voucherNo")}
                         bold
+                        readOnly
                         className="text-sm w-full"
                       />
+
                       <span className="whitespace-nowrap font-semibold">
                         Invoice Date
                       </span>
@@ -1141,69 +1097,54 @@ export default function EditInvoiceForm() {
                       <div className="flex-1 w-full">
                         <input
                           type="date"
-                          value={s.invoiceDate}
-                          onChange={(e) => f("invoiceDate")(e.target.value)}
-                          className="bg-transparent outline-none w-full border-b border-dashed border-gray-400
-                                   hover:border-blue-400 focus:border-blue-600 text-sm transition-colors print-hide"
+                          value={s.voucherDate}
+                          onChange={(e) => f("voucherDate")(e.target.value)}
+                          className="bg-transparent outline-none w-full border-b border-dashed border-gray-400 hover:border-blue-400 focus:border-blue-600 text-sm transition-colors print-hide"
                         />
                         <span className="screen-hide">
-                          {formatDateForPrint(s.invoiceDate)}
+                          {formatDateForPrint(s.voucherDate)}
                         </span>
                       </div>
-                      <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-4 w-[calc(100%+2rem)]"></div>
-                      {(
-                        [
-                          ["E-Way Bill No.", "eway_bill_no", false],
-                          ["Docket No.", "docketNo", false],
-                          ["Transport Name", "transportName", false],
-                          ["Delivery Through", "deliveryThrough", true],
-                        ] as [string, keyof FormState, boolean][]
-                      ).map(([label, key, up]) => (
-                        <React.Fragment key={key}>
-                          <span className="whitespace-nowrap font-semibold">
-                            {label}
-                          </span>
-                          <span>:</span>
-                          <Field
-                            value={s[key]}
-                            onChange={f(key)}
-                            upper={up}
-                            placeholder={
-                              key === "deliveryThrough" ? "Vehicle No." : ""
-                            }
-                            className="text-sm w-full"
-                          />
-                        </React.Fragment>
-                      ))}
+
+                      <span className="whitespace-nowrap font-semibold text-[13px]">
+                        Place of Supply (State)
+                      </span>
+                      <span>:</span>
+                      <Field
+                        value={s.farmerState}
+                        onChange={f("farmerState")}
+                        className="text-sm w-full"
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* ── ITEMS TABLE ── */}
-                <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
-                  <table className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse">
+                <div
+                  ref={itemsTableWrapRef}
+                  className="overflow-x-auto print:overflow-visible print:w-full"
+                >
+                  <table
+                    ref={itemsTableRef}
+                    className="w-full min-w-140 print:min-w-0 text-xs table-collapse"
+                  >
                     <thead>
                       <tr className="bg-gray-300 border-b border-gray-600">
                         {(
                           [
                             ["Sr.\nNo.", "center"],
                             ["Crop", "center"],
-                            ["HSN /\nSAC", "center"],
+                            ["HSN / SAC", "center"],
                             ["Qty.", "center"],
                             ["UQC", "center"],
                             ["Rate", "center"],
-                            ["Taxable\nAmt.", "right"],
-                            ["CGST\n%", "center"],
-                            ["CGST\nAmt.", "right"],
-                            ["SGST\n%", "center"],
-                            ["SGST\nAmt.", "right"],
-                            ["FINAL\nAmt.", "right"],
+                            ["Amount", "right"],
                           ] as [string, string][]
                         ).map(([label, align], i) => (
                           <th
                             key={i}
                             className={`p-2 font-semibold whitespace-pre-line text-${align} line-height-1-3
-                            ${i < 12 ? "border-r border-gray-400" : ""}`}
+                            ${i < 6 ? "border-r border-gray-400" : ""}`}
                           >
                             {label}
                           </th>
@@ -1211,7 +1152,7 @@ export default function EditInvoiceForm() {
                       </tr>
                     </thead>
                     <tbody>
-                      {Array.from({ length: 6 }).map((_, idx) => {
+                      {Array.from({ length: 5 }).map((_, idx) => {
                         if (idx === 0) {
                           return (
                             <tr
@@ -1275,10 +1216,8 @@ export default function EditInvoiceForm() {
                               <td className="border-r border-gray-400 p-1 align-middle text-center">
                                 <select
                                   value={s.uqc}
-                                  onChange={(e) =>
-                                    handleuqcChange(e.target.value)
-                                  }
-                                  className="crop-select bg-transparent outline-none w-20 border-b border-dashed
+                                  onChange={(e) => f("uqc")(e.target.value)}
+                                  className="crop-select bg-transparent outline-none w-15 border-b border-dashed
                                            border-gray-400 hover:border-blue-400 focus:border-blue-600
                                            text-xs transition-colors text-gray-900 print-hide text-center"
                                 >
@@ -1305,45 +1244,8 @@ export default function EditInvoiceForm() {
                                   minChars={3}
                                 />
                               </td>
-                              <td className="border-r border-gray-400 p-1 text-right align-middle font-medium">
-                                {taxableDec.gt(0) ? fmt(taxableDec) : ""}
-                              </td>
-                              <td className="border-r border-gray-400 p-1 align-middle text-center">
-                                <Field
-                                  value={s.cgstRate}
-                                  onChange={f("cgstRate")}
-                                  type="number"
-                                  align="center"
-                                  autoFit
-                                  minChars={2}
-                                />
-                              </td>
-                              <td className="border-r border-gray-400 p-1 text-right align-middle">
-                                {isCropEmpty
-                                  ? ""
-                                  : cgstDec.gt(0)
-                                    ? fmt(cgstDec)
-                                    : "0.00"}
-                              </td>
-                              <td className="border-r border-gray-400 p-1 align-middle text-center">
-                                <Field
-                                  value={s.sgstRate}
-                                  onChange={f("sgstRate")}
-                                  type="number"
-                                  align="center"
-                                  autoFit
-                                  minChars={2}
-                                />
-                              </td>
-                              <td className="border-r border-gray-400 p-1 text-right align-middle">
-                                {isCropEmpty
-                                  ? ""
-                                  : sgstDec.gt(0)
-                                    ? fmt(sgstDec)
-                                    : "0.00"}
-                              </td>
                               <td className="p-1 text-right align-middle font-semibold">
-                                {finalDec.gt(0) ? fmt(finalDec) : ""}
+                                {payableDec.gt(0) ? fmt(payableDec) : ""}
                               </td>
                             </tr>
                           );
@@ -1357,37 +1259,20 @@ export default function EditInvoiceForm() {
                             <td className="border-r border-gray-400 p-1 text-center"></td>
                             <td className="border-r border-gray-400 p-1 text-center"></td>
                             <td className="border-r border-gray-400 p-1 text-center"></td>
-                            <td className="border-r border-gray-400 p-1 text-right"></td>
                             <td className="border-r border-gray-400 p-1 text-center"></td>
                             <td className="border-r border-gray-400 p-1 text-center"></td>
-                            <td className="border-r border-gray-400 p-1 text-right"></td>
                             <td className="border-r border-gray-400 p-1 text-center"></td>
-                            <td className="border-r border-gray-400 p-1 text-right"></td>
-                            <td className="border-r border-gray-400 p-1 text-center"></td>
-                            <td className="border-r border-gray-400 p-1 text-right"></td>
                             <td className="p-1 text-right"></td>
                           </tr>
                         );
                       })}
 
-                      {/* Totals row */}
                       <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-xs">
                         <td
                           colSpan={6}
                           className="border-r border-gray-400 p-2 text-center pr-4"
                         >
-                          Final Amount
-                        </td>
-                        <td className="border-r border-gray-400 p-2 text-right">
-                          {fmt(taxableDec)}
-                        </td>
-                        <td className="border-r border-gray-400" />
-                        <td className="border-r border-gray-400 p-2 text-right">
-                          {fmt(cgstDec)}
-                        </td>
-                        <td className="border-r border-gray-400" />
-                        <td className="border-r border-gray-400 p-2 text-right">
-                          {fmt(sgstDec)}
+                          Amount Payable to Supplier
                         </td>
                         <td className="p-2 text-right">{fmt(finalDec)}</td>
                       </tr>
@@ -1397,93 +1282,149 @@ export default function EditInvoiceForm() {
 
                 {/* ── FOOTER ── */}
                 <div className="flex flex-col text-sm">
-                  <div className="border-b border border-gray-600 p-3">
-                    <span className="font-semibold">Amt in Word: </span>
-                    <span className="italic ml-2 break-words">
-                      {finalDec.gt(0) ? (
-                        s.final_amount_in_words
-                      ) : (
-                        <span className="text-gray-300">
-                          Auto-generated when amount is entered
-                        </span>
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Bank details */}
-                  <div className="border-b border-gray-600 p-3">
-                    {bankAccountOptions.length > 1 && (
-                      <div className="mb-2 print-hide">
-                        <label className="text-xs font-semibold text-gray-600 mr-2">
-                          Select Bank Account:
-                        </label>
-                        <select
-                          value={selectedBankIndex}
-                          onChange={(e) =>
-                            handleBankSelect(Number(e.target.value))
-                          }
-                          className="bg-transparent outline-none border-b border-dashed border-gray-400
-                                   hover:border-blue-400 focus:border-blue-600 text-sm transition-colors"
-                        >
-                          {bankAccountOptions.map((b, i) => (
-                            <option key={i} value={i}>
-                              {b.bank} - {b.account}
-                            </option>
-                          ))}
-                        </select>
+                  <div className="border-t-2 border-b border-gray-600 px-3 py-2">
+                    <div>
+                      <span className="font-semibold">
+                        Amount Payable (in Words):{" "}
+                      </span>
+                      <span className="italic ml-1 wrap-break-word">
+                        {finalDec.gt(0) ? (
+                          finalAmountInWords
+                        ) : (
+                          <span className="text-gray-300">
+                            Auto-generated when amount is entered
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    {isRCM && (
+                      <div className="text-[11px] font-medium text-gray-700 italic mt-1 leading-snug">
+                        Tax payable on reverse charge under Section 9(3), CGST
+                        Act, 2017, and paid by{" "}
+                        {s.merchantName || "the recipient"}. It is not deducted
+                        from the amount payable to the supplier.
                       </div>
                     )}
+                  </div>
 
-                    <div className="grid grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-1/2">
-                      <span className="whitespace-nowrap">Bank</span>
-                      <span>:</span>
-                      <Field
-                        value={s.sellerBank}
-                        onChange={f("sellerBank")}
-                        placeholder="Bank Name"
-                        className="w-full"
-                      />
+                  <div className="border-b border-gray-600 p-3">
+                    <div
+                      className={`grid gap-4 ${isRCM ? "grid-cols-2" : "grid-cols-1"}`}
+                    >
+                      <div className="grid grid-cols-[120px_10px_1fr] items-baseline gap-y-1.5">
+                        <span className="whitespace-nowrap font-semibold">
+                          Payment Method
+                        </span>
+                        <span>:</span>
+                        {isReadOnly ? (
+                          <span className="text-sm text-gray-900 border-b border-dashed border-gray-400 pb-0.5 min-h-[1.4rem]">
+                            {s.paymentMethod || "—"}
+                          </span>
+                        ) : (
+                          <select
+                            value={s.paymentMethod}
+                            onChange={(e) =>
+                              handlePaymentMethodChange(e.target.value)
+                            }
+                            className="bg-transparent outline-none border-b border-dashed border-gray-400 hover:border-blue-400 focus:border-blue-600 text-sm transition-colors w-full"
+                          >
+                            <option value="Cash">Cash</option>
+                            <option value="NEFT">NEFT</option>
+                            <option value="RTGS">RTGS</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Pending">Pending</option>
+                          </select>
+                        )}
 
-                      <span className="whitespace-nowrap">Account No.</span>
-                      <span>:</span>
-                      <Field
-                        value={s.sellerAccount}
-                        onChange={f("sellerAccount")}
-                        placeholder="000000000000"
-                        className="w-full"
-                      />
+                        {showReferenceField(s.paymentMethod) && (
+                          <>
+                            <span className="whitespace-nowrap font-semibold">
+                              {getReferenceLabel(s.paymentMethod)}
+                            </span>
+                            <span>:</span>
+                            {isReadOnly ? (
+                              <span className="text-sm text-gray-900 border-b border-dashed border-gray-400 pb-0.5 min-h-[1.4rem] break-all">
+                                {s.paymentReference || "—"}
+                              </span>
+                            ) : (
+                              <Field
+                                value={s.paymentReference}
+                                onChange={f("paymentReference")}
+                                placeholder={getReferencePlaceholder(
+                                  s.paymentMethod,
+                                )}
+                                className="text-sm w-full"
+                              />
+                            )}
+                          </>
+                        )}
+                      </div>
 
-                      <span className="whitespace-nowrap">IFSC</span>
-                      <span>:</span>
-                      <Field
-                        value={s.sellerIFSC}
-                        onChange={f("sellerIFSC")}
-                        placeholder="XXXX0000000"
-                        upper
-                        className="w-full"
-                      />
+                      {isRCM && (
+                        <div className="rcm-tax-box border border-gray-500 rounded p-2.5 text-xs bg-gray-50">
+                          <div className="font-semibold text-gray-700 mb-1.5">
+                            GST Payable under RCM
+                          </div>
+                          <div className="flex justify-between py-0.5">
+                            <span>CGST @ {s.cgstRate}%</span>
+                            <span>₹ {fmt(cgstDec)}</span>
+                          </div>
+                          <div className="flex justify-between py-0.5">
+                            <span>SGST @ {s.sgstRate}%</span>
+                            <span>₹ {fmt(sgstDec)}</span>
+                          </div>
+                          <div className="flex justify-between py-1 mt-1 border-t border-gray-300 font-semibold">
+                            <span>Total RCM Tax</span>
+                            <span>₹ {fmt(rcmTaxTotal)}</span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 italic mt-1">
+                            Not part of Supplier&apos;s payment
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Terms & Signatory */}
-              <div className="grid grid-cols-2 p-3 gap-0 min-h-[120px]">
-                <div className="flex flex-col pr-4">
-                  <div className="font-bold text-base mb-1">
-                    Terms &amp; Condition
-                  </div>
+              {/* ── TERMS ── */}
+              <div className="px-3 pt-3">
+                <div className="font-bold text-sm mb-1">
+                  Terms &amp; Conditions
+                </div>
+                {isReadOnly ? (
+                  <ul className="list-disc pl-4 text-[10px] leading-snug text-gray-700 space-y-0.5">
+                    {termLines.map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
+                ) : (
                   <textarea
                     value={s.terms}
                     onChange={(e) => f("terms")(e.target.value)}
-                    rows={2}
-                    className="w-full bg-transparent outline-none resize-none text-sm border border-dashed
+                    rows={5}
+                    placeholder="One point per line"
+                    className="w-full bg-transparent outline-none resize-none text-[10px] leading-snug border border-dashed
                              border-gray-300 hover:border-blue-400 focus:border-blue-600 transition-colors p-1"
                   />
+                )}
+              </div>
+
+              {/* ── SIGNATURES ── */}
+              <div className="grid grid-cols-2 px-3 pt-2 pb-4 gap-0">
+                <div className="pr-4">
+                  <div className="mt-8 border-t border-gray-500 w-52"></div>
+                  <div className="font-semibold text-gray-800 text-sm mt-1">
+                    Supplier Signature / Thumbprint
+                  </div>
                 </div>
-                <div className="flex flex-col justify-between text-right">
-                  <div className="font-bold text-base">For, {s.sellerName}</div>
-                  <div className="mt-12 text-gray-900">
+                <div className="flex flex-col items-end text-right">
+                  <div className="font-bold text-sm">
+                    For, {s.merchantName || "Merchant"}
+                  </div>
+                  <div className="mt-8 border-t border-gray-500 w-52"></div>
+                  <div className="text-gray-900 text-sm mt-1">
                     Authorised Signatory
                   </div>
                 </div>
@@ -1492,7 +1433,7 @@ export default function EditInvoiceForm() {
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════ BOTTOM ACTION BAR ══════════════════════════════════════════ */}
+        {/* ══════════════════ BOTTOM ACTION BAR ══════════════════ */}
         <div className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 print-hide px-2 sm:px-0">
           {viewMode === "edit" && (
             <button

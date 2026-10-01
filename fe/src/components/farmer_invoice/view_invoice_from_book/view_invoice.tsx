@@ -1,6 +1,6 @@
-import { useRef, useState, useLayoutEffect } from "react";
+import { useRef, useState, useLayoutEffect, useContext, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Printer,
   Send as SendIcon,
@@ -9,54 +9,16 @@ import {
   Download,
   Pencil,
 } from "lucide-react";
+import Decimal from "decimal.js";
 import "./view_invoice.css";
 import watermarkUrl from "@/assets/karma_trading_logo_color_bg_removed.png";
 import { settings } from "@/settings";
 import { apiFetch } from "@/utils/apifetch";
-import { useContext } from "react";
 import { ErrorContext } from "@/components/errors/errorcontext";
-import type { Invoice as InvoiceListItem } from "../invoice_book/invoice_book";
 import type { FarmerPurchaseRecord } from "../invoice_book/invoice_book";
 import BlurLoading from "@/components/blurloading/animation";
 
-export interface InvoiceDetail {
-  seller_name: string;
-  seller_address: string;
-  seller_pan: string;
-  seller_gstin: string;
-  invoice_no: string;
-  invoice_date: string;
-  eway_bill_no: string | null;
-  docket_no?: string | null;
-  transport_name?: string | null;
-  delivery_through: string;
-  party_name: string;
-  party_address: string;
-  party_city?: string | null;
-  party_state: string;
-  party_gstin: string;
-  party_pan: string | null;
-  seller_bank?: string | null;
-  seller_account?: string | null;
-  seller_ifsc?: string | null;
-
-  // single crop line (NOT an array)
-  crop: string;
-  hsn_code: string;
-  qty: string;
-  uqc: string;
-  rate: string;
-  taxable_amount: string;
-  cgst_rate: string;
-  sgst_rate: string;
-  cgst_amount: string;
-  sgst_amount: string;
-  final_amount: string;
-  final_amount_in_words: string;
-  terms: string;
-  created_by: string;
-}
-
+// ─── helpers ────────────────────────────────────────────────────────────────
 function fmt(val: string | number | undefined | null): string {
   if (!val) return "";
   const n = Number(val);
@@ -70,207 +32,56 @@ function fmt(val: string | number | undefined | null): string {
 function formatDate(iso: string | undefined): string {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
   return `${d}/${m}/${y}`;
 }
 
-type FarmerPurchaseDetail = {
-  seller_name: string;
-  seller_address: string;
-  seller_pan: string;
-  seller_gstin: string;
-  invoice_no: string;
-  invoice_date: string;
-  party_name: string;
-  party_address: string;
-  party_city?: string | null;
-  party_state: string;
-  party_pan?: string | null;
-  crop: string;
-  hsn_code: string;
-  qty: string;
-  uqc: string;
-  rate: string;
-  taxable_amount: string;
-  cgst_rate: string;
-  sgst_rate: string;
-  cgst_amount: string;
-  sgst_amount: string;
-  final_amount: string;
-  final_amount_in_words: string;
-  payment_method?: string;
-  payment_reference?: string | null;
-  terms: string;
-  document_type?: string;
-};
-
-function FarmerPurchaseDocument({
-  bill,
-  displayRows,
-}: {
-  bill: FarmerPurchaseDetail;
-  displayRows: any[];
-}) {
-  return (
-    <div className="invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none">
-      <img src={watermarkUrl} alt="" aria-hidden="true" className="watermark-img" />
-
-      <div className="relative border-b border-gray-600 p-5 pt-5">
-        <div className="text-center">
-          <div className="text-3xl font-bold tracking-wide wrap-break-word">{bill.seller_name}</div>
-          <div className="mt-1 text-sm whitespace-pre-line wrap-break-word">{bill.seller_address}</div>
-          <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
-            <span className="flex items-baseline gap-1"><span className="font-semibold">PAN No.:</span><span className="uppercase font-medium">{bill.seller_pan}</span></span>
-            <span className="flex items-baseline gap-1"><span className="font-semibold">GSTIN No.:</span><span className="uppercase font-medium">{bill.seller_gstin}</span></span>
-          </div>
-        </div>
-        <div className="absolute top-4 right-4 border border-gray-700 px-2 py-0.5 text-sm font-bold tracking-widest">ORIGINAL</div>
-      </div>
-
-      <div className="border border-gray-600">
-        <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
-          <span className="text-base font-bold tracking-widest uppercase">{bill.document_type || "Purchase Bill"}</span>
-        </div>
-
-        <div className="border-b border-gray-600 grid grid-cols-[55%_45%]">
-          <div className="border-r border-gray-600 p-4">
-            <div className="grid grid-cols-[100px_10px_1fr] items-start gap-y-1 text-sm leading-tight">
-              <span className="font-bold whitespace-nowrap text-base">Supplier</span>
-              <span>:</span>
-              <div className="font-bold text-base w-full whitespace-pre-wrap wrap-break-word text-gray-900">{bill.party_name}</div>
-
-              <span className="whitespace-nowrap font-medium">Address</span>
-              <span>:</span>
-              <div className="leading-tight text-sm w-full whitespace-pre-wrap wrap-break-word text-gray-900">{bill.party_address}</div>
-
-              <span className="whitespace-nowrap font-medium">State</span>
-              <span>:</span>
-              <div className="text-sm uppercase wrap-break-word">{bill.party_state}</div>
-
-              <span className="whitespace-nowrap font-medium">PAN</span>
-              <span>:</span>
-              <div className="text-sm uppercase wrap-break-word">{bill.party_pan || "-"}</div>
-            </div>
-          </div>
-
-          <div className="p-4 space-y-1 text-sm">
-            <div className="grid grid-cols-[120px_10px_1fr] items-baseline gap-y-2">
-              <span className="whitespace-nowrap font-semibold">Voucher No.</span>
-              <span>:</span>
-              <div className="text-sm font-bold uppercase wrap-break-word">{bill.invoice_no}</div>
-
-              <span className="whitespace-nowrap font-semibold">Voucher Date</span>
-              <span>:</span>
-              <div className="text-sm uppercase">{formatDate(bill.invoice_date)}</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
-          <table className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse">
-            <thead>
-              <tr className="bg-gray-300 border-b border-gray-600">
-                {(
-                  [
-                    ["Sr.\nNo.", "center"],
-                    ["Crop", "center"],
-                    ["HSN /\nSAC", "center"],
-                    ["Qty.", "center"],
-                    ["UQC", "center"],
-                    ["Rate", "center"],
-                    ["Taxable\nAmt.", "right"],
-                    ["CGST\n%", "center"],
-                    ["CGST\nAmt.", "right"],
-                    ["SGST\n%", "center"],
-                    ["SGST\nAmt.", "right"],
-                    ["FINAL\nAmt.", "right"],
-                  ] as [string, string][]
-                ).map(([label, align], i, arr) => (
-                  <th key={i} className={`p-2 font-semibold whitespace-pre-line text-${align} line-height-1-3 ${i < arr.length - 1 ? "border-r border-gray-400" : ""}`}>
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {displayRows.map((row, idx) => {
-                if (!row) {
-                  return <tr key={`empty-${idx}`} className="border-b border-gray-300 row-height-44"><td className="border-r border-gray-400 p-1 text-center align-middle text-sm">&nbsp;</td><td className="border-r border-gray-400 p-1 align-middle text-left">&nbsp;</td><td className="border-r border-gray-400 p-1 align-middle text-left">&nbsp;</td><td className="border-r border-gray-400 p-1 align-middle text-center">&nbsp;</td><td className="border-r border-gray-400 p-1 align-middle text-center">&nbsp;</td><td className="border-r border-gray-400 p-1 align-middle text-right">&nbsp;</td><td className="border-r border-gray-400 p-1 align-middle text-right">&nbsp;</td><td className="border-r border-gray-400 p-1 align-middle text-center">&nbsp;</td><td className="border-r border-gray-400 p-1 align-middle text-right">&nbsp;</td><td className="border-r border-gray-400 p-1 align-middle text-center">&nbsp;</td><td className="border-r border-gray-400 p-1 align-middle text-right">&nbsp;</td><td className="p-1 align-middle text-right">&nbsp;</td></tr>;
-                }
-
-                return (
-                  <tr key={idx} className="border-b border-gray-300 row-height-44">
-                    <td className="border-r border-gray-400 p-1 text-center align-middle text-sm">{idx + 1}</td>
-                    <td className="border-r border-gray-400 p-1 align-middle font-medium uppercase text-center wrap-break-word">{row.crop}</td>
-                    <td className="border-r border-gray-400 p-1 align-middle text-center">{row.hsn_code}</td>
-                    <td className="border-r border-gray-400 p-1 align-middle text-center">{row.qty}</td>
-                    <td className="border-r border-gray-400 p-1 align-middle text-center">{row.uqc}</td>
-                    <td className="border-r border-gray-400 p-1 align-middle text-right">{row.rate}</td>
-                    <td className="border-r border-gray-400 p-1 text-right align-middle font-medium">{fmt(row.taxable_amount)}</td>
-                    <td className="border-r border-gray-400 p-1 align-middle text-center">{row.cgst_rate}</td>
-                    <td className="border-r border-gray-400 p-1 text-right align-middle">{fmt(row.cgst_amount) || "0.00"}</td>
-                    <td className="border-r border-gray-400 p-1 align-middle text-center">{row.sgst_rate}</td>
-                    <td className="border-r border-gray-400 p-1 text-right align-middle">{fmt(row.sgst_amount) || "0.00"}</td>
-                    <td className="p-1 text-right align-middle font-semibold">{fmt(row.final_amount)}</td>
-                  </tr>
-                );
-              })}
-              <tr className="border-t-2 border-gray-600 bg-gray-200 font-semibold text-xs">
-                <td colSpan={6} className="border-r border-gray-400 p-2 text-center pr-4">Final Amount</td>
-                <td className="border-r border-gray-400 p-2 text-right">{fmt(bill.taxable_amount)}</td>
-                <td className="border-r border-gray-400" />
-                <td className="border-r border-gray-400 p-2 text-right">{fmt(bill.cgst_amount)}</td>
-                <td className="border-r border-gray-400" />
-                <td className="border-r border-gray-400 p-2 text-right">{fmt(bill.sgst_amount)}</td>
-                <td className="p-2 text-right">{fmt(bill.final_amount)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex flex-col text-sm">
-          <div className="border-b border border-gray-600 p-3">
-            <span className="font-semibold">Amt in Word: </span>
-            <span className="italic ml-2 wrap-break-word">{bill.final_amount_in_words}</span>
-          </div>
-          <div className="border-b border-gray-600 p-3">
-            <div className="grid grid-cols-[120px_10px_1fr] items-baseline gap-y-1.5 w-full max-w-lg">
-              <span className="whitespace-nowrap font-semibold">Payment Method</span>
-              <span>:</span>
-              <span className="text-sm text-gray-900">{bill.payment_method || "-"}</span>
-
-              <span className="whitespace-nowrap font-semibold">Reference</span>
-              <span>:</span>
-              <span className="text-sm text-gray-900 break-all">{bill.payment_reference || "-"}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 p-3 gap-0 min-h-[120px]">
-        <div className="flex flex-col pr-4">
-          <div className="font-bold text-base mb-1">Terms &amp; Conditions</div>
-          <div className="w-full bg-transparent text-sm p-1 whitespace-pre-wrap wrap-break-word">{bill.terms}</div>
-          <div className="mt-5 border-t border-gray-300 pt-3 text-sm">
-            <div className="font-semibold text-gray-800">Supplier Signature / Thumbprint</div>
-            <div className="mt-8 border-t border-gray-500 w-52"></div>
-          </div>
-        </div>
-        <div className="flex flex-col justify-between text-right">
-          <div className="font-bold text-base">For, {bill.seller_name}</div>
-          <div className="mt-12 text-gray-900">Authorised Signatory</div>
-        </div>
-      </div>
-    </div>
-  );
+function toDecimal(val: string | number | undefined | null): Decimal {
+  if (val === undefined || val === null || val === "") return new Decimal(0);
+  try {
+    return new Decimal(val);
+  } catch {
+    return new Decimal(0);
+  }
 }
 
-function InvoiceDocument({
+function getReferenceLabel(method: string): string {
+  switch (method) {
+    case "NEFT":
+      return "NEFT UTR No.";
+    case "RTGS":
+      return "RTGS UTR No.";
+    case "UPI":
+      return "UPI Ref. No.";
+    case "Cheque":
+      return "Cheque No.";
+    default:
+      return "Reference";
+  }
+}
+
+function showReferenceField(method: string): boolean {
+  return method !== "Cash" && method !== "Pending";
+}
+
+// ─── Printable document (same layout as the farmer bill form) ───────────────
+function FarmerBillDocument({
   bill,
   displayRows,
 }: {
-  bill: InvoiceDetail;
-  displayRows: any[];
+  bill: FarmerPurchaseRecord;
+  displayRows: (FarmerPurchaseRecord | null)[];
 }) {
+  const isRCM =
+    toDecimal(bill.cgst_rate).gt(0) || toDecimal(bill.sgst_rate).gt(0);
+  const documentTitle = isRCM ? "RCM PURCHASE BILL" : "PURCHASE BILL";
+  const rcmTotal = toDecimal(bill.cgst_amount).plus(toDecimal(bill.sgst_amount));
+
+  const termLines = (bill.terms || "")
+    .split("\n")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
   return (
     <div className="invoice-container max-w-4xl mx-auto bg-white shadow-2xl print:shadow-none">
       <img
@@ -281,22 +92,28 @@ function InvoiceDocument({
       />
 
       {/* ── HEADER ── */}
-      <div className="relative border-b border-gray-600 p-5 pt-5">
+      <div className="relative border-b border-gray-600 p-5">
         <div className="text-center">
           <div className="text-3xl font-bold tracking-wide wrap-break-word">
-            {bill.seller_name}
+            {bill.merchant_name}
           </div>
           <div className="mt-1 text-sm whitespace-pre-line wrap-break-word">
-            {bill.seller_address}
+            {bill.merchant_address}
           </div>
           <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
-            <span className="flex items-baseline gap-1">
-              <span className="font-semibold">PAN No.:</span>
-              <span className="uppercase font-medium">{bill.seller_pan}</span>
-            </span>
+            {bill.merchant_pan && (
+              <span className="flex items-baseline gap-1">
+                <span className="font-semibold">PAN No.:</span>
+                <span className="uppercase font-medium">
+                  {bill.merchant_pan}
+                </span>
+              </span>
+            )}
             <span className="flex items-baseline gap-1">
               <span className="font-semibold">GSTIN No.:</span>
-              <span className="uppercase font-medium">{bill.seller_gstin}</span>
+              <span className="uppercase font-medium">
+                {bill.merchant_gstin}
+              </span>
             </span>
           </div>
         </div>
@@ -307,66 +124,54 @@ function InvoiceDocument({
 
       {/* ── TITLE BAR ── */}
       <div className="border border-gray-600">
-        <div className="text-center border-b border-gray-600 py-1.5 bg-gray-200">
+        <div className="flex flex-col items-center justify-center text-center border-b border-gray-600 py-1.5 bg-gray-200 px-3">
           <span className="text-base font-bold tracking-widest">
-            TAX INVOICE
+            {documentTitle}
           </span>
+          {isRCM && (
+            <span className="text-[10px] text-gray-600 tracking-normal font-normal mt-0.5">
+              (Self-Invoice cum Payment Voucher — Tax Payable on Reverse Charge)
+            </span>
+          )}
         </div>
 
-        {/* ── PARTY + INVOICE DETAILS ── */}
-        <div className="border-b border-gray-600 grid grid-cols-[55%_45%]">
-          {/* LEFT — party details */}
+        {/* ── SUPPLIER + VOUCHER DETAILS ── */}
+        <div className="border-b border-gray-600 grid grid-cols-2">
           <div className="border-r border-gray-600 p-4">
-            <div className="grid grid-cols-[100px_10px_1fr] items-baseline gap-y-1 text-sm">
+            <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+              Supplier (Farmer) Details
+            </div>
+            <div className="grid grid-cols-[90px_10px_1fr] items-start gap-y-1 gap-x-1 text-sm leading-tight">
               <span className="font-bold whitespace-nowrap text-base">
-                M/s.
+                Name
               </span>
-              <span></span>
-              <div className="font-bold text-base w-full whitespace-pre-wrap wrap-break-word  text-gray-900">
-                {bill.party_name}
+              <span>:</span>
+              <div className="font-bold text-base w-full whitespace-pre-wrap wrap-break-word text-gray-900">
+                {bill.farmer_name}
               </div>
 
-              <span></span>
-              <span></span>
-              <div className="leading-tight text-sm w-full whitespace-pre-wrap wrap-break-word  text-gray-900">
-                {bill.party_address}
+              <span className="whitespace-nowrap font-medium">Address</span>
+              <span>:</span>
+              <div className="leading-tight text-sm w-full whitespace-pre-wrap wrap-break-word text-gray-900">
+                {bill.farmer_address}
               </div>
 
-              <span className="whitespace-nowrap font-medium">City</span>
+              <span className="whitespace-nowrap font-medium">PAN No.</span>
               <span>:</span>
               <div className="text-sm uppercase wrap-break-word">
-                {bill.party_city || "-"}
-              </div>
-
-              <span className="whitespace-nowrap font-medium">State</span>
-              <span>:</span>
-              <div className="text-sm uppercase wrap-break-word">
-                {bill.party_state}
-              </div>
-
-              <span className="whitespace-nowrap font-medium">Party GSTIN</span>
-              <span>:</span>
-              <div className="text-sm uppercase wrap-break-word">
-                {bill.party_gstin}
-              </div>
-
-              <span className="whitespace-nowrap font-medium">Party PAN</span>
-              <span>:</span>
-              <div className="text-sm uppercase wrap-break-word">
-                {bill.party_pan}
+                {bill.farmer_pan || "-"}
               </div>
             </div>
           </div>
 
-          {/* RIGHT — invoice info */}
-          <div className="p-4 space-y-1 text-sm">
-            <div className="grid grid-cols-[135px_10px_1fr] items-baseline gap-y-1">
+          <div className="p-4">
+            <div className="grid grid-cols-[145px_10px_1fr] items-baseline gap-y-2 text-sm">
               <span className="whitespace-nowrap font-semibold">
                 Invoice No.
               </span>
               <span>:</span>
               <div className="text-sm font-bold uppercase wrap-break-word">
-                {bill.invoice_no}
+                {bill.voucher_no}
               </div>
 
               <span className="whitespace-nowrap font-semibold">
@@ -374,64 +179,34 @@ function InvoiceDocument({
               </span>
               <span>:</span>
               <div className="text-sm uppercase">
-                {formatDate(bill.invoice_date)}
+                {formatDate(bill.voucher_date)}
               </div>
 
-              <div className="col-span-3 border-b border-gray-400 my-2 print:my-1 -mx-4 w-[calc(100%+2rem)]"></div>
-              <span className="whitespace-nowrap font-semibold">
-                E-Way Bill No.
+              <span className="whitespace-nowrap font-semibold text-[13px]">
+                Place of Supply (State)
               </span>
               <span>:</span>
               <div className="text-sm uppercase wrap-break-word">
-                {bill.eway_bill_no || ""}
-              </div>
-
-              <span className="whitespace-nowrap font-semibold">
-                Docket No.
-              </span>
-              <span>:</span>
-              <div className="text-sm uppercase wrap-break-word">
-                {bill.docket_no || ""}
-              </div>
-
-              <span className="whitespace-nowrap font-semibold">
-                Transport Name
-              </span>
-              <span>:</span>
-              <div className="text-sm uppercase wrap-break-word">
-                {bill.transport_name || ""}
-              </div>
-
-              <span className="whitespace-nowrap font-semibold">
-                Vehicle No.
-              </span>
-              <span>:</span>
-              <div className="text-sm uppercase wrap-break-word">
-                {bill.delivery_through}
+                {bill.farmer_state || "-"}
               </div>
             </div>
           </div>
         </div>
 
         {/* ── ITEMS TABLE ── */}
-        <div className="border-b border-gray-600 overflow-x-auto print:overflow-visible print:w-full">
-          <table className="w-full min-w-[700px] print:min-w-0 text-xs table-collapse">
+        <div className="overflow-x-auto print:overflow-visible print:w-full">
+          <table className="w-full min-w-[560px] print:min-w-0 text-xs table-collapse">
             <thead>
               <tr className="bg-gray-300 border-b border-gray-600">
                 {(
                   [
                     ["Sr.\nNo.", "center"],
                     ["Crop", "center"],
-                    ["HSN /\nSAC", "center"],
+                    ["HSN / SAC", "center"],
                     ["Qty.", "center"],
                     ["UQC", "center"],
-                    ["Rate", "right"],
-                    ["Taxable\nAmt.", "right"],
-                    ["CGST\n%", "center"],
-                    ["CGST\nAmt.", "right"],
-                    ["SGST\n%", "center"],
-                    ["SGST\nAmt.", "right"],
-                    ["FINAL\nAmt.", "right"],
+                    ["Rate", "center"],
+                    ["Amount", "right"],
                   ] as [string, string][]
                 ).map(([label, align], i, arr) => (
                   <th
@@ -451,40 +226,25 @@ function InvoiceDocument({
                       key={`empty-${idx}`}
                       className="border-b border-gray-300 row-height-44"
                     >
-                      <td className="border-r border-gray-400 p-1 text-center align-middle text-sm">
+                      <td className="border-r border-gray-400 p-1 text-center">
                         &nbsp;
                       </td>
-                      <td className="border-r border-gray-400 p-1 align-middle text-left">
+                      <td className="border-r border-gray-400 p-1 text-center">
                         &nbsp;
                       </td>
-                      <td className="border-r border-gray-400 p-1 align-middle text-left">
+                      <td className="border-r border-gray-400 p-1 text-center">
                         &nbsp;
                       </td>
-                      <td className="border-r border-gray-400 p-1 align-middle text-center">
+                      <td className="border-r border-gray-400 p-1 text-center">
                         &nbsp;
                       </td>
-                      <td className="border-r border-gray-400 p-1 align-middle text-center">
+                      <td className="border-r border-gray-400 p-1 text-center">
                         &nbsp;
                       </td>
-                      <td className="border-r border-gray-400 p-1 align-middle text-right">
+                      <td className="border-r border-gray-400 p-1 text-center">
                         &nbsp;
                       </td>
-                      <td className="border-r border-gray-400 p-1 align-middle text-right">
-                        &nbsp;
-                      </td>
-                      <td className="border-r border-gray-400 p-1 align-middle text-center">
-                        &nbsp;
-                      </td>
-                      <td className="border-r border-gray-400 p-1 align-middle text-right">
-                        &nbsp;
-                      </td>
-                      <td className="border-r border-gray-400 p-1 align-middle text-center">
-                        &nbsp;
-                      </td>
-                      <td className="border-r border-gray-400 p-1 align-middle text-right">
-                        &nbsp;
-                      </td>
-                      <td className="p-1 align-middle text-right">&nbsp;</td>
+                      <td className="p-1 text-right">&nbsp;</td>
                     </tr>
                   );
                 }
@@ -509,26 +269,11 @@ function InvoiceDocument({
                     <td className="border-r border-gray-400 p-1 align-middle text-center">
                       {row.uqc}
                     </td>
-                    <td className="border-r border-gray-400 p-1 align-middle text-right">
+                    <td className="border-r border-gray-400 p-1 align-middle text-center">
                       {row.rate}
                     </td>
-                    <td className="border-r border-gray-400 p-1 text-right align-middle font-medium">
-                      {fmt(row.taxable_amount)}
-                    </td>
-                    <td className="border-r border-gray-400 p-1 align-middle text-center">
-                      {row.cgst_rate}
-                    </td>
-                    <td className="border-r border-gray-400 p-1 text-right align-middle">
-                      {fmt(row.cgst_amount) || "0.00"}
-                    </td>
-                    <td className="border-r border-gray-400 p-1 align-middle text-center">
-                      {row.sgst_rate}
-                    </td>
-                    <td className="border-r border-gray-400 p-1 text-right align-middle">
-                      {fmt(row.sgst_amount) || "0.00"}
-                    </td>
                     <td className="p-1 text-right align-middle font-semibold">
-                      {fmt(row.final_amount)}
+                      {fmt(row.payable_amount)}
                     </td>
                   </tr>
                 );
@@ -540,20 +285,11 @@ function InvoiceDocument({
                   colSpan={6}
                   className="border-r border-gray-400 p-2 text-center pr-4"
                 >
-                  Final Amount
+                  Amount Payable to Supplier
                 </td>
-                <td className="border-r border-gray-400 p-2 text-right">
-                  {fmt(bill.taxable_amount)}
+                <td className="p-2 text-right">
+                  {fmt(bill.final_amount) || "0.00"}
                 </td>
-                <td className="border-r border-gray-400" />
-                <td className="border-r border-gray-400 p-2 text-right">
-                  {fmt(bill.cgst_amount)}
-                </td>
-                <td className="border-r border-gray-400" />
-                <td className="border-r border-gray-400 p-2 text-right">
-                  {fmt(bill.sgst_amount)}
-                </td>
-                <td className="p-2 text-right">{fmt(bill.final_amount)}</td>
               </tr>
             </tbody>
           </table>
@@ -561,168 +297,189 @@ function InvoiceDocument({
 
         {/* ── FOOTER ── */}
         <div className="flex flex-col text-sm">
-          <div className="border-b border border-gray-600 p-3">
-            <span className="font-semibold">Amt in Word: </span>
-            <span className="italic ml-2 wrap-break-word">
-              {bill.final_amount_in_words}
-            </span>
+          <div className="border-t-2 border-b border-gray-600 px-3 py-2">
+            <div>
+              <span className="font-semibold">
+                Amount Payable (in Words):{" "}
+              </span>
+              <span className="italic ml-1 wrap-break-word">
+                {bill.payable_amount_in_words}
+              </span>
+            </div>
+            {isRCM && (
+              <div className="text-[11px] font-medium text-gray-700 italic mt-1 leading-snug">
+                Tax payable on reverse charge under Section 9(3), CGST Act,
+                2017, and paid by {bill.merchant_name || "the recipient"}. It is
+                not deducted from the amount payable to the supplier.
+              </div>
+            )}
           </div>
 
-          {/* Bank details */}
+          {/* Payment details (+ RCM box) */}
           <div className="border-b border-gray-600 p-3">
-            <div className="grid grid-cols-[90px_10px_1fr] items-baseline gap-y-1.5 w-1/2">
-              <span className="whitespace-nowrap font-medium">Bank</span>
-              <span>:</span>
-              <div className="uppercase wrap-break-word">
-                {bill.seller_bank || "-"}
+            <div
+              className={`grid gap-4 ${isRCM ? "grid-cols-2" : "grid-cols-1"}`}
+            >
+              <div className="grid grid-cols-[120px_10px_1fr] items-baseline gap-y-1.5">
+                <span className="whitespace-nowrap font-semibold">
+                  Payment Method
+                </span>
+                <span>:</span>
+                <span className="text-sm text-gray-900 border-b border-dashed border-gray-400 pb-0.5 min-h-[1.4rem]">
+                  {bill.payment_method || "—"}
+                </span>
+
+                {showReferenceField(bill.payment_method) && (
+                  <>
+                    <span className="whitespace-nowrap font-semibold">
+                      {getReferenceLabel(bill.payment_method)}
+                    </span>
+                    <span>:</span>
+                    <span className="text-sm text-gray-900 border-b border-dashed border-gray-400 pb-0.5 min-h-[1.4rem] break-all">
+                      {bill.payment_reference || "—"}
+                    </span>
+                  </>
+                )}
               </div>
 
-              <span className="whitespace-nowrap font-medium">Account No.</span>
-              <span>:</span>
-              <div className="uppercase wrap-break-word">
-                {bill.seller_account || "-"}
-              </div>
-
-              <span className="whitespace-nowrap font-medium">IFSC</span>
-              <span>:</span>
-              <div className="uppercase wrap-break-word">
-                {bill.seller_ifsc || "-"}
-              </div>
+              {isRCM && (
+                <div className="rcm-tax-box border border-gray-500 rounded p-2.5 text-xs bg-gray-50">
+                  <div className="font-semibold text-gray-700 mb-1.5">
+                    GST Payable under RCM
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span>CGST @ {bill.cgst_rate}%</span>
+                    <span>₹ {fmt(bill.cgst_amount) || "0.00"}</span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span>SGST @ {bill.sgst_rate}%</span>
+                    <span>₹ {fmt(bill.sgst_amount) || "0.00"}</span>
+                  </div>
+                  <div className="flex justify-between py-1 mt-1 border-t border-gray-300 font-semibold">
+                    <span>Total RCM Tax</span>
+                    <span>₹ {fmt(rcmTotal.toString()) || "0.00"}</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500 italic mt-1">
+                    Not part of Supplier&apos;s payment
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Terms & Signatory */}
-      <div className="grid grid-cols-2 p-3 gap-0 min-h-[120px]">
-        <div className="flex flex-col pr-4">
-          <div className="font-bold text-base mb-1">Terms &amp; Condition</div>
-          <div className="w-full bg-transparent text-sm p-1 whitespace-pre-wrap wrap-break-word">
-            {bill.terms}
+      {/* ── TERMS ── */}
+      <div className="px-3 pt-3">
+        <div className="font-bold text-sm mb-1">Terms &amp; Conditions</div>
+        <ul className="list-disc pl-4 text-[10px] leading-snug text-gray-700 space-y-0.5">
+          {termLines.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      </div>
+
+      {/* ── SIGNATURES ── */}
+      <div className="grid grid-cols-2 px-3 pt-2 pb-4 gap-0">
+        <div className="pr-4">
+          <div className="mt-8 border-t border-gray-500 w-52"></div>
+          <div className="font-semibold text-gray-800 text-sm mt-1">
+            Supplier Signature / Thumbprint
           </div>
         </div>
-        <div className="flex flex-col justify-between text-right">
-          <div className="font-bold text-base wrap-break-word">
-            For, {bill.seller_name}
+        <div className="flex flex-col items-end text-right">
+          <div className="font-bold text-sm wrap-break-word">
+            For, {bill.merchant_name}
           </div>
-          <div className="mt-12 text-gray-900">Authorised Signatory</div>
+          <div className="mt-8 border-t border-gray-500 w-52"></div>
+          <div className="text-gray-900 text-sm mt-1">Authorised Signatory</div>
         </div>
       </div>
     </div>
   );
 }
 
-export default function ViewInvoiceFromBook() {
+// ─── Page ───────────────────────────────────────────────────────────────────
+export default function ViewFarmerBill() {
   const location = useLocation();
   const errorcontext = useContext(ErrorContext);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const kind = location.state?.kind === "farmer-purchase" ? "farmer-purchase" : "invoice";
 
   const id = location.state?.id as number | undefined;
 
-  async function fetchFarmerPurchases(): Promise<FarmerPurchaseRecord[]> {
-    const cached = queryClient.getQueryData<FarmerPurchaseRecord[]>(["FarmerPurchases"]);
-    if (cached && cached.length > 0) return cached;
-
-    const res = await apiFetch(`${settings.BE_URL}/get-farmer-purchase`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || `Request failed with status ${res.status}`);
-    }
-
-    const data: FarmerPurchaseRecord[] = await res.json();
-    queryClient.setQueryData(["FarmerPurchases"], data);
-    return data;
-  }
-
-  const { data: invoices } = useQuery<InvoiceListItem[]>({
-    queryKey: ["Invoices"],
+  // Read-only from cache — the book / form have already filled it
+  const { data: bills } = useQuery<FarmerPurchaseRecord[]>({
+    queryKey: ["FarmerPurchases"],
     queryFn: () => Promise.resolve([]),
     enabled: false,
   });
 
-  const { data: farmerPurchases } = useQuery<FarmerPurchaseRecord[]>({
-    queryKey: ["FarmerPurchases"],
-    queryFn: fetchFarmerPurchases,
-    enabled: kind === "farmer-purchase" && !!id,
-    staleTime: Infinity,
-    gcTime: Infinity,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-  });
-
-  const invoiceBill = invoices?.find((b) => b.id === id) as unknown as
-    | InvoiceDetail
-    | undefined;
-
-  const farmerBill = farmerPurchases?.find((b) => b.id === id) as unknown as
-    | FarmerPurchaseDetail
-    | undefined;
-
-  const bill = kind === "farmer-purchase" ? farmerBill : invoiceBill;
+  const bill = bills?.find((b) => b.id === id);
 
   const [isSending, setIsSending] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [showRetryBanner, setShowRetryBanner] = useState(false);
-
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const pdfBlobRef = useRef<Blob | null>(null);
 
-  async function fetchInvoicePdf(): Promise<Blob> {
+  // Same payload shape the farmer bill form sends to the PDF endpoint
+  const pdfPayload = useMemo(() => {
+    if (!bill) return null;
+    return {
+      seller_name: bill.merchant_name,
+      seller_address: bill.merchant_address,
+      seller_pan: bill.merchant_pan || "",
+      seller_gstin: bill.merchant_gstin,
+      invoice_no: bill.voucher_no || "",
+      invoice_date: bill.voucher_date,
+      eway_bill_no: null,
+      docket_no: null,
+      transport_name: null,
+      delivery_through: "",
+      party_name: bill.farmer_name,
+      party_address: bill.farmer_address,
+      party_city: null,
+      party_state: bill.farmer_state,
+      party_pan: bill.farmer_pan || "",
+      party_gstin: "",
+      place_of_supply: bill.farmer_state || null,
+      seller_bank: null,
+      seller_account: null,
+      seller_ifsc: null,
+      payment_method: bill.payment_method,
+      payment_reference: bill.payment_reference || "",
+      document_type: bill.document_type,
+      crop: bill.crop,
+      hsn_code: bill.hsn_code,
+      qty: bill.qty,
+      uqc: bill.uqc,
+      rate: bill.rate,
+      payable_amount: bill.payable_amount,
+      cgst_rate: bill.cgst_rate,
+      cgst_amount: bill.cgst_amount,
+      sgst_rate: bill.sgst_rate,
+      sgst_amount: bill.sgst_amount,
+      final_amount: bill.final_amount,
+      payable_amount_in_words: bill.payable_amount_in_words,
+      terms: bill.terms,
+    };
+  }, [bill]);
+
+  async function fetchBillPdf(): Promise<Blob> {
     if (pdfBlobRef.current) return pdfBlobRef.current;
 
     setIsGeneratingPdf(true);
     try {
-      const endpoint =
-        kind === "farmer-purchase"
-          ? `${settings.BE_URL}/generate-farmer-purchase-pdf`
-          : `${settings.BE_URL}/generate-invoice-pdf`;
-
-      const payload =
-        kind === "farmer-purchase"
-          ? {
-              merchant_name: bill.seller_name,
-              merchant_address: bill.seller_address,
-              merchantPAN: bill.seller_pan,
-              merchantGSTIN: bill.seller_gstin,
-              voucher_no: bill.invoice_no,
-              voucherDate: bill.invoice_date,
-              farmer_name: bill.party_name,
-              farmer_address: bill.party_address,
-              farmerState: bill.party_state,
-              farmerPAN: bill.party_pan,
-              crop: bill.crop,
-              hsnCode: bill.hsn_code,
-              qty: bill.qty,
-              uqc: bill.uqc,
-              rate: bill.rate,
-              taxableAmt: bill.taxable_amount,
-              cgstRate: bill.cgst_rate,
-              cgstAmt: bill.cgst_amount,
-              sgstRate: bill.sgst_rate,
-              sgstAmt: bill.sgst_amount,
-              finalAmt: bill.final_amount,
-              final_amount_in_words: bill.final_amount_in_words,
-              paymentMethod: bill.payment_method || "Cash",
-              paymentReference: bill.payment_reference || "",
-              terms: bill.terms,
-            }
-          : bill;
-
-      const res = await apiFetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await apiFetch(
+        `${settings.BE_URL}/generate-farmer-purchase-pdf`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pdfPayload),
+        },
+      );
 
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
@@ -780,55 +537,21 @@ export default function ViewInvoiceFromBook() {
     );
   }
 
-  // Single crop line per invoice — build a 1-row array (padded to 6 rows
-  // for consistent table height) by simply passing the bill object itself.
-  const displayRows: (InvoiceDetail | FarmerPurchaseDetail | null)[] = [bill];
-
-  while (displayRows.length < 6) {
+  // One crop line per bill, padded to 5 rows to match the form's table height
+  const displayRows: (FarmerPurchaseRecord | null)[] = [bill];
+  while (displayRows.length < 5) {
     displayRows.push(null);
   }
 
-  if (kind === "farmer-purchase") {
-    return (
-      <div className="min-h-screen bg-gray-300 print:bg-white">
-        <div className="max-w-4xl mx-auto pt-4 print:pt-0">
-          <div className="mb-4 flex items-center justify-between print:hidden">
-            <button
-              onClick={() => navigate(-1)}
-              className="bg-gray-800 text-white px-4 py-2 rounded shadow flex items-center gap-2"
-            >
-              <ArrowLeft size={16} /> Back
-            </button>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handlePrint}
-                disabled={isPrinting || isGeneratingPdf}
-                className="bg-gray-800 text-white px-4 py-2 rounded shadow disabled:opacity-70 flex items-center gap-2"
-              >
-                {isPrinting ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />} Print
-              </button>
-              <button
-                onClick={handleSend}
-                disabled={isSending || isGeneratingPdf}
-                className="bg-green-600 text-white px-4 py-2 rounded shadow disabled:opacity-70 flex items-center gap-2"
-              >
-                {isSending ? <Loader2 size={16} className="animate-spin" /> : <SendIcon size={16} />} Send
-              </button>
-            </div>
-          </div>
-
-          <FarmerPurchaseDocument bill={bill as FarmerPurchaseDetail} displayRows={displayRows} />
-        </div>
-      </div>
-    );
-  }
+  const safeFarmerName = bill.farmer_name.trim().replace(/\s+/g, "_");
+  const fileName = `${safeFarmerName}_${bill.voucher_no || "purchase"}.pdf`;
 
   const handlePrint = async () => {
     setIsPrinting(true);
     let printFrame: HTMLIFrameElement | null = null;
     let url: string | null = null;
     try {
-      const blob = await fetchInvoicePdf();
+      const blob = await fetchBillPdf();
       url = URL.createObjectURL(blob);
 
       printFrame = document.createElement("iframe");
@@ -852,13 +575,13 @@ export default function ViewInvoiceFromBook() {
         console.error("Print blocked on this device:", err);
         window.open(url!, "_blank");
         errorcontext.addError(
-          "The invoice has opened in a new tab — use the print icon there.",
+          "The bill has opened in a new tab — use the print icon there.",
         );
       }
     } catch (error) {
-      console.error("Error preparing invoice for print:", error);
+      console.error("Error preparing bill for print:", error);
       errorcontext.addError(
-        "Something went wrong while preparing the invoice for printing. Please try other ways.",
+        "Something went wrong while preparing the bill for printing. Please try other ways.",
       );
     } finally {
       setIsPrinting(false);
@@ -872,19 +595,14 @@ export default function ViewInvoiceFromBook() {
   const handleSend = async () => {
     setIsSending(true);
     try {
-      const pdfBlob = await fetchInvoicePdf();
-      const safePartyName = bill.party_name.trim().replace(/\s+/g, "_");
-      const file = new File(
-        [pdfBlob],
-        `${safePartyName}_${bill.invoice_no}.pdf`,
-        { type: "application/pdf" },
-      );
+      const pdfBlob = await fetchBillPdf();
+      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: `Invoice ${bill.invoice_no}`,
-          text: `Hello ${bill.party_name}, please find your invoice attached.`,
+          title: `Purchase Bill ${bill.voucher_no}`,
+          text: `Hello ${bill.farmer_name}, please find your purchase bill attached.`,
         });
       } else {
         errorcontext.addError(
@@ -893,7 +611,7 @@ export default function ViewInvoiceFromBook() {
         const url2 = URL.createObjectURL(pdfBlob);
         const a = document.createElement("a");
         a.href = url2;
-        a.download = `${safePartyName}_${bill.invoice_no}.pdf`;
+        a.download = fileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -921,16 +639,13 @@ export default function ViewInvoiceFromBook() {
     if (!pdfBlobRef.current) return;
     setIsSending(true);
     try {
-      const safePartyName = bill.party_name.trim().replace(/\s+/g, "_");
-      const file = new File(
-        [pdfBlobRef.current],
-        `${safePartyName}_${bill.invoice_no}.pdf`,
-        { type: "application/pdf" },
-      );
+      const file = new File([pdfBlobRef.current], fileName, {
+        type: "application/pdf",
+      });
       await navigator.share({
         files: [file],
-        title: `Invoice ${bill.invoice_no}`,
-        text: `Hello ${bill.party_name}, please find your invoice attached.`,
+        title: `Purchase Bill ${bill.voucher_no}`,
+        text: `Hello ${bill.farmer_name}, please find your purchase bill attached.`,
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
@@ -947,17 +662,10 @@ export default function ViewInvoiceFromBook() {
     }
   };
 
-  const getDynamicFileName = () => {
-    const safePartyName = bill.party_name.trim().replace(/\s+/g, "_");
-    return `${safePartyName}_${bill.invoice_no}.pdf`;
-  };
-
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      const pdfBlob = await fetchInvoicePdf();
-      const fileName = getDynamicFileName();
-
+      const pdfBlob = await fetchBillPdf();
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement("a");
       a.href = url;
@@ -978,7 +686,7 @@ export default function ViewInvoiceFromBook() {
 
   return (
     <BlurLoading message="Generating PDF" loading={isGeneratingPdf}>
-      <div className="view_invoice_from_book min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
+      <div className="view_farmer_bill min-h-screen bg-gray-300 py-6 sm:py-10 px-2 sm:px-4 print:bg-white print:p-8">
         {showRetryBanner && (
           <div className="send-retry-banner print-hide">
             <div className="send-retry-banner-text">
@@ -1010,8 +718,12 @@ export default function ViewInvoiceFromBook() {
           </button>
 
           <button
-            onClick={() => navigate("/edit-invoice", { state: { id: id } })}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-black bg-transparent border border-black-500 rounded cursor-pointer transition-all duration-300 hover:border-black-400 hover:backdrop-brightness-110 ]"
+            onClick={() =>
+              navigate("/edit-farmer-purchase", {
+                state: { id, kind: "farmer-purchase" },
+              })
+            }
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-black bg-transparent border border-black rounded cursor-pointer transition-all duration-300 hover:backdrop-brightness-110"
           >
             <Pencil size={16} />
             Edit
@@ -1027,13 +739,11 @@ export default function ViewInvoiceFromBook() {
               visibility: zoomReady ? "visible" : "hidden",
             }}
           >
-            <InvoiceDocument bill={bill} displayRows={displayRows} />
+            <FarmerBillDocument bill={bill} displayRows={displayRows} />
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════
-          BOTTOM ACTION BAR
-      ══════════════════════════════════════════ */}
+        {/* ── Created by ── */}
         <div className="max-w-4xl mx-auto mt-6 flex flex-row items-center justify-center gap-1.5 sm:gap-4 print-hide px-2 sm:px-0 flex-wrap">
           <span className="whitespace-nowrap font-semibold text-xs sm:text-sm">
             Bill created by:
@@ -1042,6 +752,8 @@ export default function ViewInvoiceFromBook() {
             {bill.created_by || ""}
           </div>
         </div>
+
+        {/* ── Bottom Action Bar ── */}
         <div className="max-w-4xl mx-auto mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 print-hide px-2 sm:px-0">
           <button
             onClick={handlePrint}

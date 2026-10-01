@@ -84,7 +84,14 @@ async def save_farmer_purchase(db: AsyncSession, payload: FarmerPurchaseSchema, 
 
 
 async def edit_farmer_purchase(db: AsyncSession, payload: EditFarmerPurchaseSchema) -> FarmerPurchase:
-    res = await db.execute(select(FarmerPurchase).where(FarmerPurchase.voucher_no == payload.voucher_no))
+    try:
+        res = await db.execute(
+            select(FarmerPurchase).where(FarmerPurchase.voucher_no == payload.voucher_no)
+        )
+    except (SQLAlchemyError, TimeoutError, OSError) as e:
+        await db.rollback()
+        raise DatabaseOperationException() from e
+    
     purchase = res.scalar_one_or_none()
     if purchase is None:
         raise NotFoundError(resource="FarmerPurchase", identifier=payload.voucher_no)

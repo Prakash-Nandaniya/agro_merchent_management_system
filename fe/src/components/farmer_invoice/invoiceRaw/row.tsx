@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import type { FarmerPurchaseRecord } from "../invoice_book/invoice_book";
 import { create, all } from "mathjs";
-import "./raw.css";
+import "./row.css";
 
 const math = create(all);
 math.config({ number: "BigNumber", precision: 64 });
@@ -32,13 +32,19 @@ type Props = {
   queryKey: QueryKey;
 };
 
-function BillRowInner({ id, queryKey }: Props) {
+function FarmerBillRowInner({ id, queryKey }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data: bill } = useQuery<FarmerPurchaseRecord[], Error, FarmerPurchaseRecord | undefined>({
+  // Reads the bill from the already-cached list (no network call)
+  const { data: bill } = useQuery<
+    FarmerPurchaseRecord[],
+    Error,
+    FarmerPurchaseRecord | undefined
+  >({
     queryKey,
-    queryFn: () => queryClient.getQueryData<FarmerPurchaseRecord[]>(queryKey) ?? [],
+    queryFn: () =>
+      queryClient.getQueryData<FarmerPurchaseRecord[]>(queryKey) ?? [],
     select: (list) => list.find((b) => b.id === id),
     staleTime: Infinity,
     gcTime: Infinity,
@@ -72,7 +78,7 @@ function BillRowInner({ id, queryKey }: Props) {
       onKeyDown={handleKeyDown}
       aria-label={`View bill ${bill.voucher_no}`}
     >
-      <td className="mbr-mono" data-label="Voucher no.">
+      <td className="mbr-mono" data-label="Bill no.">
         {bill.voucher_no}
       </td>
       <td className="mbr-mono" data-label="Date">
@@ -82,13 +88,13 @@ function BillRowInner({ id, queryKey }: Props) {
       <td className="mbr-num mbr-mono" data-label="Crop">
         {bill.crop}
       </td>
-      <td className="mbr-num mbr-mono mbr-strong" data-label="Total">
+      <td className="mbr-num mbr-mono mbr-strong" data-label="Amount">
         {toIndianAmount(bill.final_amount)}
       </td>
     </tr>
   );
 }
 
-const BillRow = memo(BillRowInner);
+const FarmerBillRow = memo(FarmerBillRowInner);
 
-export default BillRow;
+export default FarmerBillRow;
