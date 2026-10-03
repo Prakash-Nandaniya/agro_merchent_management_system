@@ -506,7 +506,7 @@ export default function Dashboard() {
             <span className="chip-value">{lastNos.invoice || "—"}</span>
           </div>
           <div className="last-chip">
-            <span className="chip-label">Last farmer bill no</span>
+            <span className="chip-label">Last purchase bill no</span>
             <span className="chip-value">{lastNos.farmer || "—"}</span>
           </div>
           <div className="last-chip">
