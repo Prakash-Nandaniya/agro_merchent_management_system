@@ -33,6 +33,7 @@ class CreateTradeSchema(BaseModel):
 
     # ── Outflow ──────────────────────────────────────────────────────────────
     farmer_payment: Optional[Decimal] = None
+    rcm_tax_payment: Optional[Decimal] = None
     transport_cost: Optional[Decimal] = None
     labour_cost: Optional[Decimal] = None
     other_cost: Optional[Decimal] = None
@@ -86,6 +87,7 @@ class CreateTradeSchema(BaseModel):
         "tds_deducted",
         "mill_payment",
         "farmer_payment",
+        "rcm_tax_payment",
         "transport_cost",
         "labour_cost",
         "other_cost",
@@ -113,6 +115,7 @@ class CreateTradeSchema(BaseModel):
         tds_deducted: Optional[str] = Form(None),
         mill_payment: Optional[str] = Form(None),
         farmer_payment: Optional[str] = Form(None),
+        rcm_tax_payment: Optional[str] = Form(None),
         transport_cost: Optional[str] = Form(None),
         labour_cost: Optional[str] = Form(None),
         other_cost: Optional[str] = Form(None),
@@ -132,6 +135,7 @@ class CreateTradeSchema(BaseModel):
             tds_deducted=tds_deducted,
             mill_payment=mill_payment,
             farmer_payment=farmer_payment,
+            rcm_tax_payment=rcm_tax_payment,
             transport_cost=transport_cost,
             labour_cost=labour_cost,
             other_cost=other_cost,
@@ -170,6 +174,7 @@ class EditTradeSchema(CreateTradeSchema):
         tds_deducted: Optional[str] = Form(None),
         mill_payment: Optional[str] = Form(None),
         farmer_payment: Optional[str] = Form(None),
+        rcm_tax_payment: Optional[str] = Form(None),
         transport_cost: Optional[str] = Form(None),
         labour_cost: Optional[str] = Form(None),
         other_cost: Optional[str] = Form(None),
@@ -195,6 +200,7 @@ class EditTradeSchema(CreateTradeSchema):
             tds_deducted=tds_deducted,
             mill_payment=mill_payment,
             farmer_payment=farmer_payment,
+            rcm_tax_payment=rcm_tax_payment,
             transport_cost=transport_cost,
             labour_cost=labour_cost,
             other_cost=other_cost,
@@ -240,6 +246,7 @@ class TradeOut(BaseModel):
     mill_payment: Optional[Decimal] = None
 
     farmer_payment: Optional[Decimal] = None
+    rcm_tax_payment: Optional[Decimal] = None
     transport_cost: Optional[Decimal] = None
     labour_cost: Optional[Decimal] = None
     other_cost: Optional[Decimal] = None

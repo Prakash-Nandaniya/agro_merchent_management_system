@@ -62,6 +62,9 @@ class Trade(Base):
     farmer_payment: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(12, 2), nullable=True
     )
+    rcm_tax_payment: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
     transport_cost: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(12, 2), nullable=True
     )
@@ -83,6 +86,10 @@ class Trade(Base):
         CheckConstraint(
             "mill_rate IS NULL OR mill_rate_unit IS NOT NULL",
             name="ck_trades_mill_rate_requires_unit",
+        ),
+        CheckConstraint(
+            "rcm_tax_payment IS NULL OR rcm_tax_payment >= 0",
+            name="ck_trades_rcm_tax_payment_non_negative",
         ),
     )
 

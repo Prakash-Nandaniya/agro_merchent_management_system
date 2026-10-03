@@ -55,7 +55,10 @@ function BillRowInner({ id, queryKey, viewPath = "/view-invoice" }: Props) {
     navigate(viewPath, {
       state: {
         id: bill!.id,
-        kind: viewPath === "/view-farmer-purchase" ? "farmer-purchase" : "invoice",
+        kind:
+          viewPath === "/view-farmer-purchase" ? "farmer-purchase" : "invoice",
+        // tells the view page which cache this row came from
+        queryKey,
       },
     });
   }

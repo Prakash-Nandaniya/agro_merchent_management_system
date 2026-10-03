@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { FetchInvoices, FetchTrades, FetchProfile } from "@/utils/cachestorage";
+import { FetchInvoices, FetchTrades, FetchProfile, FetchFarmerPurchases } from "@/utils/cachestorage";
 import { useContext, useEffect } from "react";
 import { ErrorContext } from "@/components/errors/errorcontext";
 import OpaqueLoading from "@/components/opaqueloading/loading";
@@ -44,8 +44,19 @@ export default function GlobalDataLoader({
     refetchOnReconnect: false,
   });
 
-  const isLoading = invoices.isLoading || trades.isLoading || profile.isLoading;
-  const isError = invoices.isError || trades.isError || profile.isError;
+  const farmerPurchases = useQuery({
+    queryKey: ["FarmerPurchases"],
+    queryFn: FetchFarmerPurchases,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
+
+  const isLoading = invoices.isLoading || trades.isLoading || profile.isLoading || farmerPurchases.isLoading;
+  const isError = invoices.isError || trades.isError || profile.isError || farmerPurchases.isError;
 
   useEffect(() => {
     if (isError) {

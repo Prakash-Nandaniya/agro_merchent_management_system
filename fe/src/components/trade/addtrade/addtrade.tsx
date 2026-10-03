@@ -251,6 +251,9 @@ export default function AddTrade(props: {
   const [farmerPayment, setFarmerPayment] = useState(
     existingTrade?.farmer_payment || "",
   );
+  const [rcmTaxPayment, setRcmTaxPayment] = useState(
+    existingTrade?.rcm_tax_payment || "",
+  );
   const [labourCost, setLabourCost] = useState(
     existingTrade?.labour_cost || "",
   );
@@ -335,8 +338,10 @@ export default function AddTrade(props: {
 
   const inflowDec = parseDecimal(millPayment)
     .plus(parseDecimal(tdsDeducted))
-    .minus(parseDecimal(gstCollected));
+    .minus(parseDecimal(gstCollected))
+    .plus(parseDecimal(rcmTaxPayment));
   const outflowDec = parseDecimal(farmerPayment)
+    .plus(parseDecimal(rcmTaxPayment))
     .plus(parseDecimal(labourCost))
     .plus(parseDecimal(transportCost))
     .plus(parseDecimal(otherCost));
@@ -847,6 +852,16 @@ export default function AddTrade(props: {
                   />
                 </div>
                 <div className="at-field">
+                  <label className="at-label">RCM Tax Payment</label>
+                  <AmountInput
+                    className="at-other-input"
+                    value={rcmTaxPayment}
+                    onValueChange={setRcmTaxPayment}
+                    placeholder="0.00"
+                    readOnly={isReadOnly}
+                  />
+                </div>
+                <div className="at-field">
                   <label className="at-label">Labour Cost</label>
                   <AmountInput
                     className="at-labour-input"
@@ -969,6 +984,7 @@ export default function AddTrade(props: {
       fd.append("tds_deducted", tdsDeducted || "");
       fd.append("mill_payment", millPayment || "");
       fd.append("farmer_payment", farmerPayment || "");
+      fd.append("rcm_tax_payment", rcmTaxPayment || "");
       fd.append("labour_cost", labourCost || "");
       fd.append("transport_cost", transportCost || "");
       fd.append("other_cost", otherCost || "");

@@ -1,6 +1,6 @@
 import { useRef, useState, useLayoutEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type QueryKey } from "@tanstack/react-query";
 import {
   Printer,
   Send as SendIcon,
@@ -434,8 +434,12 @@ export default function ViewInvoiceFromBook() {
 
   const id = location.state?.id as number | undefined;
 
+  // Cache the row came from: default list or a filtered search result.
+  const queryKey: QueryKey =
+    (location.state?.queryKey as QueryKey | undefined) ?? ["Invoices"];
+
   const { data: invoices } = useQuery<InvoiceListItem[]>({
-    queryKey: ["Invoices"],
+    queryKey,
     queryFn: () => Promise.resolve([]),
     enabled: false,
   });
@@ -715,7 +719,9 @@ export default function ViewInvoiceFromBook() {
           </button>
 
           <button
-            onClick={() => navigate("/edit-invoice", { state: { id: id } })}
+            onClick={() =>
+              navigate("/edit-invoice", { state: { id: id, queryKey } })
+            }
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-black bg-transparent border border-black-500 rounded cursor-pointer transition-all duration-300 hover:border-black-400 hover:backdrop-brightness-110 ]"
           >
             <Pencil size={16} />

@@ -26,12 +26,18 @@ function formatDateDMY(iso: string | undefined | null): string {
 }
 
 function tradeInflow(t: Trade): number {
-  return toNum(t.mill_payment) + toNum(t.tds_deducted) - toNum(t.gst_collected);
+  return (
+    toNum(t.mill_payment) +
+    toNum(t.tds_deducted) -
+    toNum(t.gst_collected) +
+    toNum(t.rcm_tax_payment)
+  );
 }
 
 function tradeOutflow(t: Trade): number {
   return (
     toNum(t.farmer_payment) +
+    toNum(t.rcm_tax_payment) +
     toNum(t.labour_cost) +
     toNum(t.transport_cost) +
     toNum(t.other_cost)
