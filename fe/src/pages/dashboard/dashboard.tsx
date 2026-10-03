@@ -46,8 +46,7 @@ const num = (v: unknown) => {
 // RCM tax column in trades.
 // The trade form stores it as rcm_tax_payment and treats it as a government
 // expense that is still recorded in cash flow even if it is reimbursable later.
-const rcmOf = (t: Row) =>
-  num(t.rcm_tax_payment ?? t.rcm_tax_paid ?? t.rcm_tax ?? t.rcm_paid ?? t.rcm_payment);
+const rcmOf = (t: Row) => num(t.rcm_tax_payment ?? t.rcm_tax_paid ?? t.rcm_tax ?? t.rcm_paid ?? t.rcm_payment);
 
 const toRows = (d: any): Row[] =>
   Array.isArray(d)
@@ -156,6 +155,7 @@ function Monthly({ data }: { data: MonthRow[] }) {
   const max = Math.max(...data.flatMap((d) => [d.inflow, d.outflow]), 1);
   return (
     <div className="months-wrap">
+      <div className="months-scroll">
       <div className="months">
         {data.map((d) => (
           <div className="month" key={d.label} tabIndex={0}>
@@ -189,6 +189,7 @@ function Monthly({ data }: { data: MonthRow[] }) {
             </span>
           </div>
         ))}
+      </div>
       </div>
       <div className="months-legend">
         <span>

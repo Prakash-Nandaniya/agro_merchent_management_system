@@ -17,17 +17,22 @@
   border-radius: 6px;
   font-size: 16px;
   width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .pc-invoiceNo-label {
   font-weight: 600;
   color: #383535;
+  white-space: nowrap;
 }
 
 .pc-invoiceNo-value {
   font-weight: 700;
   color: #111827;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .pc-page-header {
   margin-bottom: 1.75rem;
@@ -498,6 +503,9 @@ input[type="number"] {
   .pc-grid {
     grid-template-columns: 1fr;
   }
+  .pc-invoiceNo-banner {
+    font-size: 14px;
+  }
 }
 @media (max-width: 640px) {
   .pc-container {
@@ -528,5 +536,20 @@ input[type="number"] {
   }
   .pc-footer {
     justify-content: stretch;
+  }
+
+  /* Invoice number banners: scale font so each fits on one row */
+  .pc-invoiceNo-banner {
+    width: 100%;
+    font-size: clamp(9px, 2.9vw, 13px);
+    gap: 4px;
+    padding: 6px 10px;
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 380px) {
+  .pc-invoiceNo-banner {
+    font-size: clamp(8px, 2.7vw, 11px);
+    padding: 5px 8px;
   }
 }
