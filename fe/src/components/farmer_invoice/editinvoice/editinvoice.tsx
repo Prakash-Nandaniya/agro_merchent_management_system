@@ -58,26 +58,17 @@ const uqcOptions = ["KGS", "TONS", "MTN", "NOS"];
 
 // ─── Shape sent to the PDF generator (same as the farmer form) ───────────────
 interface SavedBillForPdf {
-  seller_name: string;
-  seller_address: string;
-  seller_pan: string;
-  seller_gstin: string;
+  merchant_name: string;
+  merchant_address: string;
+  merchant_pan: string;
+  merchant_gstin: string;
   invoice_no: string;
   invoice_date: string;
-  eway_bill_no: string | null;
-  docket_no?: string | null;
-  transport_name?: string | null;
-  delivery_through: string;
-  party_name: string;
-  party_address: string;
-  party_city?: string | null;
-  party_state: string;
-  party_pan: string | "";
-  party_gstin: string;
+  farmer_name: string;
+  farmer_address: string;
+  farmer_state: string;
+  farmer_pan: string | "";
   place_of_supply?: string | null;
-  seller_bank?: string | null;
-  seller_account?: string | null;
-  seller_ifsc?: string | null;
   payment_method: string;
   payment_reference: string;
   document_type: string;
@@ -548,26 +539,17 @@ export default function EditFarmerBill() {
 
   function buildBillForPdf(): SavedBillForPdf {
     return {
-      seller_name: s.merchantName,
-      seller_address: s.merchantAddress,
-      seller_pan: s.merchantPAN || "",
-      seller_gstin: s.merchantGSTIN,
+      merchant_name: s.merchantName,
+      merchant_address: s.merchantAddress,
+      merchant_pan: s.merchantPAN || "",
+      merchant_gstin: s.merchantGSTIN,
       invoice_no: s.voucherNo || "",
       invoice_date: s.voucherDate,
-      eway_bill_no: null,
-      docket_no: null,
-      transport_name: null,
-      delivery_through: "",
-      party_name: s.farmerName,
-      party_address: s.farmerAddress,
-      party_city: null,
-      party_state: s.farmerState,
-      party_pan: s.farmerPAN || "",
-      party_gstin: "",
+      farmer_name: s.farmerName,
+      farmer_address: s.farmerAddress,
+      farmer_state: s.farmerState,
+      farmer_pan: s.farmerPAN || "",
       place_of_supply: s.farmerState || null,
-      seller_bank: null,
-      seller_account: null,
-      seller_ifsc: null,
       payment_method: s.paymentMethod,
       payment_reference: s.paymentReference,
       document_type: documentType,
@@ -596,8 +578,8 @@ export default function EditFarmerBill() {
     if (!s.merchantName.trim()) errs.push("Merchant name is required.");
     if (!s.merchantAddress.trim()) errs.push("Merchant address is required.");
     if (!s.merchantGSTIN.trim()) errs.push("Merchant GSTIN is required.");
-    if (!s.farmerName.trim()) errs.push("Supplier name is required.");
-    if (!s.farmerAddress.trim()) errs.push("Supplier address is required.");
+    if (!s.farmerName.trim()) errs.push("Farmer name is required.");
+    if (!s.farmerAddress.trim()) errs.push("Farmer address is required.");
     if (!s.voucherDate) errs.push("Invoice date is required.");
     if (!s.crop) errs.push("Select a crop before printing.");
     if (s.crop) {
@@ -974,14 +956,15 @@ export default function EditFarmerBill() {
                     {s.merchantAddress}
                   </div>
                   <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
-                    {s.merchantPAN ? (
-                      <span className="flex items-baseline gap-1">
-                        <span className="font-semibold">PAN No.:</span>
-                        <span className="uppercase font-medium">
-                          {s.merchantPAN}
-                        </span>
-                      </span>
-                    ) : null}
+                    <span className="flex items-baseline gap-1">
+                      <span className="font-semibold">PAN No.:</span>
+                       <Field
+                        value={s.merchantPAN}
+                        onChange={f("merchantPAN")}
+                        upper
+                        width="w-44"
+                      />
+                    </span>
                     <span className="flex items-baseline gap-1">
                       <span className="font-semibold">GSTIN No.:</span>
                       <Field

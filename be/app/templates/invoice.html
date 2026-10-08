@@ -375,7 +375,7 @@
                 <tr>
                   <td class="label">City</td>
                   <td class="colon">:</td>
-                  <td class="value">{{ bill.party_city or '-' }}</td>
+                  <td class="value">{{ bill.party_city or '' }}</td>
                 </tr>
                 <tr>
                   <td class="label">State</td>
@@ -523,17 +523,17 @@
               <tr>
                 <td class="label">Bank</td>
                 <td class="colon">:</td>
-                <td class="value">{{ bill.seller_bank or '-' }}</td>
+                <td class="value">{{ bill.seller_bank or '' }}</td>
               </tr>
               <tr>
                 <td class="label">Account No.</td>
                 <td class="colon">:</td>
-                <td class="value">{{ bill.seller_account or '-' }}</td>
+                <td class="value">{{ bill.seller_account or '' }}</td>
               </tr>
               <tr>
                 <td class="label">IFSC</td>
                 <td class="colon">:</td>
-                <td class="value">{{ bill.seller_ifsc or '-' }}</td>
+                <td class="value">{{ bill.seller_ifsc or '' }}</td>
               </tr>
             </table>
           </div>
