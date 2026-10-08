@@ -209,7 +209,7 @@ def _normalize_farmer_purchase_bill(raw_bill: dict) -> dict:
         "sgst_rate": _first_present(payload, "sgst_rate", "sgstRate", "0"),
         "sgst_amount": _first_present(payload, "sgst_amount", "sgstAmt", "0"),
         "final_amount": _first_present(payload, "payable_amount", "payableAmt", "final_amount", "finalAmt", "0"),
-        "final_amount_in_words": _first_present(payload, "final_amount_in_words", "finalAmountInWords", "amount_in_words", "amountInWords", ""),
+        "payable_amount_in_words": _first_present(payload, "payable_amount_in_words", "payableAmountInWords", "amount_in_words", "amountInWords", ""),
         "terms": _first_present(payload, "terms", ""),
         "seller_bank": _first_present(payload, "seller_bank", ""),
         "seller_account": _first_present(payload, "seller_account", ""),
@@ -241,6 +241,7 @@ def _build_farmer_purchase_context(raw_bill: dict) -> dict:
         "cgst_amount": _fmt(normalized.get("cgst_amount") or "0"),
         "sgst_amount": _fmt(normalized.get("sgst_amount") or "0"),
         "final_amount": _fmt(normalized.get("final_amount") or "0"),
+        "payable_amount_in_words": normalized.get("payable_amount_in_words") or "",
     }
     rcm_total_tax = _to_decimal(normalized.get("cgst_amount") or "0") + _to_decimal(normalized.get("sgst_amount") or "0")
     return {

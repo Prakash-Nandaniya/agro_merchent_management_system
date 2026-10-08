@@ -159,7 +159,7 @@ function FarmerBillDocument({
               <span className="whitespace-nowrap font-medium">PAN No.</span>
               <span>:</span>
               <div className="text-sm uppercase wrap-break-word">
-                {bill.farmer_pan || "-"}
+                {bill.farmer_pan || ""}
               </div>
             </div>
           </div>
@@ -187,7 +187,7 @@ function FarmerBillDocument({
               </span>
               <span>:</span>
               <div className="text-sm uppercase wrap-break-word">
-                {bill.farmer_state || "-"}
+                {bill.farmer_state || ""}
               </div>
             </div>
           </div>

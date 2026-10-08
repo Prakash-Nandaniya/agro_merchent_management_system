@@ -89,7 +89,7 @@
       .signatory { text-align: right; }
       .signatory .sign-block { align-items: flex-end; }
       .signatory .sign-line { margin-left: auto; }
-      .signatory .for-name { text-align: right; margin-bottom: 4px; }
+      .signatory .for-name { text-align: right; margin-bottom: 40px; }
       .signatory .sign-label { text-align: right; }
     </style>
   </head>
@@ -172,7 +172,7 @@
         <div class="footer-block">
           <div class="words-row">
             <span class="label">Amount Payable (in Words):</span>
-            <span class="value">{{ bill.final_amount_in_words }}</span>
+            <span class="value">{{ bill.payable_amount_in_words }}</span>
             <div class="rcm-declaration">
               Tax payable on reverse charge under Section 9(3), CGST Act, 2017, and paid by
               {{ bill.seller_name }}. It is not deducted from the amount payable to the supplier.
