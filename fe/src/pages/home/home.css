@@ -1,533 +1,544 @@
 /* --- LANDING PAGE (unauthorized) --- */
 /* Everything is nested under .landing-container so it can't clash with other pages */
 .landing-container {
+  position: relative;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  font-family: "Inter", system-ui, sans-serif;
+  color: #0f172a;
+  overflow: hidden;
+
+  /* --- Dull full-page background logo (desktop/laptop) --- */
+  .landing-bg-logo {
+    position: fixed;
+    top: 60%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 1200px;
+    max-width: 90vw;
+    height: auto;
+    opacity: 0.08;
+    pointer-events: none;
+    user-select: none;
+    z-index: 0;
+  }
+
+  /* --- NAVBAR --- */
+  .navbar {
     position: relative;
-    min-height: 100vh;
-    background-color: #f8fafc;
-    font-family: 'Inter', system-ui, sans-serif;
-    color: #0f172a;
-    overflow: hidden;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2.5%;
+    background-color: #ffffff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 
-    /* --- Dull full-page background logo (desktop/laptop) --- */
-    .landing-bg-logo {
-        position: fixed;
-        top: 60%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 1200px;
-        max-width: 90vw;
-        height: auto;
-        opacity: 0.08;
-        pointer-events: none;
-        user-select: none;
-        z-index: 0;
-    }
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
 
-    /* --- NAVBAR --- */
-    .navbar {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem 2.5%;
-        background-color: #ffffff;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      .logo {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+      }
 
-        .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-
-            .logo {
-                width: 60px;
-                height: 60px;
-                border-radius: 50%;
-            }
-
-            .brand-name {
-                font-size: 1.25rem;
-                font-weight: 700;
-                margin: 0;
-                color: #166534;
-            }
-        }
-
-        .navbar-actions {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .login-btn {
-            background-color: transparent;
-            color: #166534;
-            border: 2px solid #166534;
-            padding: 8px 20px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-
-            &:hover {
-                background-color: #166534;
-                color: #ffffff;
-            }
-        }
-
-        .recruiter-btn {
-            background-color: #166534;
-            color: #ffffff;
-            border: 2px solid #166534;
-            padding: 8px 20px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: opacity 0.2s ease-in-out;
-
-            &:hover {
-                opacity: 0.9;
-            }
-
-            &:disabled {
-                opacity: 0.6;
-                cursor: not-allowed;
-            }
-        }
-
-        .login-btn:focus-visible,
-        .recruiter-btn:focus-visible {
-            outline: 3px solid #86efac;
-            outline-offset: 2px;
-        }
-    }
-
-    /* --- HERO --- */
-    .hero-section {
-        position: relative;
-        z-index: 1;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        align-items: center;
-        gap: 56px;
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 72px 24px 48px;
-
-        .hero-text {
-            text-align: left;
-        }
-
-        .hero-mobile-logo {
-            display: none;
-        }
-
-        .hero-title {
-            font-size: 2.75rem;
-            font-weight: 800;
-            margin: 0 0 18px;
-            line-height: 1.15;
-        }
-
-        .hero-subtitle {
-            font-size: 1.15rem;
-            color: #475569;
-            margin: 0 0 24px;
-            line-height: 1.6;
-            max-width: 52ch;
-        }
-
-        .hero-highlights {
-            list-style: none;
-            margin: 0 0 32px;
-            padding: 0;
-            display: grid;
-            gap: 10px;
-
-            li {
-                display: flex;
-                align-items: flex-start;
-                gap: 10px;
-                color: #334155;
-                font-size: 0.98rem;
-                line-height: 1.45;
-
-                svg {
-                    flex-shrink: 0;
-                    margin-top: 1px;
-                    color: #166534;
-                }
-            }
-        }
-
-        .cta-btn {
-            background-color: #166534;
-            color: white;
-            border: none;
-            padding: 15px 32px;
-            font-size: 1.05rem;
-            font-weight: 700;
-            border-radius: 8px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(22, 101, 52, 0.3);
-            transition: transform 0.2s ease;
-
-            &:hover {
-                transform: translateY(-2px);
-            }
-
-            &:focus-visible {
-                outline: 3px solid #86efac;
-                outline-offset: 3px;
-            }
-        }
-    }
-
-    /* --- BILL PREVIEW --- */
-    .bill-preview {
+      .brand-name {
+        font-size: 1.25rem;
+        font-weight: 700;
         margin: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 14px;
-
-        /* Now a <button>, so reset default button styles */
-        .bill-paper {
-            position: relative;
-            display: block;
-            width: 100%;
-            max-width: 440px;
-            padding: 0;
-            margin: 0;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            box-shadow:
-                0 1px 2px rgba(15, 23, 42, 0.06),
-                0 18px 40px -12px rgba(15, 23, 42, 0.22);
-            overflow: hidden;
-            cursor: zoom-in;
-            font: inherit;
-            /* No rotate() here: rotating an image makes text blurry */
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-
-            &:hover {
-                transform: translateY(-3px);
-                box-shadow:
-                    0 1px 2px rgba(15, 23, 42, 0.06),
-                    0 24px 48px -12px rgba(15, 23, 42, 0.3);
-            }
-
-            &:focus-visible {
-                outline: 3px solid #86efac;
-                outline-offset: 3px;
-            }
-        }
-
-        .bill-image,
-        .bill-placeholder {
-            display: block;
-            width: 100%;
-            height: auto;
-            image-rendering: auto;
-        }
-
-        .bill-zoom-badge {
-            position: absolute;
-            right: 10px;
-            bottom: 10px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 10px;
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: #ffffff;
-            background: rgba(15, 23, 42, 0.78);
-            border-radius: 999px;
-            pointer-events: none;
-        }
-
-        figcaption {
-            font-size: 0.85rem;
-            color: #64748b;
-            text-align: center;
-        }
+        color: #166534;
+      }
     }
 
-    /* --- BILL POPUP (lightbox) --- */
-    .bill-lightbox {
-        position: fixed;
-        inset: 0;
-        z-index: 1000;
+    .navbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .login-btn {
+      background-color: transparent;
+      color: #166534;
+      border: 2px solid #166534;
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+
+      &:hover {
+        background-color: #166534;
+        color: #ffffff;
+      }
+    }
+
+    .recruiter-btn {
+      background-color: #166534;
+      color: #ffffff;
+      border: 2px solid #166534;
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s ease-in-out;
+
+      &:hover {
+        opacity: 0.9;
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+
+    .login-btn:focus-visible,
+    .recruiter-btn:focus-visible {
+      outline: 3px solid #86efac;
+      outline-offset: 2px;
+    }
+  }
+
+  /* --- HERO --- */
+  .hero-section {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 56px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 72px 24px 48px;
+
+    .hero-text {
+      text-align: left;
+    }
+
+    .hero-mobile-logo {
+      display: none;
+    }
+
+    .hero-title {
+      font-size: 2.75rem;
+      font-weight: 800;
+      margin: 0 0 18px;
+      line-height: 1.15;
+    }
+
+    .hero-subtitle {
+      font-size: 1.15rem;
+      color: #475569;
+      margin: 0 0 24px;
+      line-height: 1.6;
+      max-width: 52ch;
+    }
+
+    .hero-highlights {
+      list-style: none;
+      margin: 0 0 32px;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+
+      li {
         display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        color: #334155;
+        font-size: 0.98rem;
+        line-height: 1.45;
+
+        svg {
+          flex-shrink: 0;
+          margin-top: 1px;
+          color: #166534;
+        }
+      }
+    }
+
+    .cta-btn {
+      background-color: #166534;
+      color: white;
+      border: none;
+      padding: 15px 32px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(22, 101, 52, 0.3);
+      transition: transform 0.2s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+      }
+
+      &:focus-visible {
+        outline: 3px solid #86efac;
+        outline-offset: 3px;
+      }
+    }
+  }
+
+  /* --- BILL PREVIEW --- */
+  .bill-preview {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+
+    /* Now a <button>, so reset default button styles */
+    .bill-paper {
+      position: relative;
+      display: block;
+      width: 100%;
+      max-width: 440px;
+      padding: 0;
+      margin: 0;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.06),
+        0 18px 40px -12px rgba(15, 23, 42, 0.22);
+      overflow: hidden;
+      cursor: zoom-in;
+      font: inherit;
+      /* No rotate() here: rotating an image makes text blurry */
+      transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+
+      &:hover {
+        transform: translateY(-3px);
+        box-shadow:
+          0 1px 2px rgba(15, 23, 42, 0.06),
+          0 24px 48px -12px rgba(15, 23, 42, 0.3);
+      }
+
+      &:focus-visible {
+        outline: 3px solid #86efac;
+        outline-offset: 3px;
+      }
+    }
+
+    .bill-image,
+    .bill-placeholder {
+      display: block;
+      width: 100%;
+      height: auto;
+      image-rendering: auto;
+    }
+
+    .bill-zoom-badge {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #ffffff;
+      background: rgba(15, 23, 42, 0.78);
+      border-radius: 999px;
+      pointer-events: none;
+    }
+
+    figcaption {
+      font-size: 0.85rem;
+      color: #64748b;
+      text-align: center;
+    }
+  }
+
+  /* --- BILL POPUP (lightbox) --- */
+  .bill-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.85);
+    cursor: zoom-out;
+    animation: bill-fade-in 0.18s ease-out;
+
+    .bill-lightbox-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.28);
+      }
+
+      &:focus-visible {
+        outline: 3px solid #86efac;
+        outline-offset: 2px;
+      }
+    }
+
+    .bill-lightbox-paper {
+      max-width: 100%;
+      max-height: 100%;
+      background: #ffffff;
+      border-radius: 6px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      display: flex;
+      animation: bill-pop-in 0.2s ease-out;
+    }
+
+    .bill-lightbox-image {
+      display: block;
+      max-width: min(92vw, 900px);
+      max-height: 92vh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+
+    .bill-placeholder {
+      display: block;
+      width: min(92vw, 560px);
+      height: auto;
+      max-height: 92vh;
+    }
+  }
+
+  /* --- FEATURES --- */
+  .features-section {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 56px;
+
+    .features-heading {
+      font-size: 1.6rem;
+      font-weight: 700;
+      text-align: center;
+      margin: 0 0 32px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background-color: #ffffff;
+      padding: 26px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      border-top: 4px solid #166534;
+      text-align: left;
+
+      .feature-icon {
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 24px;
-        background: rgba(15, 23, 42, 0.85);
-        cursor: zoom-out;
-        animation: bill-fade-in 0.18s ease-out;
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        background-color: #f0fdf4;
+        color: #166534;
+        margin-bottom: 16px;
+      }
 
-        .bill-lightbox-close {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 42px;
-            height: 42px;
-            padding: 0;
-            color: #ffffff;
-            background: rgba(255, 255, 255, 0.15);
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
+      h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0 0 8px;
+      }
 
-            &:hover {
-                background: rgba(255, 255, 255, 0.28);
-            }
-
-            &:focus-visible {
-                outline: 3px solid #86efac;
-                outline-offset: 2px;
-            }
-        }
-
-        .bill-lightbox-paper {
-            max-width: 100%;
-            max-height: 100%;
-            background: #ffffff;
-            border-radius: 6px;
-            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-            overflow: hidden;
-            display: flex;
-            animation: bill-pop-in 0.2s ease-out;
-        }
-
-        .bill-lightbox-image {
-            display: block;
-            max-width: min(92vw, 900px);
-            max-height: 92vh;
-            width: auto;
-            height: auto;
-            object-fit: contain;
-        }
-
-        .bill-placeholder {
-            display: block;
-            width: min(92vw, 560px);
-            height: auto;
-            max-height: 92vh;
-        }
-    }
-
-    @keyframes bill-fade-in {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-
-    @keyframes bill-pop-in {
-        from { opacity: 0; transform: scale(0.96); }
-        to { opacity: 1; transform: scale(1); }
-    }
-
-    /* --- FEATURES --- */
-    .features-section {
-        position: relative;
-        z-index: 1;
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 40px 24px 56px;
-
-        .features-heading {
-            font-size: 1.6rem;
-            font-weight: 700;
-            text-align: center;
-            margin: 0 0 32px;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 24px;
-        }
-
-        .feature-card {
-            background-color: #ffffff;
-            padding: 26px;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            border-top: 4px solid #166534;
-            text-align: left;
-
-            .feature-icon {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                width: 48px;
-                height: 48px;
-                border-radius: 10px;
-                background-color: #f0fdf4;
-                color: #166534;
-                margin-bottom: 16px;
-            }
-
-            h3 {
-                font-size: 1.1rem;
-                font-weight: 700;
-                margin: 0 0 8px;
-            }
-
-            p {
-                color: #64748b;
-                line-height: 1.55;
-                font-size: 0.95rem;
-                margin: 0;
-            }
-        }
-    }
-
-    /* --- FOOTER --- */
-    .landing-footer {
-        position: relative;
-        z-index: 1;
-        text-align: center;
-        padding: 20px 24px 32px;
+      p {
         color: #64748b;
-        font-size: 0.85rem;
+        line-height: 1.55;
+        font-size: 0.95rem;
+        margin: 0;
+      }
+    }
+  }
 
-        p {
-            margin: 0;
-        }
+  /* --- FOOTER --- */
+  .landing-footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 20px 24px 32px;
+    color: #64748b;
+    font-size: 0.85rem;
+
+    p {
+      margin: 0;
+    }
+  }
+
+  /* --- TABLET --- */
+  @media (max-width: 900px) {
+    .hero-section {
+      grid-template-columns: 1fr;
+      gap: 40px;
+      padding-top: 48px;
+
+      .hero-text {
+        text-align: center;
+      }
+
+      .hero-subtitle {
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .hero-highlights {
+        max-width: 440px;
+        margin-left: auto;
+        margin-right: auto;
+        text-align: left;
+      }
     }
 
-    /* --- TABLET --- */
-    @media (max-width: 900px) {
-        .hero-section {
-            grid-template-columns: 1fr;
-            gap: 40px;
-            padding-top: 48px;
+    .features-section .features-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
 
-            .hero-text {
-                text-align: center;
-            }
-
-            .hero-subtitle {
-                margin-left: auto;
-                margin-right: auto;
-            }
-
-            .hero-highlights {
-                max-width: 440px;
-                margin-left: auto;
-                margin-right: auto;
-                text-align: left;
-            }
-        }
-
-        .features-section .features-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
+  /* --- MOBILE (< 500px): move logo out of navbar, above heading --- */
+  @media (max-width: 500px) {
+    .landing-bg-logo {
+      display: none;
     }
 
-    /* --- MOBILE (< 500px): move logo out of navbar, above heading --- */
-    @media (max-width: 500px) {
-        .landing-bg-logo {
-            display: none;
+    .navbar {
+      .logo-container {
+        .logo {
+          display: none;
         }
 
-        .navbar {
-            .logo-container {
-                .logo {
-                    display: none;
-                }
-
-                .brand-name {
-                    font-size: 1rem;
-                }
-            }
-
-            .login-btn {
-                border: 1px solid #166534;
-                padding: 5px 10px;
-            }
-
-            .recruiter-btn {
-                font-weight: normal;
-                padding: 5px 10px;
-            }
+        .brand-name {
+          font-size: 1rem;
         }
+      }
 
-        .hero-section {
-            padding: 24px 20px 32px;
-            gap: 32px;
+      .login-btn {
+        border: 1px solid #166534;
+        padding: 5px 10px;
+      }
 
-            .hero-mobile-logo {
-                display: block;
-                height: 130px;
-                border-radius: 50%;
-                margin: 0 auto 16px;
-            }
-
-            .hero-title {
-                font-size: 1.9rem;
-            }
-
-            .hero-subtitle {
-                font-size: 1.05rem;
-            }
-
-            .cta-btn {
-                width: 100%;
-            }
-        }
-
-        .bill-preview .bill-paper {
-            max-width: 100%;
-        }
-
-        .bill-lightbox {
-            padding: 12px;
-
-            .bill-lightbox-image {
-                max-width: 96vw;
-            }
-        }
-
-        .features-section {
-            padding: 24px 20px 40px;
-
-            .features-heading {
-                font-size: 1.35rem;
-            }
-
-            .features-grid {
-                grid-template-columns: 1fr;
-            }
-        }
+      .recruiter-btn {
+        font-weight: normal;
+        padding: 5px 10px;
+      }
     }
 
-    @media (prefers-reduced-motion: reduce) {
-        .hero-section .cta-btn {
-            transition: none;
+    .hero-section {
+      padding: 24px 20px 32px;
+      gap: 32px;
 
-            &:hover {
-                transform: none;
-            }
-        }
+      .hero-mobile-logo {
+        display: block;
+        height: 130px;
+        border-radius: 50%;
+        margin: 0 auto 16px;
+      }
 
-        .bill-preview .bill-paper {
-            transition: none;
+      .hero-title {
+        font-size: 1.9rem;
+      }
 
-            &:hover {
-                transform: none;
-            }
-        }
+      .hero-subtitle {
+        font-size: 1.05rem;
+      }
 
-        .bill-lightbox,
-        .bill-lightbox .bill-lightbox-paper {
-            animation: none;
-        }
+      .cta-btn {
+        width: 100%;
+      }
     }
+
+    .bill-preview .bill-paper {
+      max-width: 100%;
+    }
+
+    .bill-lightbox {
+      padding: 12px;
+
+      .bill-lightbox-image {
+        max-width: 96vw;
+      }
+    }
+
+    .features-section {
+      padding: 24px 20px 40px;
+
+      .features-heading {
+        font-size: 1.35rem;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-section .cta-btn {
+      transition: none;
+
+      &:hover {
+        transform: none;
+      }
+    }
+
+    .bill-preview .bill-paper {
+      transition: none;
+
+      &:hover {
+        transform: none;
+      }
+    }
+
+    .bill-lightbox,
+    .bill-lightbox .bill-lightbox-paper {
+      animation: none;
+    }
+  }
+}
+@keyframes bill-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bill-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
