@@ -229,6 +229,16 @@ export default function AddTrade(props: {
   const [VehicleNo, setvehicleNo] = useState(existingTrade?.vehicle_no || "");
 
   const [partyName, setpartyName] = useState(existingTrade?.party_name || "");
+  const partyNameRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow the Party Name textarea so long names wrap onto new lines
+  useEffect(() => {
+    const el = partyNameRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, [partyName]);
+
   const [note, setNote] = useState(existingTrade?.note || "");
   const [millQty, setMillQty] = useState(existingTrade?.mill_qty || "");
   const [millQtyUnit, setMillQtyUnit] = useState(
@@ -737,12 +747,18 @@ export default function AddTrade(props: {
               </div>
               <div className="at-form-grid">
                 <div className="at-field at-field--fullwidth">
-                  <label className="at-label">Party Name</label>
-                  <input
-                    type="text"
+                  <label className="at-label">Party Name-</label>
+                  <textarea
+                    ref={partyNameRef}
+                    rows={1}
                     className="at-underline-input at-underline-input--wide"
                     value={partyName}
-                    onChange={(e) => setpartyName(e.target.value)}
+                    onChange={(e) =>
+                      setpartyName(e.target.value.replace(/\n/g, " "))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.preventDefault();
+                    }}
                     readOnly={isReadOnly}
                   />
                 </div>
