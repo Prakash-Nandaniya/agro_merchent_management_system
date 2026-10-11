@@ -498,6 +498,23 @@ input[type="number"] {
   cursor: not-allowed;
 }
 
+.pc-invoiceNo-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed #94a3b8;
+  outline: none;
+  font-size: inherit;
+  font-weight: 600;
+  color: rgb(29, 28, 28);
+  width: 140px;
+  padding: 0 2px;
+  font-family: inherit;
+}
+
+.pc-invoiceNo-input:focus {
+  border-bottom-color: #166534;
+}
+
 /* ── Responsive ────────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .pc-grid {

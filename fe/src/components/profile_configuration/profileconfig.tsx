@@ -222,23 +222,51 @@ export default function ProfileConfig() {
 
         <div className="pc-grid">
           <div className="pc-invoiceNo-banner">
-            <span className="pc-invoiceNo-label">Last Invoice No - </span>
-            <span className="pc-invoiceNo-value">
-              {config.millbill_last_invoiceNo || "—"}
-            </span>
+            <span className="pc-invoiceNo-label">Last Invoice No — </span>
+            <input
+              className="pc-invoiceNo-input"
+              value={config.millbill_last_invoiceNo}
+              onChange={(e) =>
+                setConfig((p) => ({
+                  ...p,
+                  millbill_last_invoiceNo: e.target.value,
+                }))
+              }
+              placeholder="e.g. INV-001"
+            />
           </div>
           <div className="pc-invoiceNo-banner">
-            <span className="pc-invoiceNo-label">Last Purchase Bill Invoice No - </span>
-            <span className="pc-invoiceNo-value">
-              {config.purchase_bill_last_invoiceNo || "—"}
+            <span className="pc-invoiceNo-label">
+              Last Purchase Bill Invoice No —{" "}
             </span>
+            <input
+              className="pc-invoiceNo-input"
+              value={config.purchase_bill_last_invoiceNo}
+              onChange={(e) =>
+                setConfig((p) => ({
+                  ...p,
+                  purchase_bill_last_invoiceNo: e.target.value,
+                }))
+              }
+              placeholder="e.g. PB-001"
+            />
           </div>
           <div className="pc-invoiceNo-banner">
-            <span className="pc-invoiceNo-label">Last RCM Purchase Bill Invoice No - </span>
-            <span className="pc-invoiceNo-value">
-              {config.rcm_purchase_bill_last_invoiceNo || "—"}
+            <span className="pc-invoiceNo-label">
+              Last RCM Purchase Bill Invoice No —{" "}
             </span>
-          </div>{" "}
+            <input
+              className="pc-invoiceNo-input"
+              value={config.rcm_purchase_bill_last_invoiceNo}
+              onChange={(e) =>
+                setConfig((p) => ({
+                  ...p,
+                  rcm_purchase_bill_last_invoiceNo: e.target.value,
+                }))
+              }
+              placeholder="e.g. RCM-001"
+            />
+          </div>
           {/* SELLER */}
           <section className="pc-card pc-card--seller pc-col-full">
             <div className="pc-card-accent" />
@@ -651,7 +679,10 @@ export default function ProfileConfig() {
             <div className="pc-card-accent" />
             <h2 className="pc-card-title">Terms & Conditions</h2>
 
-            <div className="pc-form-grid" style={{ gridTemplateColumns: "1fr" }}>
+            <div
+              className="pc-form-grid"
+              style={{ gridTemplateColumns: "1fr" }}
+            >
               <div className="pc-field pc-field--full">
                 <label>Mill / Standard Invoice Terms</label>
                 <textarea

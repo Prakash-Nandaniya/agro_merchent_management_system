@@ -25,16 +25,8 @@ async def get_configuration(db: AsyncSession) -> dict | None:
     config.setdefault("terms_and_conditions", "As per provided in the Quotation and Order Form.")
     config.setdefault("farmer_bill_terms", config.get("terms_and_conditions") or "As per provided in the Quotation and Order Form.")
     config["millbill_last_invoiceNo"] = account.millbill_last_invoice_no or "0"
-    config["purchase_bill_last_invoiceNo"] = (
-        config.get("purchase_bill_last_invoiceNo")
-        or getattr(account, "purchase_bill_last_invoice_no", None)
-        or "0"
-    )
-    config["rcm_purchase_bill_last_invoiceNo"] = (
-        config.get("rcm_purchase_bill_last_invoiceNo")
-        or getattr(account, "rcm_purchase_bill_last_invoice_no", None)
-        or "0"
-    )
+    config["purchase_bill_last_invoiceNo"] = (getattr(account, "purchase_bill_last_invoice_no", None) or "0")
+    config["rcm_purchase_bill_last_invoiceNo"] = (getattr(account, "rcm_purchase_bill_last_invoice_no", None) or "0")
     return config
 
 

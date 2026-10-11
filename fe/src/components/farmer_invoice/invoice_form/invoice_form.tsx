@@ -141,6 +141,23 @@ function formatDateForPrint(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
+/* Grow a textarea to fit its content (long text wraps to a new line) */
+function autoGrow(el: HTMLTextAreaElement | null) {
+  if (el) {
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }
+}
+
+/* Farmer name font size shrinks as the name gets longer (same steps as the PDF template) */
+function getFarmerNameFontPx(name: string): number {
+  const n = name.length;
+  if (n > 45) return 17;
+  if (n > 32) return 20;
+  if (n > 24) return 24;
+  return 30;
+}
+
 interface FieldProps {
   value: string;
   onChange: (v: string) => void;
@@ -450,6 +467,7 @@ export default function InvoiceForm() {
   const isRCM = hasNonZeroGstRate(s.cgstRate, s.sgstRate);
   const documentType = isRCM ? "RCM Purchase Bill" : "Purchase Bill";
   const finalAmountInWords = amountInWords(finalDec);
+  const farmerNameFontPx = getFarmerNameFontPx(s.farmerName);
 
   const termLines = s.terms
     .split("\n")
@@ -877,33 +895,45 @@ export default function InvoiceForm() {
                 aria-hidden="true"
                 className="watermark-img"
               />
+
+              {/* ── HEADER: Supplier (Farmer) — name as title, address + PAN below ── */}
               <div className="relative border-b border-gray-600 p-5">
-                <div className="text-center">
-                  <div className="text-3xl font-bold tracking-wide wrap-break-word">
-                    {s.merchantName || "Merchant Name"}
+                <textarea
+                  ref={autoGrow}
+                  rows={1}
+                  value={s.farmerName}
+                  onChange={(e) => f("farmerName")(e.target.value.toUpperCase())}
+                  placeholder="SUPPLIER (FARMER) NAME"
+                  spellCheck={false}
+                  style={{ fontSize: `${farmerNameFontPx}px` }}
+                  className="farmer-name-input"
+                />
+
+                <div className="farmer-info">
+                  <div className="farmer-info-line">
+                    <span className="farmer-info-label">Address:</span>
+                    <textarea
+                      ref={autoGrow}
+                      rows={1}
+                      value={s.farmerAddress}
+                      onChange={(e) => f("farmerAddress")(e.target.value.toUpperCase())}
+                      placeholder="FULL ADDRESS INCL. VILLAGE, TALUKA, STATE"
+                      spellCheck={false}
+                      className="farmer-address-input"
+                    />
                   </div>
-                  <div className="mt-1 text-sm">{s.merchantAddress || "Merchant Address"}</div>
-                  <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
-                    <span className="flex items-baseline gap-1">
-                      <span className="font-semibold">PAN No.:</span>
-                      <Field
-                        value={s.merchantPAN || ""}
-                        onChange={f("merchantPAN")}
-                        upper
-                        width="w-28"
-                      />
-                    </span>
-                    <span className="flex items-baseline gap-1">
-                      <span className="font-semibold">GSTIN No.:</span>
-                      <Field
-                        value={s.merchantGSTIN}
-                        onChange={f("merchantGSTIN")}
-                        upper
-                        width="w-44"
-                      />
-                    </span>
+                  <div className="farmer-info-line">
+                    <span className="farmer-info-label">PAN No.:</span>
+                    <Field
+                      value={s.farmerPAN}
+                      onChange={f("farmerPAN")}
+                      upper
+                      width="w-44"
+                      className="text-[13px]"
+                    />
                   </div>
                 </div>
+
                 <div className="absolute top-4 right-4 text-sm font-bold tracking-widest print:hidden">
                   ORIGINAL
                 </div>
@@ -922,55 +952,51 @@ export default function InvoiceForm() {
                 </div>
 
                 <div className="border-b border-gray-600 grid grid-cols-2">
+                  {/* ── LEFT BOX: Recipient (Buyer) — Karma Trading ── */}
                   <div className="border-r border-gray-600 p-4">
                     <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
-                      Supplier (Farmer) Details
+                      Recipient (Buyer) Details
                     </div>
                     <div className="grid grid-cols-[90px_10px_1fr] items-start gap-y-1 gap-x-1 text-sm leading-tight">
                       <span className="font-bold whitespace-nowrap text-base">
                         Name
                       </span>
                       <span>:</span>
-                      <textarea
-                        ref={(el) => {
-                          if (el) {
-                            el.style.height = "auto";
-                            el.style.height = el.scrollHeight + "px";
-                          }
-                        }}
-                        rows={1}
-                        value={s.farmerName}
-                        onChange={(e) => f("farmerName")(e.target.value.toUpperCase())}
-                        placeholder="SUPPLIER NAME"
-                        spellCheck={false}
-                        className="bg-transparent outline-none border-b border-dashed border-gray-400 hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300 text-gray-900 transition-colors font-bold text-base w-full resize-none overflow-hidden"
-                      />
+                      <span className="font-bold text-base uppercase wrap-break-word">
+                        {s.merchantName || "Merchant Name"}
+                      </span>
 
                       <span className="whitespace-nowrap font-medium">Address</span>
                       <span>:</span>
-                      <textarea
-                        ref={(el) => {
-                          if (el) {
-                            el.style.height = "auto";
-                            el.style.height = el.scrollHeight + "px";
-                          }
-                        }}
-                        rows={2}
-                        value={s.farmerAddress}
-                        onChange={(e) => f("farmerAddress")(e.target.value.toUpperCase())}
-                        placeholder="FULL ADDRESS INCL. VILLAGE, TALUKA, STATE"
-                        spellCheck={false}
-                        className="bg-transparent outline-none border-b border-dashed border-gray-400 hover:border-blue-400 focus:border-blue-600 placeholder:text-gray-300 text-gray-900 transition-colors w-full resize-none overflow-hidden leading-tight text-sm"
-                      />
+                      <span className="uppercase leading-tight text-sm wrap-break-word">
+                        {s.merchantAddress || "Merchant Address"}
+                      </span>
 
                       <span className="whitespace-nowrap font-medium">PAN No.</span>
                       <span>:</span>
                       <div className="pt-0.5">
-                        <Field value={s.farmerPAN} onChange={f("farmerPAN")} upper className="text-sm w-full" />
+                        <Field
+                          value={s.merchantPAN || ""}
+                          onChange={f("merchantPAN")}
+                          upper
+                          className="text-sm w-full"
+                        />
+                      </div>
+
+                      <span className="whitespace-nowrap font-medium">GSTIN No.</span>
+                      <span>:</span>
+                      <div className="pt-0.5">
+                        <Field
+                          value={s.merchantGSTIN}
+                          onChange={f("merchantGSTIN")}
+                          upper
+                          className="text-sm w-full"
+                        />
                       </div>
                     </div>
                   </div>
 
+                  {/* ── RIGHT BOX: Invoice details ── */}
                   <div className="p-4">
                     <div className="grid grid-cols-[145px_10px_1fr] items-baseline gap-y-2 text-sm">
                       <span className="whitespace-nowrap font-semibold">Invoice No.</span>

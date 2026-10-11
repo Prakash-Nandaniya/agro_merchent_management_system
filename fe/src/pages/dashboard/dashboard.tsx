@@ -597,11 +597,11 @@ export default function Dashboard() {
           <div className="counts span-12">
             <Count label="Total invoices" value={s.invoiceCount} sub={`${inr(s.invoiceTotal)} billed to mills`} />
             <Count
-              label="Total farmer bills"
-              value={s.farmerCount}
-              sub={`${s.normalCount} purchase + ${s.rcmCount} RCM, ${inr(s.farmerTotal)}`}
+              label="Total purchase bills"
+              value={s.farmerCount-s.rcmCount}
+              sub={`${inr(s.farmerTotal - s.rcmTotal)} payable`}
             />
-            <Count label="Total RCM farmer bills" value={s.rcmCount} sub={`${inr(s.rcmTotal)} payable`} />
+            <Count label="Total RCM purchase bills" value={s.rcmCount} sub={`${inr(s.rcmTotal)} payable`} />
           </div>
 
           {/* ───── cash flow ───── */}

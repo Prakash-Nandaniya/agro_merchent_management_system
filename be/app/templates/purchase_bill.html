@@ -15,12 +15,25 @@
       .seller-address { font-size: 12px; margin-top: 6px; line-height: 1.6; white-space: pre-line; }
       .seller-ids { display: flex; justify-content: center; gap: 32px; margin-top: 10px; font-size: 12px; }
       .seller-ids b { font-weight: 600; }
+      /* Farmer name: auto-sized by length (classes set in the template), keeps clear of the ORIGINAL badge */
+      .seller-name { padding: 0 96px; line-height: 1.2; overflow-wrap: break-word; word-break: break-word; }
+      .seller-name.sz-m { font-size: 22px; }
+      .seller-name.sz-s { font-size: 18px; }
+      .seller-name.sz-xs { font-size: 15px; }
+      /* Address + PAN: left aligned, label and value on one line, address wraps with a hanging indent */
+      .seller-info { text-align: left; margin-top: 10px; font-size: 11px; line-height: 1.5; }
+      .seller-line { display: flex; align-items: flex-start; gap: 6px; margin-top: 3px; }
+      .seller-line .seller-label { font-weight: 600; white-space: nowrap; }
+      .seller-line .seller-text { flex: 1; min-width: 0; overflow-wrap: break-word; word-break: break-word; white-space: pre-line; }
       .original-badge { position: absolute; top: 16px; right: 16px; border: 1px solid #374151; padding: 2px 8px; font-size: 12px; font-weight: bold; letter-spacing: 1px; }
 
       /* TITLE BAR */
       .title-bar { text-align: center; background: #e5e7eb; border: 1px solid #4b5563; border-top: none; padding: 8px; font-size: 15px; font-weight: bold; letter-spacing: 1px; }
+      /* Title bar used as the very first block (Template 2) */
+      .title-bar.top { position: relative; border-top: 1px solid #4b5563; padding: 12px 8px; font-size: 17px; }
+      .title-bar.top .original-badge { top: 50%; transform: translateY(-50%); right: 10px; background: #fff; }
 
-      /* SUPPLIER + INVOICE DETAILS ROW */
+      /* TWO-COLUMN ROWS */
       table.details-row { width: 100%; table-layout: fixed; border-collapse: collapse; border: 1px solid #4b5563; border-top: none; }
       td.col-left { padding: 10px 7px 10px 14px; font-size: 11px; vertical-align: top; width: 50%; border-right: 1px solid #4b5563; }
       td.col-right { padding: 10px 14px 10px 14px; font-size: 11px; vertical-align: top; width: 50%; }
@@ -86,12 +99,12 @@
       {% endif %}
 
       <div class="content">
+        {% set _n = (bill.farmer_name or '')|length %}
         <div class="header">
-          <div class="seller-name">{{ bill.merchant_name }}</div>
-          <div class="seller-address">{{ bill.merchant_address }}</div>
-          <div class="seller-ids">
-            <span><b>PAN No.:</b> {{ bill.merchant_pan|upper }}</span>
-            <span><b>GSTIN No.:</b> {{ bill.merchant_gstin|upper }}</span>
+          <div class="seller-name {% if _n > 45 %}sz-xs{% elif _n > 32 %}sz-s{% elif _n > 24 %}sz-m{% endif %}">{{ bill.farmer_name }}</div>
+          <div class="seller-info">
+            <div class="seller-line"><span class="seller-label">Address:</span><span class="seller-text">{{ bill.farmer_address }}</span></div>
+            <div class="seller-line"><span class="seller-label">PAN No.:</span><span class="seller-text">{{ (bill.farmer_pan or '')|upper }}</span></div>
           </div>
           <div class="original-badge">ORIGINAL</div>
         </div>
@@ -101,11 +114,12 @@
         <table class="details-row">
           <tr>
             <td class="col-left">
-              <div class="section-heading">Supplier (Farmer) Details</div>
+              <div class="section-heading">Recipient (Buyer) Details</div>
               <table class="grid-left">
-                <tr><td class="label">Name</td><td class="colon">:</td><td class="party-name">{{ bill.farmer_name }}</td></tr>
-                <tr><td class="label">Address</td><td class="colon">:</td><td class="value" style="white-space: pre-wrap; line-height: 1.3">{{ bill.farmer_address }}</td></tr>
-                <tr><td class="label">PAN No.</td><td class="colon">:</td><td class="value">{{ bill.farmer_pan or '' }}</td></tr>
+                <tr><td class="label">Name</td><td class="colon">:</td><td class="party-name">{{ bill.merchant_name }}</td></tr>
+                <tr><td class="label">Address</td><td class="colon">:</td><td class="value" style="white-space: pre-wrap; line-height: 1.3">{{ bill.merchant_address }}</td></tr>
+                <tr><td class="label">PAN No.</td><td class="colon">:</td><td class="value">{{ bill.merchant_pan|upper }}</td></tr>
+                <tr><td class="label">GSTIN No.</td><td class="colon">:</td><td class="value">{{ bill.merchant_gstin|upper }}</td></tr>
               </table>
             </td>
             <td class="col-right">

@@ -1069,7 +1069,6 @@ export default function EditFarmerBill() {
                         value={s.voucherNo}
                         onChange={f("voucherNo")}
                         bold
-                        readOnly
                         className="text-sm w-full"
                       />
 

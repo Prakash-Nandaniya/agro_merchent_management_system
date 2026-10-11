@@ -17,7 +17,7 @@ from datetime import date, datetime
 
 def _default_farmer_invoice_prefix() -> str:
     year = date.today().year
-    return f"KT/SI/{year}-{str(year + 1)[2:]}/"
+    return f"PB/"
 
 
 def increment_invoice_number(last_invoice_no: str | None) -> str:
