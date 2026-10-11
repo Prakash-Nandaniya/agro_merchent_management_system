@@ -37,6 +37,90 @@ body {
     z-index: -1;
   }
 
+  /* ── HEADER: Supplier (Farmer) name as title, Address + PAN below ──────────
+     Name is centred and auto-sized by length from the TSX (inline font-size).
+     Side padding keeps long names clear of the ORIGINAL tag. Address and PAN
+     are left-aligned; label and value share one line and a long address wraps
+     to a new line (textarea auto-grows). ───────────────────────────────────*/
+  .farmer-name-input {
+    display: block;
+    width: 100%;
+    padding: 0 110px 2px;
+    background: transparent;
+    outline: none;
+    border: none;
+    border-bottom: 1px dashed #9ca3af;
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+    color: #111827;
+    resize: none;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    transition: border-color 0.15s;
+  }
+
+  .farmer-name-input::placeholder {
+    color: #d1d5db;
+  }
+
+  .farmer-name-input:hover {
+    border-bottom-color: #60a5fa;
+  }
+
+  .farmer-name-input:focus {
+    border-bottom-color: #2563eb;
+  }
+
+  .farmer-info {
+    margin-top: 12px;
+    text-align: left;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .farmer-info-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .farmer-info-label {
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+
+  .farmer-address-input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    outline: none;
+    border: none;
+    border-bottom: 1px dashed #9ca3af;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #111827;
+    resize: none;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    transition: border-color 0.15s;
+  }
+
+  .farmer-address-input::placeholder {
+    color: #d1d5db;
+  }
+
+  .farmer-address-input:hover {
+    border-bottom-color: #60a5fa;
+  }
+
+  .farmer-address-input:focus {
+    border-bottom-color: #2563eb;
+  }
+
   /* ── Table helpers ─────────────────────────────────────────────────────── */
   .table-collapse {
     border-collapse: collapse;

@@ -45,6 +45,15 @@ function toDecimal(val: string | number | undefined | null): Decimal {
   }
 }
 
+/* Farmer name font size shrinks as the name gets longer (same steps as the edit page) */
+function getFarmerNameFontPx(name: string): number {
+  const n = name.length;
+  if (n > 45) return 17;
+  if (n > 32) return 20;
+  if (n > 24) return 24;
+  return 30;
+}
+
 function getReferenceLabel(method: string): string {
   switch (method) {
     case "NEFT":
@@ -64,7 +73,7 @@ function showReferenceField(method: string): boolean {
   return method !== "Cash" && method !== "Pending";
 }
 
-// ─── Printable document (same layout as the farmer bill form) ───────────────
+// ─── Printable document (same layout as the farmer bill edit page) ──────────
 function FarmerBillDocument({
   bill,
   displayRows,
@@ -76,6 +85,7 @@ function FarmerBillDocument({
     toDecimal(bill.cgst_rate).gt(0) || toDecimal(bill.sgst_rate).gt(0);
   const documentTitle = isRCM ? "RCM PURCHASE BILL" : "PURCHASE BILL";
   const rcmTotal = toDecimal(bill.cgst_amount).plus(toDecimal(bill.sgst_amount));
+  const farmerNameFontPx = getFarmerNameFontPx(bill.farmer_name || "");
 
   const termLines = (bill.terms || "")
     .split("\n")
@@ -91,32 +101,28 @@ function FarmerBillDocument({
         className="watermark-img"
       />
 
-      {/* ── HEADER ── */}
+      {/* ── HEADER: Supplier (Farmer) — name as title, address + PAN below ── */}
       <div className="relative border-b border-gray-600 p-5">
-        <div className="text-center">
-          <div className="text-3xl font-bold tracking-wide wrap-break-word">
-            {bill.merchant_name}
+        <div
+          className="farmer-name"
+          style={{ fontSize: `${farmerNameFontPx}px` }}
+        >
+          {bill.farmer_name}
+        </div>
+
+        <div className="farmer-info">
+          <div className="farmer-info-line">
+            <span className="farmer-info-label">Address:</span>
+            <span className="farmer-info-value">{bill.farmer_address}</span>
           </div>
-          <div className="mt-1 text-sm whitespace-pre-line wrap-break-word">
-            {bill.merchant_address}
-          </div>
-          <div className="flex flex-row justify-center items-center gap-8 mt-2 text-sm">
-            {bill.merchant_pan && (
-              <span className="flex items-baseline gap-1">
-                <span className="font-semibold">PAN No.:</span>
-                <span className="uppercase font-medium">
-                  {bill.merchant_pan}
-                </span>
-              </span>
-            )}
-            <span className="flex items-baseline gap-1">
-              <span className="font-semibold">GSTIN No.:</span>
-              <span className="uppercase font-medium">
-                {bill.merchant_gstin}
-              </span>
+          <div className="farmer-info-line">
+            <span className="farmer-info-label">PAN No.:</span>
+            <span className="farmer-info-value uppercase">
+              {bill.farmer_pan || ""}
             </span>
           </div>
         </div>
+
         <div className="absolute top-4 right-4 border border-gray-700 px-2 py-0.5 text-sm font-bold tracking-widest">
           ORIGINAL
         </div>
@@ -135,35 +141,43 @@ function FarmerBillDocument({
           )}
         </div>
 
-        {/* ── SUPPLIER + VOUCHER DETAILS ── */}
+        {/* ── RECIPIENT (BUYER) + VOUCHER DETAILS ── */}
         <div className="border-b border-gray-600 grid grid-cols-2">
+          {/* ── LEFT BOX: Recipient (Buyer) — Karma Trading ── */}
           <div className="border-r border-gray-600 p-4">
             <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
-              Supplier (Farmer) Details
+              Recipient (Buyer) Details
             </div>
             <div className="grid grid-cols-[90px_10px_1fr] items-start gap-y-1 gap-x-1 text-sm leading-tight">
               <span className="font-bold whitespace-nowrap text-base">
                 Name
               </span>
               <span>:</span>
-              <div className="font-bold text-base w-full whitespace-pre-wrap wrap-break-word text-gray-900">
-                {bill.farmer_name}
+              <div className="font-bold text-base uppercase wrap-break-word text-gray-900">
+                {bill.merchant_name}
               </div>
 
               <span className="whitespace-nowrap font-medium">Address</span>
               <span>:</span>
-              <div className="leading-tight text-sm w-full whitespace-pre-wrap wrap-break-word text-gray-900">
-                {bill.farmer_address}
+              <div className="uppercase leading-tight text-sm whitespace-pre-line wrap-break-word text-gray-900">
+                {bill.merchant_address}
               </div>
 
               <span className="whitespace-nowrap font-medium">PAN No.</span>
               <span>:</span>
               <div className="text-sm uppercase wrap-break-word">
-                {bill.farmer_pan || ""}
+                {bill.merchant_pan || ""}
+              </div>
+
+              <span className="whitespace-nowrap font-medium">GSTIN No.</span>
+              <span>:</span>
+              <div className="text-sm uppercase wrap-break-word">
+                {bill.merchant_gstin || ""}
               </div>
             </div>
           </div>
 
+          {/* ── RIGHT BOX: Invoice details ── */}
           <div className="p-4">
             <div className="grid grid-cols-[145px_10px_1fr] items-baseline gap-y-2 text-sm">
               <span className="whitespace-nowrap font-semibold">

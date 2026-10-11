@@ -75,7 +75,7 @@ async def create_trade_with_receipt(
     if r2_error:
         # best-effort: try to delete created trade
         try:
-            db.delete(trade)
+            await db.delete(trade)
             await db.commit()
         except Exception:
             pass
@@ -131,9 +131,7 @@ async def edit_trade_with_receipt(
         try:
             await asyncio.to_thread(delete_bill_from_r2, old_key)
         except Exception as e:
-            print(
-                f"Warning: DB updated but failed to delete orphaned R2 object {old_key}: {e}"
-            )
+            pass
 
         return trade
 
@@ -187,13 +185,11 @@ async def delete_trade_and_receipt(db: AsyncSession, trade_id: int) -> Optional[
     if not trades:
         raise NotFoundError(resource="Trade")
     existing = trades[0]
-
     old_key = existing.mill_receipt
 
     # Run DB delete and R2 delete concurrently
     db_task = delete_trade_committed(db, trade_id)
     r2_task = asyncio.to_thread(delete_bill_from_r2, old_key) if old_key else None
-
     snapshot = None
     db_error = None
     r2_ok = True
@@ -208,20 +204,16 @@ async def delete_trade_and_receipt(db: AsyncSession, trade_id: int) -> Optional[
             snapshot = await db_task
     except Exception as e:
         db_error = e
-
     if not db_error and r2_ok:
         return None
-
     if db_error and not r2_ok:
         raise db_error
-
     if not db_error and not r2_ok:
         recreated = Trade(**snapshot)
         db.add(recreated)
         await db.commit()
         await db.refresh(recreated)
         return recreated
-
     if db_error and r2_ok:
         existing.mill_receipt = None
         await db.commit()

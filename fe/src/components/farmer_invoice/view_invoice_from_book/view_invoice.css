@@ -31,6 +31,54 @@
     margin: 0 auto;
   }
 
+  /* ── HEADER: Supplier (Farmer) name as title, Address + PAN below ──────────
+     Name is centred; font-size is set inline from the TSX by name length.
+     Side padding keeps long names clear of the ORIGINAL tag. ───────────────*/
+  .farmer-name {
+    display: block;
+    width: 100%;
+    padding: 0 110px 2px;
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+    color: #111827;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  .farmer-info {
+    margin-top: 12px;
+    text-align: left;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .farmer-info-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .farmer-info-label {
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.4;
+  }
+
+  .farmer-info-value {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #111827;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
   /* ── Table helpers ─────────────────────────────────────────────────────── */
   .table-collapse {
     border-collapse: collapse;

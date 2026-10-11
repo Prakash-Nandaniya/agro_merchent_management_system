@@ -135,8 +135,7 @@ async def delete_trade_committed(db: AsyncSession, trade_id: int) -> dict:
         for c in Trade.__table__.columns
         if c.name not in ("id", "created_at", "updated_at")
     }
-
-    db.delete(trade)
+    await db.delete(trade)
     try:
         await db.commit()
     except SQLAlchemyError as e:
